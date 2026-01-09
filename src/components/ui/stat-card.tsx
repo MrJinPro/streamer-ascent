@@ -1,6 +1,6 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
-import { LucideIcon } from 'lucide-react';
+import { LucideIcon, TrendingUp, TrendingDown } from 'lucide-react';
 
 interface StatCardProps {
   title: string;
@@ -11,88 +11,49 @@ interface StatCardProps {
     value: number;
     positive: boolean;
   };
-  variant?: 'default' | 'primary' | 'gold' | 'success';
+  variant?: 'default' | 'primary' | 'gold' | 'success' | 'accent';
   className?: string;
 }
 
-const StatCard: React.FC<StatCardProps> = ({
-  title,
-  value,
-  subtitle,
-  icon: Icon,
-  trend,
-  variant = 'default',
-  className,
+const variantStyles = {
+  default: { icon: 'bg-secondary text-foreground', iconGlow: '' },
+  primary: { icon: 'bg-gradient-primary text-white', iconGlow: 'glow-sm' },
+  gold: { icon: 'bg-gradient-gold text-white', iconGlow: '' },
+  success: { icon: 'bg-gradient-success text-white', iconGlow: '' },
+  accent: { icon: 'bg-gradient-accent text-white', iconGlow: 'glow-pink' },
+};
+
+export const StatCard: React.FC<StatCardProps> = ({
+  title, value, subtitle, icon: Icon, trend, variant = 'default', className,
 }) => {
-  const variantStyles = {
-    default: 'bg-card border-border',
-    primary: 'bg-gradient-cosmic border-primary/30 shadow-glow',
-    gold: 'bg-gradient-gold border-accent/30 shadow-gold',
-    success: 'bg-gradient-success border-success/30',
-  };
-
-  const iconStyles = {
-    default: 'bg-secondary text-foreground',
-    primary: 'bg-primary-foreground/20 text-primary-foreground',
-    gold: 'bg-accent-foreground/20 text-accent-foreground',
-    success: 'bg-success-foreground/20 text-success-foreground',
-  };
-
-  const textStyles = {
-    default: 'text-foreground',
-    primary: 'text-primary-foreground',
-    gold: 'text-accent-foreground',
-    success: 'text-success-foreground',
-  };
-
+  const styles = variantStyles[variant];
   return (
-    <div className={cn(
-      "relative p-5 rounded-xl border transition-all duration-300 hover:scale-[1.02]",
-      variantStyles[variant],
-      className
-    )}>
+    <div className={cn("glass-card p-5 group hover-lift cursor-default", className)}>
       <div className="flex items-start justify-between">
-        <div>
-          <p className={cn(
-            "text-sm font-medium opacity-80",
-            variant === 'default' ? 'text-muted-foreground' : textStyles[variant]
-          )}>
-            {title}
-          </p>
-          <p className={cn(
-            "text-3xl font-display font-bold mt-1",
-            textStyles[variant]
-          )}>
-            {value}
-          </p>
-          {subtitle && (
-            <p className={cn(
-              "text-xs mt-1 opacity-70",
-              variant === 'default' ? 'text-muted-foreground' : textStyles[variant]
-            )}>
-              {subtitle}
-            </p>
-          )}
+        <div className="space-y-3">
+          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+          <div>
+            <p className={cn("text-3xl font-bold tracking-tight",
+              variant === 'primary' && "text-gradient",
+              variant === 'gold' && "text-gradient-gold",
+              variant === 'success' && "text-gradient-cyan",
+              variant === 'accent' && "text-gradient-accent"
+            )}>{value}</p>
+            {subtitle && <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>}
+          </div>
           {trend && (
-            <div className={cn(
-              "flex items-center gap-1 mt-2 text-xs font-medium",
-              trend.positive ? 'text-success' : 'text-destructive'
+            <div className={cn("inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold",
+              trend.positive ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
             )}>
-              <span>{trend.positive ? '↑' : '↓'}</span>
-              <span>{Math.abs(trend.value)}%</span>
-              <span className="opacity-70">vs last week</span>
+              {trend.positive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+              {trend.positive ? '+' : ''}{trend.value}%
             </div>
           )}
         </div>
-        <div className={cn(
-          "p-3 rounded-lg",
-          iconStyles[variant]
-        )}>
+        <div className={cn("p-3 rounded-2xl transition-transform duration-300 group-hover:scale-110", styles.icon, styles.iconGlow)}>
           <Icon className="w-6 h-6" />
         </div>
       </div>
     </div>
   );
 };
-
-export { StatCard };
