@@ -13,9 +13,9 @@ export default {
       },
     },
     extend: {
-      fontFamily: {
-        sans: ['Inter', 'sans-serif'],
-        display: ['Space Grotesk', 'sans-serif'],
+fontFamily: {
+        sans: ['Plus Jakarta Sans', 'sans-serif'],
+        display: ['Outfit', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -60,6 +60,8 @@ export default {
           gold: "hsl(var(--nova-gold))",
           purple: "hsl(var(--nova-purple))",
           cyan: "hsl(var(--nova-cyan))",
+          pink: "hsl(var(--nova-pink))",
+          green: "hsl(var(--nova-green))",
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",

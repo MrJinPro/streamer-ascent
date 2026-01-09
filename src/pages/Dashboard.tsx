@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, TrendingUp, Users, Zap } from 'lucide-react';
+import { Clock, TrendingUp, Trophy, Zap, Flame, Target, ArrowUpRight } from 'lucide-react';
 import { StatCard } from '@/components/ui/stat-card';
 import LevelProgress from '@/components/dashboard/LevelProgress';
 import QuickTasks from '@/components/dashboard/QuickTasks';
@@ -9,28 +9,42 @@ import { currentUser } from '@/data/mockData';
 
 const Dashboard: React.FC = () => {
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-8 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-display font-bold">
-            Привет, <span className="text-gradient-cosmic">{currentUser.name.split(' ')[0]}</span>! 👋
-          </h1>
-          <p className="text-muted-foreground mt-1">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl lg:text-4xl font-bold tracking-tight">
+              Привет, <span className="text-gradient">{currentUser.name.split(' ')[0]}</span>
+            </h1>
+            <span className="text-3xl animate-float">👋</span>
+          </div>
+          <p className="text-muted-foreground text-lg">
             Твой путь к успеху продолжается. Сегодня отличный день для роста!
           </p>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 border border-accent/30">
-          <span className="text-2xl">🔥</span>
-          <div>
-            <p className="text-lg font-bold text-accent">{currentUser.streakDays} дней</p>
-            <p className="text-xs text-muted-foreground">подряд</p>
+        
+        {/* Streak badge */}
+        <div className="flex items-center gap-4">
+          <div className="glass-card px-5 py-3 flex items-center gap-3 hover-lift cursor-pointer">
+            <div className="relative">
+              <Flame className="w-8 h-8 text-accent animate-pulse-glow" />
+              <div className="absolute inset-0 bg-accent/30 blur-xl" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gradient-accent">{currentUser.streakDays}</p>
+              <p className="text-xs text-muted-foreground font-medium">дней подряд</p>
+            </div>
           </div>
+          
+          <button className="glass-card p-3 hover-lift group">
+            <Target className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors" />
+          </button>
         </div>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Часов в эфире"
           value={currentUser.totalHours}
@@ -49,7 +63,7 @@ const Dashboard: React.FC = () => {
           title="Достижения"
           value={currentUser.achievements}
           subtitle="из 25 возможных"
-          icon={Users}
+          icon={Trophy}
           variant="gold"
         />
         <StatCard
@@ -67,7 +81,7 @@ const Dashboard: React.FC = () => {
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2">
           <QuickTasks />
         </div>
         <div className="space-y-6">
