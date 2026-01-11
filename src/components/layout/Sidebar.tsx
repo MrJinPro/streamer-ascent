@@ -13,12 +13,16 @@ import {
   Moon,
   Sun,
   LogOut,
-  ChevronRight
+  ChevronRight,
+  Menu,
+  X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
 import { currentUser } from '@/data/mockData';
 import logo from '@/assets/novaboost-logo.png';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 interface NavItem {
   icon: React.ElementType;
@@ -43,14 +47,17 @@ const adminNavItems: NavItem[] = [
   { icon: Settings, label: 'Админ панель', href: '/admin' },
 ];
 
-const Sidebar: React.FC = () => {
+interface SidebarContentProps {
+  onNavigate?: () => void;
+}
+
+const SidebarContent: React.FC<SidebarContentProps> = ({ onNavigate }) => {
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
-
   const xpPercent = (currentUser.xp / currentUser.xpToNextLevel) * 100;
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 flex flex-col bg-sidebar/80 backdrop-blur-xl border-r border-border/50">
+    <>
       {/* Gradient overlay */}
       <div className="absolute inset-0 bg-mesh opacity-50 pointer-events-none" />
       
@@ -130,6 +137,7 @@ const Sidebar: React.FC = () => {
             <NavLink
               key={item.href}
               to={item.href}
+              onClick={onNavigate}
               className={cn(
                 "group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 relative",
                 isActive 
@@ -181,6 +189,7 @@ const Sidebar: React.FC = () => {
                 <NavLink
                   key={item.href}
                   to={item.href}
+                  onClick={onNavigate}
                   className={cn(
                     "group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
                     isActive 
@@ -221,6 +230,54 @@ const Sidebar: React.FC = () => {
           <span className="flex-1 text-left">Выйти</span>
         </button>
       </div>
+    </>
+  );
+};
+
+const Sidebar: React.FC = () => {
+  const isMobile = useIsMobile();
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  // Mobile sidebar with Sheet
+  if (isMobile) {
+    return (
+      <>
+        {/* Mobile header */}
+        <div className="fixed top-0 left-0 right-0 z-50 h-16 bg-sidebar/80 backdrop-blur-xl border-b border-border/50 flex items-center justify-between px-4">
+          <div className="flex items-center gap-3">
+            <div className="relative w-10 h-10 rounded-xl bg-gradient-primary p-0.5">
+              <div className="w-full h-full rounded-[10px] bg-sidebar flex items-center justify-center overflow-hidden">
+                <img src={logo} alt="NovaBoost" className="w-7 h-7 object-contain" />
+              </div>
+            </div>
+            <div>
+              <h1 className="font-bold text-base tracking-tight">NovaBoost</h1>
+            </div>
+          </div>
+          
+          <Sheet open={isOpen} onOpenChange={setIsOpen}>
+            <SheetTrigger asChild>
+              <button className="w-10 h-10 rounded-xl bg-secondary/50 flex items-center justify-center hover:bg-secondary transition-colors">
+                <Menu className="w-5 h-5" />
+              </button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-72 p-0 bg-sidebar/95 backdrop-blur-xl border-r border-border/50">
+              <div className="h-full flex flex-col">
+                <SidebarContent onNavigate={() => setIsOpen(false)} />
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+        {/* Spacer for fixed header */}
+        <div className="h-16" />
+      </>
+    );
+  }
+
+  // Desktop sidebar
+  return (
+    <aside className="fixed left-0 top-0 z-40 h-screen w-64 flex flex-col bg-sidebar/80 backdrop-blur-xl border-r border-border/50">
+      <SidebarContent />
     </aside>
   );
 };

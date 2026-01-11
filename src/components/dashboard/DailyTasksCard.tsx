@@ -8,24 +8,24 @@ const DailyTasksCard: React.FC = () => {
   const totalTasks = dailyTasks.length;
 
   return (
-    <div className="glass-card p-6 relative overflow-hidden">
+    <div className="glass-card p-4 md:p-6 relative overflow-hidden">
       {/* Background glow */}
       <div className="absolute -bottom-20 -right-20 w-40 h-40 bg-accent/10 rounded-full blur-3xl" />
 
-      <div className="relative space-y-5">
+      <div className="relative space-y-4 md:space-y-5">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-accent flex items-center justify-center glow-pink">
-              <Timer className="w-5 h-5 text-white" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2 md:gap-3">
+            <div className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-gradient-accent flex items-center justify-center glow-pink">
+              <Timer className="w-4 h-4 md:w-5 md:h-5 text-white" />
             </div>
             <div>
-              <h3 className="text-lg font-bold">Ежедневные задания</h3>
-              <p className="text-sm text-muted-foreground">{completedCount} из {totalTasks} выполнено</p>
+              <h3 className="text-base md:text-lg font-bold">Ежедневные задания</h3>
+              <p className="text-xs md:text-sm text-muted-foreground">{completedCount} из {totalTasks} выполнено</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-sm">
-            <Flame className="w-4 h-4 text-accent" />
+          <div className="flex items-center gap-2 text-xs md:text-sm">
+            <Flame className="w-3 h-3 md:w-4 md:h-4 text-accent" />
             <span className="text-muted-foreground">Обновление через 14ч</span>
           </div>
         </div>
@@ -41,7 +41,7 @@ const DailyTasksCard: React.FC = () => {
         </div>
 
         {/* Tasks list */}
-        <div className="space-y-3">
+        <div className="space-y-2 md:space-y-3">
           {dailyTasks.map((task) => {
             const progressPercent = (task.progress / task.maxProgress) * 100;
             
@@ -49,43 +49,43 @@ const DailyTasksCard: React.FC = () => {
               <div
                 key={task.id}
                 className={cn(
-                  "group relative p-4 rounded-xl border transition-all duration-200 cursor-pointer",
+                  "group relative p-3 md:p-4 rounded-xl border transition-all duration-200 cursor-pointer",
                   task.completed 
                     ? "bg-success/10 border-success/30" 
                     : "bg-secondary/30 border-border/50 hover:bg-secondary/50 hover:border-primary/30"
                 )}
               >
-                <div className="flex items-center gap-4">
+                <div className="flex items-start gap-3 md:gap-4">
                   {/* Icon */}
                   <div className={cn(
-                    "w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0",
+                    "w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-xl md:text-2xl flex-shrink-0",
                     task.completed ? "bg-success/20" : "bg-muted/50"
                   )}>
                     {task.icon}
                   </div>
 
                   {/* Task info */}
-                  <div className="flex-1 min-w-0 space-y-2">
-                    <div className="flex items-center justify-between">
+                  <div className="flex-1 min-w-0 space-y-1.5 md:space-y-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
                       <p className={cn(
-                        "font-semibold",
+                        "font-semibold text-sm md:text-base",
                         task.completed && "text-success"
                       )}>
                         {task.title}
                       </p>
-                      <div className="flex items-center gap-1.5 text-sm">
-                        <Zap className="w-4 h-4 text-nova-gold" />
+                      <div className="flex items-center gap-1.5 text-xs md:text-sm">
+                        <Zap className="w-3 h-3 md:w-4 md:h-4 text-nova-gold" />
                         <span className="font-medium text-nova-gold">+{task.xpReward} XP</span>
                       </div>
                     </div>
                     
-                    <p className="text-xs text-muted-foreground">{task.description}</p>
+                    <p className="text-[10px] md:text-xs text-muted-foreground">{task.description}</p>
 
                     {/* Progress */}
                     <div className="space-y-1">
-                      <div className="flex justify-between text-xs">
+                      <div className="flex justify-between text-[10px] md:text-xs">
                         <span className="text-muted-foreground">
-                          {task.progress} / {task.maxProgress} {task.type === 'activity' ? 'взаимодействий' : 'мин'}
+                          {task.progress} / {task.maxProgress} {task.type === 'activity' ? 'взаим.' : 'мин'}
                         </span>
                         <span className={cn(
                           "font-medium",
@@ -94,7 +94,7 @@ const DailyTasksCard: React.FC = () => {
                           {Math.round(progressPercent)}%
                         </span>
                       </div>
-                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div className="h-1 md:h-1.5 bg-muted rounded-full overflow-hidden">
                         <div 
                           className={cn(
                             "h-full rounded-full transition-all duration-500",
@@ -109,9 +109,9 @@ const DailyTasksCard: React.FC = () => {
                   {/* Status */}
                   <div className="flex-shrink-0">
                     {task.completed ? (
-                      <CheckCircle2 className="w-6 h-6 text-success" />
+                      <CheckCircle2 className="w-5 h-5 md:w-6 md:h-6 text-success" />
                     ) : (
-                      <Circle className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors" />
+                      <Circle className="w-5 h-5 md:w-6 md:h-6 text-muted-foreground group-hover:text-primary transition-colors" />
                     )}
                   </div>
                 </div>

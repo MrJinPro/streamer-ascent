@@ -40,37 +40,37 @@ const DiamondCard: React.FC<DiamondCardProps> = ({ title, value, subtitle, varia
 
   return (
     <div className={cn(
-      "relative group p-5 rounded-2xl border bg-gradient-to-br transition-all duration-300 hover:scale-[1.02] cursor-pointer overflow-hidden",
+      "relative group p-4 md:p-5 rounded-2xl border bg-gradient-to-br transition-all duration-300 hover:scale-[1.02] cursor-pointer overflow-hidden",
       v.bg, v.border, "hover:" + v.glow
     )}>
       {/* Animated background particles */}
-      <div className="absolute inset-0 overflow-hidden">
+      <div className="absolute inset-0 overflow-hidden hidden md:block">
         <div className={cn("absolute w-2 h-2 rounded-full animate-float", v.text, "opacity-40")} style={{ top: '20%', left: '80%', animationDelay: '0s' }} />
         <div className={cn("absolute w-1.5 h-1.5 rounded-full animate-float", v.text, "opacity-30")} style={{ top: '60%', left: '10%', animationDelay: '0.5s' }} />
         <div className={cn("absolute w-1 h-1 rounded-full animate-float", v.text, "opacity-20")} style={{ top: '80%', left: '70%', animationDelay: '1s' }} />
       </div>
 
       <div className="relative flex items-start justify-between">
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground font-medium">{title}</p>
-          <div className="flex items-baseline gap-2">
-            <span className={cn("text-3xl lg:text-4xl font-bold tracking-tight", v.text)}>
+        <div className="space-y-2 md:space-y-3 flex-1 min-w-0">
+          <p className="text-xs md:text-sm text-muted-foreground font-medium truncate">{title}</p>
+          <div className="flex items-baseline gap-1.5 md:gap-2">
+            <span className={cn("text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight", v.text)}>
               {formatDiamonds(value)}
             </span>
-            <Diamond className={cn("w-6 h-6", v.text)} />
+            <Diamond className={cn("w-4 md:w-6 h-4 md:h-6 flex-shrink-0", v.text)} />
           </div>
-          <p className="text-xs text-muted-foreground">{subtitle}</p>
+          <p className="text-[10px] md:text-xs text-muted-foreground truncate">{subtitle}</p>
           {trend !== undefined && trend > 0 && (
-            <div className="flex items-center gap-1 text-success text-sm">
+            <div className="flex items-center gap-1 text-success text-xs md:text-sm">
               <TrendingUp className="w-3 h-3" />
               <span>+{trend}%</span>
             </div>
           )}
         </div>
-        <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center text-white", v.icon)}>
-          {variant === 'total' && <Diamond className="w-6 h-6" />}
-          {variant === 'monthly' && <Calendar className="w-6 h-6" />}
-          {variant === 'today' && <Sparkles className="w-6 h-6" />}
+        <div className={cn("w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-white flex-shrink-0", v.icon)}>
+          {variant === 'total' && <Diamond className="w-5 md:w-6 h-5 md:h-6" />}
+          {variant === 'monthly' && <Calendar className="w-5 md:w-6 h-5 md:h-6" />}
+          {variant === 'today' && <Sparkles className="w-5 md:w-6 h-5 md:h-6" />}
         </div>
       </div>
     </div>
@@ -79,7 +79,7 @@ const DiamondCard: React.FC<DiamondCardProps> = ({ title, value, subtitle, varia
 
 const DiamondStats: React.FC = () => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
       <DiamondCard
         title="Алмазов всего"
         value={currentUser.stats.diamondsTotal}
