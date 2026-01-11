@@ -32,11 +32,20 @@ const GrowthPathCard: React.FC = () => {
         </div>
         <div className="space-y-2">
           {currentPath.steps.slice(0, 4).map((step, index) => (
-            <div key={index} className={cn("flex items-center gap-3 p-3 rounded-lg transition-all duration-200", step.completed ? "bg-success/5 text-success" : step.current ? "bg-primary/5 text-primary" : "text-muted-foreground")}>
-              <div className={cn("w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0", step.completed ? "bg-success text-white" : step.current ? "bg-gradient-primary text-white animate-pulse-glow" : "bg-muted")}>
-                {step.completed ? <CheckCircle2 className="w-4 h-4" /> : step.current ? <Play className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+            <div key={index} className={cn(
+              "flex items-center gap-3 p-3 rounded-lg transition-all duration-200",
+              step.status === 'completed' ? "bg-success/5 text-success" : 
+              step.status === 'in_progress' ? "bg-primary/5 text-primary" : "text-muted-foreground"
+            )}>
+              <div className={cn(
+                "w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0",
+                step.status === 'completed' ? "bg-success text-white" : 
+                step.status === 'in_progress' ? "bg-gradient-primary text-white animate-pulse-glow" : "bg-muted"
+              )}>
+                {step.status === 'completed' ? <CheckCircle2 className="w-4 h-4" /> : 
+                 step.status === 'in_progress' ? <Play className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
               </div>
-              <span className={cn("text-sm font-medium flex-1", step.completed && "line-through opacity-70")}>{step.title}</span>
+              <span className={cn("text-sm font-medium flex-1", step.status === 'completed' && "line-through opacity-70")}>{step.title}</span>
             </div>
           ))}
         </div>
