@@ -1,8 +1,11 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const MainLayout: React.FC = () => {
+  const isMobile = useIsMobile();
+
   return (
     <div className="min-h-screen bg-background relative">
       {/* Background mesh gradient */}
@@ -16,8 +19,8 @@ const MainLayout: React.FC = () => {
       </div>
       
       <Sidebar />
-      <main className="relative pl-64">
-        <div className="p-6 lg:p-8">
+      <main className={`relative ${isMobile ? 'pl-0' : 'pl-64'}`}>
+        <div className={`${isMobile ? 'p-4' : 'p-6 lg:p-8'}`}>
           <Outlet />
         </div>
       </main>
