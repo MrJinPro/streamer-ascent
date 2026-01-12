@@ -1,12 +1,13 @@
 import React from 'react';
-import { Flame, Target, Sparkles } from 'lucide-react';
+import { Flame, Target, Sparkles, TrendingUp, Users, Play } from 'lucide-react';
 import { currentUser } from '@/data/mockData';
 import DiamondStats from '@/components/dashboard/DiamondStats';
-import CheckpointProgress from '@/components/dashboard/CheckpointProgress';
 import Leaderboard from '@/components/dashboard/Leaderboard';
 import DailyTasksCard from '@/components/dashboard/DailyTasksCard';
 import RecentAchievements from '@/components/dashboard/RecentAchievements';
 import AnimatedBackground from '@/components/dashboard/AnimatedBackground';
+import LevelProgress from '@/components/dashboard/LevelProgress';
+import { Link } from 'react-router-dom';
 
 const Dashboard: React.FC = () => {
   return (
@@ -25,11 +26,11 @@ const Dashboard: React.FC = () => {
               <span className="text-2xl md:text-3xl animate-float">👋</span>
             </div>
             <p className="text-muted-foreground text-sm md:text-lg">
-              Твой путь к успеху продолжается. Собирай алмазы и открывай награды!
+              Твой путь к успеху продолжается!
             </p>
           </div>
           
-          {/* Streak & Status */}
+          {/* Quick Stats Row */}
           <div className="flex items-center gap-2 md:gap-4 overflow-x-auto pb-2 -mb-2">
             <div className="glass-card px-3 md:px-5 py-2 md:py-3 flex items-center gap-2 md:gap-3 hover-lift cursor-pointer group flex-shrink-0">
               <div className="relative">
@@ -42,7 +43,7 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
             
-            <div className="glass-card px-3 md:px-5 py-2 md:py-3 flex items-center gap-2 md:gap-3 hover-lift cursor-pointer group flex-shrink-0">
+            <Link to="/progress" className="glass-card px-3 md:px-5 py-2 md:py-3 flex items-center gap-2 md:gap-3 hover-lift cursor-pointer group flex-shrink-0">
               <div className="relative">
                 <Sparkles className="w-6 md:w-8 h-6 md:h-8 text-nova-gold animate-float" />
               </div>
@@ -50,19 +51,52 @@ const Dashboard: React.FC = () => {
                 <p className="text-xl md:text-2xl font-bold text-gradient-gold">{currentUser.stats.currentLevel}</p>
                 <p className="text-[10px] md:text-xs text-muted-foreground font-medium">уровень</p>
               </div>
-            </div>
+            </Link>
             
-            <button className="glass-card p-2 md:p-3 hover-lift group flex-shrink-0">
-              <Target className="w-5 md:w-6 h-5 md:h-6 text-muted-foreground group-hover:text-primary transition-colors" />
-            </button>
+            <div className="glass-card px-3 md:px-5 py-2 md:py-3 flex items-center gap-2 md:gap-3 hover-lift cursor-pointer group flex-shrink-0">
+              <TrendingUp className="w-5 md:w-6 h-5 md:h-6 text-nova-cyan" />
+              <div>
+                <p className="text-xl md:text-2xl font-bold text-gradient-cyan">#3</p>
+                <p className="text-[10px] md:text-xs text-muted-foreground font-medium">в рейтинге</p>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Diamond Stats */}
         <DiamondStats />
 
-        {/* Checkpoint Progress Road */}
-        <CheckpointProgress />
+        {/* Level Progress + CTA to Progress page */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+          <LevelProgress />
+          <Link to="/progress" className="glass-card p-6 flex flex-col justify-between hover-lift group relative overflow-hidden">
+            <div className="absolute -top-20 -right-20 w-48 h-48 bg-gradient-accent opacity-20 rounded-full blur-3xl group-hover:opacity-30 transition-opacity" />
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-3">
+                <Play className="w-5 h-5 text-accent" />
+                <span className="text-sm font-medium text-accent">Путь к легенде</span>
+              </div>
+              <h3 className="text-xl md:text-2xl font-bold mb-2">Открой полную карту прогресса</h3>
+              <p className="text-muted-foreground text-sm mb-4">
+                50 уровней, 3 чекпоинта алмазов и уникальные награды ждут тебя
+              </p>
+              <div className="flex items-center gap-4 text-sm">
+                <div className="flex items-center gap-1">
+                  <span className="text-xl">🏆</span>
+                  <span>47/90 заданий</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-xl">💎</span>
+                  <span>78k алмазов</span>
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 inline-flex items-center gap-2 text-accent font-semibold group-hover:gap-3 transition-all">
+              <span>Перейти к прогрессу</span>
+              <TrendingUp className="w-4 h-4" />
+            </div>
+          </Link>
+        </div>
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
