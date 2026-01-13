@@ -27,13 +27,13 @@ const AnimatedBackground: React.FC = () => {
     })), []
   );
 
-  // Generate shooting stars - one every 30 seconds
+  // Generate shooting stars - one per minute
   const shootingStars = useMemo(() => 
-    [...Array(3)].map((_, i) => ({
+    [...Array(2)].map((_, i) => ({
       id: i,
-      delay: `${i * 30}s`, // 30 seconds between each
-      startX: 10 + Math.random() * 30, // Start from left side
-      startY: 5 + Math.random() * 25, // Start from top
+      delay: `${i * 60}s`, // 60 seconds between each
+      startX: 10 + Math.random() * 30,
+      startY: 5 + Math.random() * 25,
     })), []
   );
 
