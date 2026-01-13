@@ -457,7 +457,7 @@ const Ranking = () => {
                       </span>
                       <span className="hidden md:flex items-center gap-1">
                         <Users className="h-3 w-3" />
-                        {formatDiamonds(user.stats.followers)}
+                        {formatDiamonds(user.completedTasks)}
                       </span>
                     </div>
                   </div>
@@ -469,7 +469,7 @@ const Ranking = () => {
                       {formatDiamonds(getDiamondsForPeriod(user))}
                     </div>
                     <div className="text-xs text-muted-foreground hidden md:block">
-                      {formatDiamonds(user.stats.streamHours)}ч стримов
+                      {formatDiamonds(user.totalHours)}ч стримов
                     </div>
                   </div>
                 </div>
