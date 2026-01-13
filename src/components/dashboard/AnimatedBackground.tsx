@@ -27,13 +27,13 @@ const AnimatedBackground: React.FC = () => {
     })), []
   );
 
-  // Generate shooting stars
+  // Generate shooting stars - one every 30 seconds
   const shootingStars = useMemo(() => 
-    [...Array(5)].map((_, i) => ({
+    [...Array(3)].map((_, i) => ({
       id: i,
-      delay: `${i * 8}s`,
-      duration: `${2 + Math.random()}s`,
-      top: `${10 + Math.random() * 40}%`,
+      delay: `${i * 30}s`, // 30 seconds between each
+      startX: 10 + Math.random() * 30, // Start from left side
+      startY: 5 + Math.random() * 25, // Start from top
     })), []
   );
 
@@ -140,17 +140,21 @@ const AnimatedBackground: React.FC = () => {
         ))}
       </div>
 
-      {/* Shooting stars */}
+      {/* Shooting stars - diagonal falling */}
       {shootingStars.map((star) => (
         <div
           key={`shooting-${star.id}`}
-          className="absolute w-32 h-0.5 animate-shooting-star opacity-0"
+          className="absolute opacity-0"
           style={{
-            top: star.top,
-            left: '-10%',
-            background: 'linear-gradient(90deg, transparent, hsl(var(--primary)), white)',
-            animationDelay: star.delay,
-            animationDuration: star.duration,
+            top: `${star.startY}%`,
+            left: `${star.startX}%`,
+            width: '120px',
+            height: '2px',
+            background: 'linear-gradient(to left, white, hsl(var(--primary) / 0.8), transparent)',
+            transform: 'rotate(45deg)',
+            transformOrigin: 'right center',
+            animation: `shooting-star-diagonal 1.5s ease-out ${star.delay} infinite`,
+            boxShadow: '0 0 6px 2px hsl(var(--primary) / 0.5)',
           }}
         />
       ))}
