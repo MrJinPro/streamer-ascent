@@ -41,6 +41,7 @@ const mainNavItems: NavItem[] = [
   { icon: BookOpen, label: 'Статьи', href: '/articles' },
   { icon: MessageSquare, label: 'Чат', href: '/chat', badge: 2 },
   { icon: Sparkles, label: 'AI Наставник', href: '/ai-coach', isNew: true },
+  { icon: Trophy, label: 'Рейтинг', href: '/ranking' },
 ];
 
 const adminNavItems: NavItem[] = [
