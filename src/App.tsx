@@ -14,6 +14,8 @@ import Articles from "@/pages/Articles";
 import Chat from "@/pages/Chat";
 import AICoach from "@/pages/AICoach";
 import Admin from "@/pages/Admin";
+import Ranking from "@/pages/Ranking";
+import Profile from "@/pages/Profile";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +38,9 @@ const App = () => (
               <Route path="/chat" element={<Chat />} />
               <Route path="/ai-coach" element={<AICoach />} />
               <Route path="/admin" element={<Admin />} />
+              <Route path="/ranking" element={<Ranking />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/profile/:userId" element={<Profile />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
