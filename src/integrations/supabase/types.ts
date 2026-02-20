@@ -160,9 +160,13 @@ export type Database = {
           app_version: string | null
           created_at: string
           device_id: string | null
+          device_name: string | null
           hwid: string | null
           id: string
+          last_ip: unknown
           last_seen_at: string | null
+          os_name: string | null
+          os_version: string | null
           platform: Database["public"]["Enums"]["device_platform_t"]
           push_token: string | null
           streamer_id: string | null
@@ -172,9 +176,13 @@ export type Database = {
           app_version?: string | null
           created_at?: string
           device_id?: string | null
+          device_name?: string | null
           hwid?: string | null
           id?: string
+          last_ip?: unknown
           last_seen_at?: string | null
+          os_name?: string | null
+          os_version?: string | null
           platform?: Database["public"]["Enums"]["device_platform_t"]
           push_token?: string | null
           streamer_id?: string | null
@@ -184,9 +192,13 @@ export type Database = {
           app_version?: string | null
           created_at?: string
           device_id?: string | null
+          device_name?: string | null
           hwid?: string | null
           id?: string
+          last_ip?: unknown
           last_seen_at?: string | null
+          os_name?: string | null
+          os_version?: string | null
           platform?: Database["public"]["Enums"]["device_platform_t"]
           push_token?: string | null
           streamer_id?: string | null
@@ -798,41 +810,53 @@ export type Database = {
         Row: {
           avatar_url: string | null
           bio: string | null
+          country: string | null
           created_at: string
           display_name: string | null
+          email: string | null
           is_online: boolean
+          language: string | null
           last_seen_at: string | null
           region: string | null
           telegram_username: string | null
           tiktok_username: string | null
           updated_at: string
           user_id: string
+          username: string | null
         }
         Insert: {
           avatar_url?: string | null
           bio?: string | null
+          country?: string | null
           created_at?: string
           display_name?: string | null
+          email?: string | null
           is_online?: boolean
+          language?: string | null
           last_seen_at?: string | null
           region?: string | null
           telegram_username?: string | null
           tiktok_username?: string | null
           updated_at?: string
           user_id: string
+          username?: string | null
         }
         Update: {
           avatar_url?: string | null
           bio?: string | null
+          country?: string | null
           created_at?: string
           display_name?: string | null
+          email?: string | null
           is_online?: boolean
+          language?: string | null
           last_seen_at?: string | null
           region?: string | null
           telegram_username?: string | null
           tiktok_username?: string | null
           updated_at?: string
           user_id?: string
+          username?: string | null
         }
         Relationships: []
       }
@@ -1001,6 +1025,7 @@ export type Database = {
           assigned_by: string | null
           id: string
           role: Database["public"]["Enums"]["app_role"]
+          scope: string | null
           user_id: string
         }
         Insert: {
@@ -1008,6 +1033,7 @@ export type Database = {
           assigned_by?: string | null
           id?: string
           role: Database["public"]["Enums"]["app_role"]
+          scope?: string | null
           user_id: string
         }
         Update: {
@@ -1015,6 +1041,7 @@ export type Database = {
           assigned_by?: string | null
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          scope?: string | null
           user_id?: string
         }
         Relationships: []
