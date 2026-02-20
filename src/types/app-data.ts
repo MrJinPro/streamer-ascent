@@ -69,7 +69,22 @@ export interface Achievement {
         type: 'custom';
         label: string;
       };
+  rewardClaimedBy?: string[];
   category: 'diamonds' | 'stream' | 'community' | 'special';
+}
+
+export interface UserAppStats {
+  level?: number;
+  xp?: number;
+  xpToNextLevel?: number;
+  streakDays?: number;
+  totalHours?: number;
+  completedTasks?: number;
+  achievements?: number;
+  diamondsTotal?: number;
+  diamonds30Days?: number;
+  diamondsToday?: number;
+  monthlyDiamonds?: number;
 }
 
 export interface DailyTask {

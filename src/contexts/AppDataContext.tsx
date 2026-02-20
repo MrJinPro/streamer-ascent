@@ -10,6 +10,7 @@ import type {
   Article,
   ChatMessage,
   StreamEvent,
+  UserAppStats,
 } from '@/types/app-data';
 import { supabasePublic } from '@/integrations/supabase/publicClient';
 import { useAuth } from '@/contexts/AuthContext';
@@ -23,7 +24,8 @@ export type AppContentKey =
   | 'lessons'
   | 'articles'
   | 'chatMessages'
-  | 'streamEvents';
+  | 'streamEvents'
+  | 'userStats';
 
 export interface AppDataShape {
   currentUser: User;
@@ -40,8 +42,11 @@ export interface AppDataShape {
 }
 
 type ContentOnlyShape = Omit<AppDataShape, 'currentUser' | 'allUsers'>;
+type PersistedContentShape = ContentOnlyShape & {
+  userStats: Record<string, UserAppStats>;
+};
 
-const defaultContent: ContentOnlyShape = {
+const defaultContent: PersistedContentShape = {
   checkpoints: [],
   dailyTasks: [],
   achievements: [],
@@ -51,6 +56,7 @@ const defaultContent: ContentOnlyShape = {
   articles: [],
   chatMessages: [],
   streamEvents: [],
+  userStats: {},
 };
 
 const appKeys = Object.keys(defaultContent) as AppContentKey[];
@@ -143,6 +149,33 @@ const createFallbackUserFromAuth = (authUser: NonNullable<ReturnType<typeof useA
   },
 });
 
+const applyUserStats = (user: User, stats?: UserAppStats): User => {
+  if (!stats) {
+    return user;
+  }
+
+  const level = stats.level ?? user.level;
+
+  return {
+    ...user,
+    level,
+    xp: stats.xp ?? user.xp,
+    xpToNextLevel: stats.xpToNextLevel ?? user.xpToNextLevel,
+    streakDays: stats.streakDays ?? user.streakDays,
+    totalHours: stats.totalHours ?? user.totalHours,
+    completedTasks: stats.completedTasks ?? user.completedTasks,
+    achievements: stats.achievements ?? user.achievements,
+    stats: {
+      ...user.stats,
+      currentLevel: level,
+      diamondsTotal: stats.diamondsTotal ?? user.stats.diamondsTotal,
+      diamonds30Days: stats.diamonds30Days ?? user.stats.diamonds30Days,
+      diamondsToday: stats.diamondsToday ?? user.stats.diamondsToday,
+      monthlyDiamonds: stats.monthlyDiamonds ?? user.stats.monthlyDiamonds,
+    },
+  };
+};
+
 interface AppDataContextValue extends AppDataShape {
   loading: boolean;
   refresh: () => Promise<void>;
@@ -151,13 +184,13 @@ interface AppDataContextValue extends AppDataShape {
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
 
-const toRows = (data: Partial<ContentOnlyShape>) =>
+const toRows = (data: Partial<PersistedContentShape>) =>
   Object.entries(data).map(([key, payload]) => ({ key, payload }));
 
 export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [dbData, setDbData] = useState<Partial<ContentOnlyShape>>({});
+  const [dbData, setDbData] = useState<Partial<PersistedContentShape>>({});
   const [dbUsers, setDbUsers] = useState<User[]>([]);
 
   const hydrate = useCallback(async () => {
@@ -181,7 +214,7 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       await supabasePublic.from('app_content').upsert(toRows(defaultContent), { onConflict: 'key' });
       setDbData(defaultContent);
     } else {
-      const mapped = data.reduce<Partial<ContentOnlyShape>>((acc, row) => {
+      const mapped = data.reduce<Partial<PersistedContentShape>>((acc, row) => {
         acc[row.key as AppContentKey] = row.payload as never;
         return acc;
       }, {});
@@ -220,7 +253,7 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [hydrate]);
 
   const updateContent = useCallback(
-    async <K extends AppContentKey>(key: K, payload: AppDataShape[K]) => {
+    async <K extends keyof ContentOnlyShape>(key: K, payload: ContentOnlyShape[K]) => {
       const { error } = await supabasePublic
         .from('app_content')
         .upsert({ key, payload }, { onConflict: 'key' });
@@ -242,14 +275,109 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     [],
   );
 
-  const value = useMemo<AppDataContextValue>(() => {
-    const mergedContent = { ...defaultContent, ...dbData } as ContentOnlyShape;
-    const computedCurrentUser =
-      (user ? dbUsers.find(item => item.id === user.id) : undefined) ??
-      dbUsers[0] ??
-      (user ? createFallbackUserFromAuth(user) : undefined);
+  useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
 
-    const computedAllUsers = dbUsers.length > 0 ? dbUsers : (computedCurrentUser ? [computedCurrentUser] : []);
+    const run = async () => {
+      const achievements = (dbData.achievements ?? defaultContent.achievements) as Achievement[];
+      const userStatsMap = (dbData.userStats ?? defaultContent.userStats) as Record<string, UserAppStats>;
+
+      const pendingXpRewards = achievements.filter((achievement) => {
+        if (!achievement.unlocked || !achievement.reward || typeof achievement.reward === 'string') {
+          return false;
+        }
+
+        if (achievement.reward.type !== 'xp' || achievement.reward.xpAmount <= 0) {
+          return false;
+        }
+
+        return !(achievement.rewardClaimedBy ?? []).includes(user.id);
+      });
+
+      if (pendingXpRewards.length === 0) {
+        return;
+      }
+
+      const totalXpGain = pendingXpRewards.reduce((sum, achievement) => {
+        if (!achievement.reward || typeof achievement.reward === 'string' || achievement.reward.type !== 'xp') {
+          return sum;
+        }
+        return sum + achievement.reward.xpAmount;
+      }, 0);
+
+      const baseUser = dbUsers.find(item => item.id === user.id);
+      const currentStats = userStatsMap[user.id] ?? {};
+
+      let nextLevel = currentStats.level ?? baseUser?.level ?? 1;
+      let nextXpToNext = currentStats.xpToNextLevel ?? baseUser?.xpToNextLevel ?? 1000;
+      let nextXp = (currentStats.xp ?? baseUser?.xp ?? 0) + totalXpGain;
+
+      while (nextXp >= nextXpToNext) {
+        nextXp -= nextXpToNext;
+        nextLevel += 1;
+        nextXpToNext = Math.min(100000, Math.round(nextXpToNext * 1.15));
+      }
+
+      const updatedStatsMap: Record<string, UserAppStats> = {
+        ...userStatsMap,
+        [user.id]: {
+          ...currentStats,
+          level: nextLevel,
+          xp: nextXp,
+          xpToNextLevel: nextXpToNext,
+        },
+      };
+
+      const updatedAchievements = achievements.map((achievement) => {
+        if (!pendingXpRewards.some(item => item.id === achievement.id)) {
+          return achievement;
+        }
+
+        return {
+          ...achievement,
+          rewardClaimedBy: [...new Set([...(achievement.rewardClaimedBy ?? []), user.id])],
+        };
+      });
+
+      const { error } = await supabasePublic
+        .from('app_content')
+        .upsert(
+          [
+            { key: 'achievements', payload: updatedAchievements },
+            { key: 'userStats', payload: updatedStatsMap },
+          ],
+          { onConflict: 'key' },
+        );
+
+      if (error) {
+        console.error('Failed to apply achievement XP rewards:', error.message);
+        return;
+      }
+
+      setDbData(prev => ({
+        ...prev,
+        achievements: updatedAchievements,
+        userStats: updatedStatsMap,
+      }));
+    };
+
+    void run();
+  }, [dbData.achievements, dbData.userStats, dbUsers, user?.id]);
+
+  const value = useMemo<AppDataContextValue>(() => {
+    const mergedAll = { ...defaultContent, ...dbData } as PersistedContentShape;
+    const { userStats, ...mergedContent } = mergedAll;
+
+    const usersWithStats = dbUsers.map(item => applyUserStats(item, userStats[item.id]));
+
+    const computedCurrentUser =
+      (user ? usersWithStats.find(item => item.id === user.id) : undefined) ??
+      usersWithStats[0] ??
+      (user ? applyUserStats(createFallbackUserFromAuth(user), userStats[user.id]) : undefined);
+
+    const computedAllUsers = usersWithStats.length > 0 ? usersWithStats : (computedCurrentUser ? [computedCurrentUser] : []);
 
     const merged: AppDataShape = {
       currentUser: computedCurrentUser as User,

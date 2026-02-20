@@ -350,7 +350,7 @@ const AdminAchievements: React.FC = () => {
             </div>
             {form.rewardType === 'xp' && (
               <div>
-                <Label>Количество XP</Label>
+                <Label>Показатель (XP)</Label>
                 <Input
                   type="number"
                   value={form.rewardXpAmount || ''}
@@ -362,7 +362,7 @@ const AdminAchievements: React.FC = () => {
             {form.rewardType === 'gift' && (
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>ID подарка</Label>
+                  <Label>Показатель (ID подарка)</Label>
                   <Input
                     value={form.rewardGiftId || ''}
                     onChange={e => setForm(f => ({ ...f, rewardGiftId: e.target.value || undefined }))}
@@ -370,7 +370,7 @@ const AdminAchievements: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <Label>Название подарка</Label>
+                  <Label>Показатель (Название подарка)</Label>
                   <Input
                     value={form.rewardGiftName || ''}
                     onChange={e => setForm(f => ({ ...f, rewardGiftName: e.target.value || undefined }))}
@@ -381,7 +381,7 @@ const AdminAchievements: React.FC = () => {
             )}
             {form.rewardType === 'custom' && (
               <div>
-                <Label>Описание награды</Label>
+                <Label>Показатель (Описание награды)</Label>
                 <Input
                   value={form.rewardCustomLabel || ''}
                   onChange={e => setForm(f => ({ ...f, rewardCustomLabel: e.target.value || undefined }))}
