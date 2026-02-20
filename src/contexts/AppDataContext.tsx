@@ -1,27 +1,16 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import {
-  currentUser,
-  allUsers,
-  checkpoints,
-  dailyTasks,
-  achievements,
-  tasks,
-  growthPaths,
-  lessons,
-  articles,
-  chatMessages,
-  streamEvents,
-  type User,
-  type Checkpoint,
-  type DailyTask,
-  type Achievement,
-  type Task,
-  type GrowthPath,
-  type Lesson,
-  type Article,
-  type ChatMessage,
-  type StreamEvent,
-} from '@/data/mockData';
+import type {
+  User,
+  Checkpoint,
+  DailyTask,
+  Achievement,
+  Task,
+  GrowthPath,
+  Lesson,
+  Article,
+  ChatMessage,
+  StreamEvent,
+} from '@/types/app-data';
 import { supabasePublic } from '@/integrations/supabase/publicClient';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -53,15 +42,15 @@ export interface AppDataShape {
 type ContentOnlyShape = Omit<AppDataShape, 'currentUser' | 'allUsers'>;
 
 const defaultContent: ContentOnlyShape = {
-  checkpoints,
-  dailyTasks,
-  achievements,
-  tasks,
-  growthPaths,
-  lessons,
-  articles,
-  chatMessages,
-  streamEvents,
+  checkpoints: [],
+  dailyTasks: [],
+  achievements: [],
+  tasks: [],
+  growthPaths: [],
+  lessons: [],
+  articles: [],
+  chatMessages: [],
+  streamEvents: [],
 };
 
 const appKeys = Object.keys(defaultContent) as AppContentKey[];
@@ -126,6 +115,34 @@ const createUserFromProfile = (
   },
 });
 
+const createFallbackUserFromAuth = (authUser: NonNullable<ReturnType<typeof useAuth>['user']>): User => ({
+  id: authUser.id,
+  name:
+    (authUser.user_metadata?.display_name as string | undefined) ??
+    (authUser.user_metadata?.full_name as string | undefined) ??
+    (authUser.user_metadata?.name as string | undefined) ??
+    authUser.email?.split('@')[0] ??
+    'Пользователь',
+  avatar:
+    (authUser.user_metadata?.avatar_url as string | undefined) ??
+    (authUser.user_metadata?.picture as string | undefined) ??
+    `https://api.dicebear.com/7.x/avataaars/svg?seed=${authUser.id}`,
+  role: 'streamer',
+  level: 1,
+  xp: 0,
+  xpToNextLevel: 1000,
+  streakDays: 0,
+  joinedDate: new Date().toISOString(),
+  totalHours: 0,
+  completedTasks: 0,
+  achievements: 0,
+  isOnline: true,
+  stats: {
+    ...defaultStats,
+    rank: 1,
+  },
+});
+
 interface AppDataContextValue extends AppDataShape {
   loading: boolean;
   refresh: () => Promise<void>;
@@ -134,7 +151,7 @@ interface AppDataContextValue extends AppDataShape {
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
 
-const toRows = (data: Partial<AppDataShape>) =>
+const toRows = (data: Partial<ContentOnlyShape>) =>
   Object.entries(data).map(([key, payload]) => ({ key, payload }));
 
 export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -190,28 +207,7 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (mappedUsers.length > 0) {
       setDbUsers(mappedUsers);
     } else if (user) {
-      setDbUsers([
-        createUserFromProfile(
-          {
-            user_id: user.id,
-            display_name:
-              (user.user_metadata?.display_name as string | undefined) ??
-              (user.user_metadata?.full_name as string | undefined) ??
-              (user.user_metadata?.name as string | undefined) ??
-              user.email?.split('@')[0] ??
-              null,
-            username: null,
-            avatar_url:
-              (user.user_metadata?.avatar_url as string | undefined) ??
-              (user.user_metadata?.picture as string | undefined) ??
-              null,
-            created_at: new Date().toISOString(),
-            is_online: true,
-          },
-          'streamer',
-          1,
-        ),
-      ]);
+      setDbUsers([createFallbackUserFromAuth(user)]);
     } else {
       setDbUsers([]);
     }
@@ -243,12 +239,12 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const computedCurrentUser =
       (user ? dbUsers.find(item => item.id === user.id) : undefined) ??
       dbUsers[0] ??
-      currentUser;
+      (user ? createFallbackUserFromAuth(user) : undefined);
 
-    const computedAllUsers = dbUsers.length > 0 ? dbUsers : allUsers;
+    const computedAllUsers = dbUsers.length > 0 ? dbUsers : (computedCurrentUser ? [computedCurrentUser] : []);
 
     const merged: AppDataShape = {
-      currentUser: computedCurrentUser,
+      currentUser: computedCurrentUser as User,
       allUsers: computedAllUsers,
       ...mergedContent,
     };

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { Achievement } from '@/data/mockData';
+import type { Achievement } from '@/types/app-data';
 import { Plus, Pencil, Trash2, Trophy, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';

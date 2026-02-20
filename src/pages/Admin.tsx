@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppData } from '@/contexts/AppDataContext';
-import type { User, StreamEvent } from '@/data/mockData';
+import type { User, StreamEvent } from '@/types/app-data';
 import { Users, Activity, Settings, Shield, Search, MoreVertical, Trophy, ListTodo, GraduationCap, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AdminAchievements from '@/components/admin/AdminAchievements';

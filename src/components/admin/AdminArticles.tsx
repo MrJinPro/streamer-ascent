@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { Article } from '@/data/mockData';
+import type { Article } from '@/types/app-data';
 import { Plus, Pencil, Trash2, BookOpen, Star, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';

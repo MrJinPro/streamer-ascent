@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { Lesson } from '@/data/mockData';
+import type { Lesson } from '@/types/app-data';
 import { Plus, Pencil, Trash2, GraduationCap, Lock, CheckCircle, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';

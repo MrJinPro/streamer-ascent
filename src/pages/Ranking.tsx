@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useAppData } from '@/contexts/AppDataContext';
 import { formatDiamonds } from '@/data/appDataUtils';
-import type { User } from '@/data/mockData';
+import type { User } from '@/types/app-data';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

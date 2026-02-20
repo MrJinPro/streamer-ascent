@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { Task } from '@/data/mockData';
+import type { Task } from '@/types/app-data';
 import { Plus, Pencil, Trash2, ListTodo, Calendar, Target, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';

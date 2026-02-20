@@ -1,4 +1,4 @@
-import type { User } from '@/data/mockData';
+import type { User } from '@/types/app-data';
 
 export const formatDiamonds = (value: number): string => {
   if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
