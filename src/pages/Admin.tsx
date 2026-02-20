@@ -7,12 +7,26 @@ import AdminAchievements from '@/components/admin/AdminAchievements';
 import AdminTasks from '@/components/admin/AdminTasks';
 import AdminLearning from '@/components/admin/AdminLearning';
 import AdminArticles from '@/components/admin/AdminArticles';
+import AdminReferralSettings from '@/components/admin/AdminReferralSettings';
+import { canAccessAdminSettings, getRoleLabel } from '@/lib/roles';
+import { useAuth } from '@/contexts/AuthContext';
 
 type TabId = 'users' | 'events' | 'achievements' | 'tasks' | 'learning' | 'articles' | 'settings';
 
 const Admin: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabId>('users');
-  const { allUsers, streamEvents } = useAppData();
+  const { currentUser, allUsers, streamEvents } = useAppData();
+  const { role } = useAuth();
+  const effectiveRole = role ?? currentUser?.role;
+
+  if (!canAccessAdminSettings(effectiveRole)) {
+    return (
+      <div className="rounded-xl glass border border-border p-6">
+        <h3 className="font-semibold mb-2">Доступ ограничен</h3>
+        <p className="text-muted-foreground text-sm">Этот раздел доступен только владельцу/администратору агентства.</p>
+      </div>
+    );
+  }
 
   const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
     { id: 'users', label: 'Пользователи', icon: Users },
@@ -25,15 +39,29 @@ const Admin: React.FC = () => {
   ];
 
   const roleStyles: Record<string, string> = {
+    owner: 'bg-nova-purple/20 text-nova-purple',
+    admin: 'bg-nova-purple/20 text-nova-purple',
+    developer: 'bg-accent/20 text-accent',
+    senior_curator: 'bg-primary/20 text-primary',
     streamer: 'bg-primary/20 text-primary',
     curator: 'bg-accent/20 text-accent',
-    admin: 'bg-nova-purple/20 text-nova-purple',
+    manager: 'bg-secondary text-secondary-foreground',
+    moderator: 'bg-secondary text-secondary-foreground',
+    support: 'bg-secondary text-secondary-foreground',
+    investor: 'bg-secondary text-secondary-foreground',
   };
 
   const roleLabels: Record<string, string> = {
-    streamer: 'Стример',
-    curator: 'Куратор',
-    admin: 'Админ',
+    owner: getRoleLabel('owner'),
+    admin: getRoleLabel('admin'),
+    developer: getRoleLabel('developer'),
+    senior_curator: getRoleLabel('senior_curator'),
+    streamer: getRoleLabel('streamer'),
+    curator: getRoleLabel('curator'),
+    manager: getRoleLabel('manager'),
+    moderator: getRoleLabel('moderator'),
+    support: getRoleLabel('support'),
+    investor: getRoleLabel('investor'),
   };
 
   const eventTypeStyles: Record<string, string> = {
@@ -118,10 +146,7 @@ const Admin: React.FC = () => {
       {activeTab === 'articles' && <AdminArticles />}
 
       {activeTab === 'settings' && (
-        <div className="rounded-xl glass border border-border p-6">
-          <h3 className="font-semibold mb-4">Настройки системы</h3>
-          <p className="text-muted-foreground">Раздел настроек находится в разработке...</p>
-        </div>
+        <AdminReferralSettings />
       )}
     </div>
   );

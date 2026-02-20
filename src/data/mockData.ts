@@ -1,4 +1,14 @@
-export type UserRole = 'streamer' | 'curator' | 'admin';
+export type UserRole =
+  | 'owner'
+  | 'admin'
+  | 'developer'
+  | 'senior_curator'
+  | 'curator'
+  | 'manager'
+  | 'moderator'
+  | 'support'
+  | 'investor'
+  | 'streamer';
 
 export interface StreamerStats {
   diamondsTotal: number;

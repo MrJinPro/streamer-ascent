@@ -15,11 +15,13 @@ import {
   Gift
 } from 'lucide-react';
 import { useAppData } from '@/contexts/AppDataContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AnimatedBackground from '@/components/dashboard/AnimatedBackground';
+import { getRoleLabel } from '@/lib/roles';
 import {
   LineChart,
   Line,
@@ -76,6 +78,7 @@ const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(var(--nova-gol
 
 const Profile: React.FC = () => {
   const { currentUser, allUsers, checkpoints, achievements: allAchievements } = useAppData();
+  const { role, referralCode } = useAuth();
   const { userId } = useParams<{ userId: string }>();
   const [activeTab, setActiveTab] = useState('overview');
   
@@ -83,6 +86,7 @@ const Profile: React.FC = () => {
   const user = userId 
     ? allUsers.find(u => u.id === userId) || currentUser 
     : currentUser;
+  const effectiveRole = userId ? user.role : (role ?? user.role);
 
   const levelProgress = (user.stats.currentLevel / user.stats.maxLevel) * 100;
   const xpProgress = (user.xp / user.xpToNextLevel) * 100;
@@ -147,9 +151,15 @@ const Profile: React.FC = () => {
                   )}
                 </div>
                 <p className="text-muted-foreground">
-                  {user.role === 'streamer' ? 'Стример' : user.role === 'curator' ? 'Куратор' : 'Админ'} • 
+                  {getRoleLabel(effectiveRole)} • 
                   Присоединился {new Date(user.joinedDate).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}
                 </p>
+                {!userId && referralCode && (
+                  <div className="mt-2 inline-flex items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-1.5">
+                    <span className="text-xs text-muted-foreground">Ваш реферальный код:</span>
+                    <span className="text-sm font-semibold tracking-wide">{referralCode}</span>
+                  </div>
+                )}
               </div>
 
               {/* Quick Stats */}

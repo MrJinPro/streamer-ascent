@@ -20,6 +20,8 @@ import {
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAppData } from '@/contexts/AppDataContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { canAccessAdminSettings, getRoleLabel } from '@/lib/roles';
 import logo from '@/assets/novaboost-logo.png';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -55,8 +57,10 @@ interface SidebarContentProps {
 const SidebarContent: React.FC<SidebarContentProps> = ({ onNavigate }) => {
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
+  const { signOut, role } = useAuth();
   const { currentUser } = useAppData();
   const xpPercent = (currentUser.xp / currentUser.xpToNextLevel) * 100;
+  const effectiveRole = role ?? currentUser.role;
 
   return (
     <>
@@ -94,7 +98,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ onNavigate }) => {
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-sm truncate">{currentUser.name}</p>
-              <p className="text-xs text-muted-foreground truncate">{currentUser.role === 'streamer' ? 'Стример' : currentUser.role}</p>
+              <p className="text-xs text-muted-foreground truncate">{getRoleLabel(effectiveRole)}</p>
             </div>
           </div>
           
@@ -182,7 +186,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ onNavigate }) => {
           );
         })}
 
-        {currentUser.role === 'admin' && (
+        {canAccessAdminSettings(effectiveRole) && (
           <>
             <div className="h-px bg-border my-3" />
             {adminNavItems.map((item) => {
@@ -227,7 +231,12 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ onNavigate }) => {
           )}
           <span className="flex-1 text-left">{theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}</span>
         </button>
-        <button className="w-full group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-200">
+        <button
+          onClick={() => {
+            void signOut();
+          }}
+          className="w-full group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-200"
+        >
           <LogOut className="w-5 h-5 transition-transform duration-200 group-hover:-translate-x-0.5" />
           <span className="flex-1 text-left">Выйти</span>
         </button>
