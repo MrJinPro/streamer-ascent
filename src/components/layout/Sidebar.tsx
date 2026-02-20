@@ -57,10 +57,20 @@ interface SidebarContentProps {
 const SidebarContent: React.FC<SidebarContentProps> = ({ onNavigate }) => {
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
-  const { signOut, role } = useAuth();
+  const { signOut, role, user } = useAuth();
   const { currentUser } = useAppData();
   const xpPercent = (currentUser.xp / currentUser.xpToNextLevel) * 100;
   const effectiveRole = role ?? currentUser.role;
+  const authDisplayName =
+    (user?.user_metadata?.display_name as string | undefined) ??
+    (user?.user_metadata?.full_name as string | undefined) ??
+    (user?.user_metadata?.name as string | undefined) ??
+    user?.email?.split('@')[0];
+  const displayName = authDisplayName ?? currentUser.name;
+  const authAvatar =
+    (user?.user_metadata?.avatar_url as string | undefined) ??
+    (user?.user_metadata?.picture as string | undefined);
+  const displayAvatar = authAvatar ?? currentUser.avatar;
 
   return (
     <>
@@ -90,14 +100,14 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ onNavigate }) => {
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-primary rounded-full blur-md opacity-40" />
               <img 
-                src={currentUser.avatar} 
-                alt={currentUser.name} 
+                src={displayAvatar} 
+                alt={displayName} 
                 className="relative w-11 h-11 rounded-full ring-2 ring-primary/30 object-cover"
               />
               <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-success border-2 border-sidebar" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm truncate">{currentUser.name}</p>
+              <p className="font-semibold text-sm truncate">{displayName}</p>
               <p className="text-xs text-muted-foreground truncate">{getRoleLabel(effectiveRole)}</p>
             </div>
           </div>
@@ -186,7 +196,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ onNavigate }) => {
           );
         })}
 
-        {canAccessAdminSettings(effectiveRole) && (
+        {canAccessAdminSettings(effectiveRole, user?.email) && (
           <>
             <div className="h-px bg-border my-3" />
             {adminNavItems.map((item) => {

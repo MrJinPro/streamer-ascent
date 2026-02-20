@@ -16,10 +16,10 @@ type TabId = 'users' | 'events' | 'achievements' | 'tasks' | 'learning' | 'artic
 const Admin: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabId>('users');
   const { currentUser, allUsers, streamEvents } = useAppData();
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const effectiveRole = role ?? currentUser?.role;
 
-  if (!canAccessAdminSettings(effectiveRole)) {
+  if (!canAccessAdminSettings(effectiveRole, user?.email)) {
     return (
       <div className="rounded-xl glass border border-border p-6">
         <h3 className="font-semibold mb-2">Доступ ограничен</h3>

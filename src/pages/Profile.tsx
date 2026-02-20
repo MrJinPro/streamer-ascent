@@ -78,7 +78,7 @@ const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(var(--nova-gol
 
 const Profile: React.FC = () => {
   const { currentUser, allUsers, checkpoints, achievements: allAchievements } = useAppData();
-  const { role, referralCode } = useAuth();
+  const { role, referralCode, user: authUser } = useAuth();
   const { userId } = useParams<{ userId: string }>();
   const [activeTab, setActiveTab] = useState('overview');
   
@@ -87,6 +87,16 @@ const Profile: React.FC = () => {
     ? allUsers.find(u => u.id === userId) || currentUser 
     : currentUser;
   const effectiveRole = userId ? user.role : (role ?? user.role);
+  const authDisplayName =
+    (authUser?.user_metadata?.display_name as string | undefined) ??
+    (authUser?.user_metadata?.full_name as string | undefined) ??
+    (authUser?.user_metadata?.name as string | undefined) ??
+    authUser?.email?.split('@')[0];
+  const authAvatar =
+    (authUser?.user_metadata?.avatar_url as string | undefined) ??
+    (authUser?.user_metadata?.picture as string | undefined);
+  const displayName = !userId && authDisplayName ? authDisplayName : user.name;
+  const displayAvatar = !userId && authAvatar ? authAvatar : user.avatar;
 
   const levelProgress = (user.stats.currentLevel / user.stats.maxLevel) * 100;
   const xpProgress = (user.xp / user.xpToNextLevel) * 100;
@@ -126,8 +136,8 @@ const Profile: React.FC = () => {
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-primary rounded-full blur-xl opacity-50 animate-pulse-glow" />
               <img 
-                src={user.avatar} 
-                alt={user.name}
+                src={displayAvatar} 
+                alt={displayName}
                 className="relative w-24 h-24 md:w-32 md:h-32 rounded-full ring-4 ring-primary/30 object-cover"
               />
               {user.isOnline && (
@@ -142,7 +152,7 @@ const Profile: React.FC = () => {
             <div className="flex-1 space-y-4">
               <div>
                 <div className="flex items-center gap-3 flex-wrap">
-                  <h1 className="text-2xl md:text-3xl font-bold">{user.name}</h1>
+                  <h1 className="text-2xl md:text-3xl font-bold">{displayName}</h1>
                   {user.isOnline && (
                     <Badge variant="outline" className="border-success text-success">
                       <span className="w-2 h-2 rounded-full bg-success mr-2 animate-pulse" />

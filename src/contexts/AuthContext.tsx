@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabasePublic } from '@/integrations/supabase/publicClient';
+import { isSuperAdminEmail } from '@/lib/roles';
 
 interface AuthContextValue {
   user: User | null;
@@ -31,11 +32,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (error) {
       console.error('Failed to load profile access data:', error.message);
+      if (isSuperAdminEmail(session.user.email)) {
+        setRole('owner');
+      }
       return;
     }
 
     const row = Array.isArray(data) ? data[0] : data;
-    setRole(row?.role ?? null);
+    setRole(row?.role ?? (isSuperAdminEmail(session.user.email) ? 'owner' : null));
     setReferralCode(row?.referral_code ?? null);
   }, [session?.user]);
 
