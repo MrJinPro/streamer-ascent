@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { tasks } from '@/data/mockData';
+import { useAppData } from '@/contexts/AppDataContext';
 import { CheckCircle2, Circle, Clock, Zap, Calendar, Target, Filter } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const Tasks: React.FC = () => {
+  const { tasks } = useAppData();
   const [filter, setFilter] = useState<'all' | 'daily' | 'weekly' | 'challenge'>('all');
 
   const filteredTasks = tasks.filter(t => {

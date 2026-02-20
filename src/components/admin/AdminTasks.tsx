@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { tasks as initialTasks, Task } from '@/data/mockData';
+import type { Task } from '@/data/mockData';
 import { Plus, Pencil, Trash2, ListTodo, Calendar, Target, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
+import { useAppData } from '@/contexts/AppDataContext';
 
 const typeLabels = { daily: 'Ежедневное', weekly: 'Недельное', challenge: 'Челлендж' };
 const typeStyles = {
@@ -29,7 +30,7 @@ type FormData = {
 const emptyForm: FormData = { title: '', description: '', type: 'daily', xpReward: 100, maxProgress: 1 };
 
 const AdminTasks: React.FC = () => {
-  const [items, setItems] = useState<Task[]>(initialTasks);
+  const { tasks: items, updateContent } = useAppData();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<FormData>(emptyForm);
@@ -43,10 +44,11 @@ const AdminTasks: React.FC = () => {
     setDialogOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.title.trim()) return;
     if (editId) {
-      setItems(prev => prev.map(t => t.id === editId ? { ...t, ...form, dueDate: form.deadline } : t));
+      const nextItems = items.map(t => t.id === editId ? { ...t, ...form, dueDate: form.deadline } : t);
+      await updateContent('tasks', nextItems);
       toast({ title: 'Задание обновлено' });
     } else {
       const newItem: Task = {
@@ -57,14 +59,16 @@ const AdminTasks: React.FC = () => {
         status: 'pending',
         dueDate: form.deadline,
       };
-      setItems(prev => [...prev, newItem]);
+      const nextItems = [...items, newItem];
+      await updateContent('tasks', nextItems);
       toast({ title: 'Задание создано' });
     }
     setDialogOpen(false);
   };
 
-  const handleDelete = (id: string) => {
-    setItems(prev => prev.filter(t => t.id !== id));
+  const handleDelete = async (id: string) => {
+    const nextItems = items.filter(t => t.id !== id);
+    await updateContent('tasks', nextItems);
     setDeleteConfirm(null);
     toast({ title: 'Задание удалено' });
   };

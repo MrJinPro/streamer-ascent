@@ -1,6 +1,6 @@
 import React from 'react';
 import { Trophy, ChevronRight, Sparkles } from 'lucide-react';
-import { achievements } from '@/data/mockData';
+import { useAppData } from '@/contexts/AppDataContext';
 import { cn } from '@/lib/utils';
 
 const rarityStyles = {
@@ -11,6 +11,7 @@ const rarityStyles = {
 };
 
 const RecentAchievements: React.FC = () => {
+  const { achievements } = useAppData();
   const unlockedAchievements = achievements.filter(a => a.unlockedAt).sort((a, b) => new Date(b.unlockedAt!).getTime() - new Date(a.unlockedAt!).getTime()).slice(0, 3);
 
   return (

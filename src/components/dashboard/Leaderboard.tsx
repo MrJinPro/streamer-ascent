@@ -1,11 +1,13 @@
 import React from 'react';
 import { Trophy, Crown, Medal, TrendingUp, Diamond, Flame, ChevronRight } from 'lucide-react';
-import { getLeaderboard, formatDiamonds, currentUser } from '@/data/mockData';
+import { useAppData } from '@/contexts/AppDataContext';
+import { getLeaderboard, formatDiamonds } from '@/data/appDataUtils';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
 const Leaderboard: React.FC = () => {
-  const leaderboard = getLeaderboard().slice(0, 5);
+  const { allUsers, currentUser } = useAppData();
+  const leaderboard = getLeaderboard(allUsers).slice(0, 5);
 
   const getRankStyle = (rank: number) => {
     switch (rank) {

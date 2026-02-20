@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { lessons } from '@/data/mockData';
+import { useAppData } from '@/contexts/AppDataContext';
 import { CheckCircle, Lock, Play, Clock, BookOpen, Filter } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const Learning: React.FC = () => {
+  const { lessons } = useAppData();
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
   const categories = ['all', ...Array.from(new Set(lessons.map(l => l.category)))];

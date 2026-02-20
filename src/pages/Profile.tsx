@@ -14,7 +14,7 @@ import {
   Zap,
   Gift
 } from 'lucide-react';
-import { currentUser, allUsers, checkpoints, achievements as allAchievements } from '@/data/mockData';
+import { useAppData } from '@/contexts/AppDataContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -75,6 +75,7 @@ const streamHistory = generateStreamHistory();
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(var(--nova-gold))', 'hsl(var(--nova-cyan))'];
 
 const Profile: React.FC = () => {
+  const { currentUser, allUsers, checkpoints, achievements: allAchievements } = useAppData();
   const { userId } = useParams<{ userId: string }>();
   const [activeTab, setActiveTab] = useState('overview');
   

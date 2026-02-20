@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
-import { currentUser } from '@/data/mockData';
+import { useAppData } from '@/contexts/AppDataContext';
 import logo from '@/assets/novaboost-logo.png';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -55,6 +55,7 @@ interface SidebarContentProps {
 const SidebarContent: React.FC<SidebarContentProps> = ({ onNavigate }) => {
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
+  const { currentUser } = useAppData();
   const xpPercent = (currentUser.xp / currentUser.xpToNextLevel) * 100;
 
   return (

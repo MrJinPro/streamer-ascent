@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { articles } from '@/data/mockData';
+import { useAppData } from '@/contexts/AppDataContext';
 import { Clock, Star, Filter, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const Articles: React.FC = () => {
+  const { articles } = useAppData();
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
   const categories = ['all', ...Array.from(new Set(articles.map(a => a.category)))];

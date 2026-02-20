@@ -1,6 +1,7 @@
 import React from 'react';
 import { Diamond, TrendingUp, Calendar, Sparkles } from 'lucide-react';
-import { currentUser, formatDiamonds } from '@/data/mockData';
+import { useAppData } from '@/contexts/AppDataContext';
+import { formatDiamonds } from '@/data/appDataUtils';
 import { cn } from '@/lib/utils';
 
 interface DiamondCardProps {
@@ -78,6 +79,8 @@ const DiamondCard: React.FC<DiamondCardProps> = ({ title, value, subtitle, varia
 };
 
 const DiamondStats: React.FC = () => {
+  const { currentUser } = useAppData();
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
       <DiamondCard

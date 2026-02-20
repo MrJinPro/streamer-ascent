@@ -4,19 +4,19 @@ import {
   Trophy, Sparkles, ChevronUp, Flame, Target, Award
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { currentUser } from '@/data/mockData';
+import { useAppData } from '@/contexts/AppDataContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 
 // Генерация 50 уровней
-const generateLevels = () => {
+const generateLevels = (currentLevel: number) => {
   const levels = [];
   const milestones = [10, 20, 30, 40, 50];
   
   for (let i = 1; i <= 50; i++) {
     const isMilestone = milestones.includes(i);
-    const isCompleted = i <= currentUser.stats.currentLevel;
-    const isCurrent = i === currentUser.stats.currentLevel + 1;
+    const isCompleted = i <= currentLevel;
+    const isCurrent = i === currentLevel + 1;
     
     levels.push({
       id: i,
@@ -66,11 +66,11 @@ const diamondCheckpoints = [
   },
 ];
 
-const levels = generateLevels();
-
 const Progress: React.FC = () => {
+  const { currentUser } = useAppData();
   const [selectedCheckpoint, setSelectedCheckpoint] = useState<typeof diamondCheckpoints[0] | null>(null);
   const [showRewardDialog, setShowRewardDialog] = useState(false);
+  const levels = generateLevels(currentUser.stats.currentLevel);
   
   const currentDiamonds = currentUser.stats.diamondsTotal;
   const currentLevelData = levels.find(l => l.status === 'current');

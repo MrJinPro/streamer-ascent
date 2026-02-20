@@ -1,9 +1,10 @@
 import React from 'react';
 import { CheckCircle2, Circle, Timer, Zap, Flame } from 'lucide-react';
-import { dailyTasks } from '@/data/mockData';
+import { useAppData } from '@/contexts/AppDataContext';
 import { cn } from '@/lib/utils';
 
 const DailyTasksCard: React.FC = () => {
+  const { dailyTasks } = useAppData();
   const completedCount = dailyTasks.filter(t => t.completed).length;
   const totalTasks = dailyTasks.length;
 

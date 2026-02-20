@@ -4,7 +4,9 @@ import {
   Minus, Diamond, Clock, Users, Heart, ChevronUp, ChevronDown,
   Calendar, Filter, Search, Sparkles, Zap
 } from 'lucide-react';
-import { allUsers, currentUser, formatDiamonds, User } from '@/data/mockData';
+import { useAppData } from '@/contexts/AppDataContext';
+import { formatDiamonds } from '@/data/appDataUtils';
+import type { User } from '@/data/mockData';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,7 +29,7 @@ import {
 type Period = 'today' | 'week' | 'month' | 'all';
 type SortBy = 'diamonds' | 'level' | 'streak' | 'hours';
 
-const getLeaderboardByPeriod = (period: Period): User[] => {
+const getLeaderboardByPeriod = (allUsers: User[], period: Period): User[] => {
   const streamers = allUsers.filter(user => user.role === 'streamer');
   
   switch (period) {
@@ -44,6 +46,7 @@ const getLeaderboardByPeriod = (period: Period): User[] => {
 };
 
 const Ranking = () => {
+  const { allUsers, currentUser } = useAppData();
   const [period, setPeriod] = useState<Period>('month');
   const [sortBy, setSortBy] = useState<SortBy>('diamonds');
   const [searchQuery, setSearchQuery] = useState('');
@@ -51,7 +54,7 @@ const Ranking = () => {
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
 
   const leaderboard = useMemo(() => {
-    let users = getLeaderboardByPeriod(period);
+    let users = getLeaderboardByPeriod(allUsers, period);
     
     if (searchQuery) {
       users = users.filter(user => 
@@ -75,7 +78,7 @@ const Ranking = () => {
     }
     
     return users;
-  }, [period, sortBy, searchQuery]);
+  }, [allUsers, period, sortBy, searchQuery]);
 
   const getDiamondsForPeriod = (user: User) => {
     switch (period) {

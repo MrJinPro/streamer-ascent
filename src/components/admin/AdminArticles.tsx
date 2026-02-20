@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { articles as initialArticles, Article } from '@/data/mockData';
+import type { Article } from '@/data/mockData';
 import { Plus, Pencil, Trash2, BookOpen, Star, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/hooks/use-toast';
+import { useAppData } from '@/contexts/AppDataContext';
 
 type FormData = {
   title: string;
@@ -21,7 +22,7 @@ type FormData = {
 const emptyForm: FormData = { title: '', excerpt: '', category: 'Советы', readTime: '5 мин', featured: false };
 
 const AdminArticles: React.FC = () => {
-  const [items, setItems] = useState<Article[]>(initialArticles);
+  const { articles: items, updateContent } = useAppData();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<FormData>(emptyForm);
@@ -35,10 +36,11 @@ const AdminArticles: React.FC = () => {
     setDialogOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.title.trim()) return;
     if (editId) {
-      setItems(prev => prev.map(a => a.id === editId ? { ...a, ...form } : a));
+      const nextItems = items.map(a => a.id === editId ? { ...a, ...form } : a);
+      await updateContent('articles', nextItems);
       toast({ title: 'Статья обновлена' });
     } else {
       const newItem: Article = {
@@ -46,20 +48,23 @@ const AdminArticles: React.FC = () => {
         ...form,
         date: new Date().toISOString().split('T')[0],
       };
-      setItems(prev => [...prev, newItem]);
+      const nextItems = [...items, newItem];
+      await updateContent('articles', nextItems);
       toast({ title: 'Статья создана' });
     }
     setDialogOpen(false);
   };
 
-  const handleDelete = (id: string) => {
-    setItems(prev => prev.filter(a => a.id !== id));
+  const handleDelete = async (id: string) => {
+    const nextItems = items.filter(a => a.id !== id);
+    await updateContent('articles', nextItems);
     setDeleteConfirm(null);
     toast({ title: 'Статья удалена' });
   };
 
-  const toggleFeatured = (id: string) => {
-    setItems(prev => prev.map(a => a.id === id ? { ...a, featured: !a.featured } : a));
+  const toggleFeatured = async (id: string) => {
+    const nextItems = items.map(a => a.id === id ? { ...a, featured: !a.featured } : a);
+    await updateContent('articles', nextItems);
   };
 
   return (

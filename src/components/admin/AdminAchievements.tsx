@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { achievements as initialAchievements, Achievement } from '@/data/mockData';
+import type { Achievement } from '@/data/mockData';
 import { Plus, Pencil, Trash2, Trophy, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
+import { useAppData } from '@/contexts/AppDataContext';
 
 const rarityLabels = { common: 'Обычное', rare: 'Редкое', epic: 'Эпическое', legendary: 'Легендарное' };
 const categoryLabels = { diamonds: 'Алмазы', stream: 'Стримы', community: 'Комьюнити', special: 'Особые' };
@@ -32,7 +33,7 @@ type FormData = {
 const emptyForm: FormData = { title: '', description: '', icon: '🏆', rarity: 'common', category: 'stream' };
 
 const AdminAchievements: React.FC = () => {
-  const [items, setItems] = useState<Achievement[]>(initialAchievements);
+  const { achievements: items, updateContent } = useAppData();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<FormData>(emptyForm);
@@ -50,10 +51,13 @@ const AdminAchievements: React.FC = () => {
     setDialogOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.title.trim()) return;
+    let nextItems: Achievement[];
+
     if (editId) {
-      setItems(prev => prev.map(a => a.id === editId ? { ...a, ...form } : a));
+      nextItems = items.map(a => a.id === editId ? { ...a, ...form } : a);
+      await updateContent('achievements', nextItems);
       toast({ title: 'Достижение обновлено' });
     } else {
       const newItem: Achievement = {
@@ -63,14 +67,16 @@ const AdminAchievements: React.FC = () => {
         progress: 0,
         maxProgress: form.maxProgress || 1,
       };
-      setItems(prev => [...prev, newItem]);
+      nextItems = [...items, newItem];
+      await updateContent('achievements', nextItems);
       toast({ title: 'Достижение создано' });
     }
     setDialogOpen(false);
   };
 
-  const handleDelete = (id: string) => {
-    setItems(prev => prev.filter(a => a.id !== id));
+  const handleDelete = async (id: string) => {
+    const nextItems = items.filter(a => a.id !== id);
+    await updateContent('achievements', nextItems);
     setDeleteConfirm(null);
     toast({ title: 'Достижение удалено' });
   };

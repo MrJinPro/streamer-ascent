@@ -1,9 +1,10 @@
 import React from 'react';
 import { TrendingUp, ChevronRight, Lock, CheckCircle2, Play } from 'lucide-react';
-import { growthPaths } from '@/data/mockData';
+import { useAppData } from '@/contexts/AppDataContext';
 import { cn } from '@/lib/utils';
 
 const GrowthPathCard: React.FC = () => {
+  const { growthPaths } = useAppData();
   const currentPath = growthPaths.find(p => p.status === 'in_progress') || growthPaths[0];
 
   return (

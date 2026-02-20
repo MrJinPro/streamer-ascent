@@ -1,6 +1,6 @@
 import React from 'react';
 import { Flame, Target, Sparkles, TrendingUp, Users, Play } from 'lucide-react';
-import { currentUser } from '@/data/mockData';
+import { useAppData } from '@/contexts/AppDataContext';
 import DiamondStats from '@/components/dashboard/DiamondStats';
 import Leaderboard from '@/components/dashboard/Leaderboard';
 import DailyTasksCard from '@/components/dashboard/DailyTasksCard';
@@ -10,6 +10,8 @@ import LevelProgress from '@/components/dashboard/LevelProgress';
 import { Link } from 'react-router-dom';
 
 const Dashboard: React.FC = () => {
+  const { currentUser } = useAppData();
+
   return (
     <div className="relative min-h-screen">
       {/* Animated Background */}

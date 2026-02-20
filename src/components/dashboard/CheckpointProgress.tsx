@@ -1,9 +1,11 @@
 import React from 'react';
 import { Diamond, Gift, Lock, Check, ChevronRight, Sparkles } from 'lucide-react';
-import { currentUser, checkpoints, formatDiamonds } from '@/data/mockData';
+import { useAppData } from '@/contexts/AppDataContext';
+import { formatDiamonds } from '@/data/appDataUtils';
 import { cn } from '@/lib/utils';
 
 const CheckpointProgress: React.FC = () => {
+  const { currentUser, checkpoints } = useAppData();
   const monthlyDiamonds = currentUser.stats.monthlyDiamonds;
   const maxCheckpoint = 300000;
   const progressPercent = Math.min((monthlyDiamonds / maxCheckpoint) * 100, 100);

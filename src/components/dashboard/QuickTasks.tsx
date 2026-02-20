@@ -1,10 +1,11 @@
 import React from 'react';
 import { CheckCircle2, Circle, Clock, Zap, ArrowRight, Sparkles } from 'lucide-react';
-import { tasks } from '@/data/mockData';
+import { useAppData } from '@/contexts/AppDataContext';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
 const QuickTasks: React.FC = () => {
+  const { tasks } = useAppData();
   const activeTasks = tasks.filter(t => t.status !== 'completed').slice(0, 4);
 
   return (

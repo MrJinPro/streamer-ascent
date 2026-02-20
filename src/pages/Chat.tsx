@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { chatMessages, currentUser } from '@/data/mockData';
+import { useAppData } from '@/contexts/AppDataContext';
 import { Send, Paperclip, Smile } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const Chat: React.FC = () => {
+  const { chatMessages } = useAppData();
   const [message, setMessage] = useState('');
 
   const conversations = [

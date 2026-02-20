@@ -1,8 +1,9 @@
 import React from 'react';
 import { Zap, Star, Trophy, Target } from 'lucide-react';
-import { currentUser } from '@/data/mockData';
+import { useAppData } from '@/contexts/AppDataContext';
 
 const LevelProgress: React.FC = () => {
+  const { currentUser } = useAppData();
   const progress = (currentUser.xp / currentUser.xpToNextLevel) * 100;
   const xpNeeded = currentUser.xpToNextLevel - currentUser.xp;
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { lessons as initialLessons, Lesson } from '@/data/mockData';
+import type { Lesson } from '@/data/mockData';
 import { Plus, Pencil, Trash2, GraduationCap, Lock, CheckCircle, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/hooks/use-toast';
+import { useAppData } from '@/contexts/AppDataContext';
 
 type FormData = {
   title: string;
@@ -21,7 +22,7 @@ type FormData = {
 const emptyForm: FormData = { title: '', description: '', duration: '15 мин', category: 'Основы', locked: false };
 
 const AdminLearning: React.FC = () => {
-  const [items, setItems] = useState<Lesson[]>(initialLessons);
+  const { lessons: items, updateContent } = useAppData();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<FormData>(emptyForm);
@@ -37,10 +38,11 @@ const AdminLearning: React.FC = () => {
     setDialogOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.title.trim()) return;
     if (editId) {
-      setItems(prev => prev.map(l => l.id === editId ? { ...l, ...form } : l));
+      const nextItems = items.map(l => l.id === editId ? { ...l, ...form } : l);
+      await updateContent('lessons', nextItems);
       toast({ title: 'Урок обновлён' });
     } else {
       const newItem: Lesson = {
@@ -48,20 +50,23 @@ const AdminLearning: React.FC = () => {
         ...form,
         completed: false,
       };
-      setItems(prev => [...prev, newItem]);
+      const nextItems = [...items, newItem];
+      await updateContent('lessons', nextItems);
       toast({ title: 'Урок создан' });
     }
     setDialogOpen(false);
   };
 
-  const handleDelete = (id: string) => {
-    setItems(prev => prev.filter(l => l.id !== id));
+  const handleDelete = async (id: string) => {
+    const nextItems = items.filter(l => l.id !== id);
+    await updateContent('lessons', nextItems);
     setDeleteConfirm(null);
     toast({ title: 'Урок удалён' });
   };
 
-  const toggleLocked = (id: string) => {
-    setItems(prev => prev.map(l => l.id === id ? { ...l, locked: !l.locked } : l));
+  const toggleLocked = async (id: string) => {
+    const nextItems = items.map(l => l.id === id ? { ...l, locked: !l.locked } : l);
+    await updateContent('lessons', nextItems);
   };
 
   return (

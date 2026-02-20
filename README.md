@@ -1,73 +1,78 @@
-# Welcome to your Lovable project
+# NovaBoost Tools
 
-## Project info
+NovaBoost Tools — это закрытая платформа и приложение для стримеров, состоящих в агентстве NovaBoost.  
+Система предназначена для роста стримеров через геймификацию, аналитику, автоматизацию и внутренние инструменты.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+Разработчик: **MrJinPro**
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+## About
 
-**Use Lovable**
+NovaBoost Tools — это часть экосистемы NovaBoost.  
+Платформа помогает стримерам:
+- увеличивать доход
+- повышать уровень аккаунта
+- получать задания и бонусы
+- взаимодействовать с менеджерами
+- использовать AI-коучинг
+- получать доступ к эксклюзивным инструментам
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+Доступ предоставляется только участникам агентства.
 
-Changes made via Lovable will be committed automatically to this repo.
+---
 
-**Use your preferred IDE**
+## Main features
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- 🎯 Геймифицированный прогресс стримера  
+- 📊 Статистика и аналитика эфиров  
+- 🤖 AI-коуч и рекомендации  
+- 💬 Встроенные чаты с менеджерами  
+- 🧩 Задания, миссии и награды  
+- 🔐 Закрытый доступ для участников агентства  
+- ⚡ Интеграция с экосистемой NovaBoost  
+- 🔄 Синхронизация с подписками и ролями  
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+---
 
-Follow these steps:
+## Tech stack
+
+- Vite  
+- TypeScript  
+- React  
+- Tailwind CSS  
+- shadcn-ui  
+
+---
+
+## Local development
+
+Requirements:
+- Node.js
+- npm
+
+Install Node.js:  
+https://github.com/nvm-sh/nvm#installing-and-updating
+
+Run:
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
+# Clone repository
 git clone <YOUR_GIT_URL>
 
-# Step 2: Navigate to the project directory.
+# Open project
 cd <YOUR_PROJECT_NAME>
 
-# Step 3: Install the necessary dependencies.
-npm i
+# Install dependencies
+npm install
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start development
 npm run dev
-```
 
-**Edit a file directly in GitHub**
+Build
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+npm run build
 
-**Use GitHub Codespaces**
+Preview:
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+npm run preview

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { allUsers, streamEvents } from '@/data/mockData';
+import { useAppData } from '@/contexts/AppDataContext';
+import type { User, StreamEvent } from '@/data/mockData';
 import { Users, Activity, Settings, Shield, Search, MoreVertical, Trophy, ListTodo, GraduationCap, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AdminAchievements from '@/components/admin/AdminAchievements';
@@ -11,6 +12,7 @@ type TabId = 'users' | 'events' | 'achievements' | 'tasks' | 'learning' | 'artic
 
 const Admin: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabId>('users');
+  const { allUsers, streamEvents } = useAppData();
 
   const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
     { id: 'users', label: 'Пользователи', icon: Users },
@@ -103,11 +105,11 @@ const Admin: React.FC = () => {
 
       {/* Content */}
       {activeTab === 'users' && (
-        <UsersTab roleStyles={roleStyles} roleLabels={roleLabels} />
+        <UsersTab users={allUsers} roleStyles={roleStyles} roleLabels={roleLabels} />
       )}
 
       {activeTab === 'events' && (
-        <EventsTab eventTypeStyles={eventTypeStyles} eventTypeLabels={eventTypeLabels} />
+        <EventsTab events={streamEvents} eventTypeStyles={eventTypeStyles} eventTypeLabels={eventTypeLabels} />
       )}
 
       {activeTab === 'achievements' && <AdminAchievements />}
@@ -126,7 +128,7 @@ const Admin: React.FC = () => {
 };
 
 // Extracted sub-components to keep Admin clean
-const UsersTab: React.FC<{ roleStyles: Record<string, string>; roleLabels: Record<string, string> }> = ({ roleStyles, roleLabels }) => (
+const UsersTab: React.FC<{ users: User[]; roleStyles: Record<string, string>; roleLabels: Record<string, string> }> = ({ users, roleStyles, roleLabels }) => (
   <div className="rounded-xl glass border border-border overflow-hidden">
     <div className="p-4 border-b border-border flex items-center justify-between">
       <div className="relative">
@@ -153,7 +155,7 @@ const UsersTab: React.FC<{ roleStyles: Record<string, string>; roleLabels: Recor
         </tr>
       </thead>
       <tbody>
-        {allUsers.map((user) => (
+        {users.map((user) => (
           <tr key={user.id} className="border-t border-border hover:bg-secondary/30 transition-colors">
             <td className="px-4 py-3">
               <div className="flex items-center gap-3">
@@ -186,13 +188,13 @@ const UsersTab: React.FC<{ roleStyles: Record<string, string>; roleLabels: Recor
   </div>
 );
 
-const EventsTab: React.FC<{ eventTypeStyles: Record<string, string>; eventTypeLabels: Record<string, string> }> = ({ eventTypeStyles, eventTypeLabels }) => (
+const EventsTab: React.FC<{ events: StreamEvent[]; eventTypeStyles: Record<string, string>; eventTypeLabels: Record<string, string> }> = ({ events, eventTypeStyles, eventTypeLabels }) => (
   <div className="rounded-xl glass border border-border overflow-hidden">
     <div className="p-4 border-b border-border">
       <h3 className="font-semibold">Последние события</h3>
     </div>
     <div className="divide-y divide-border">
-      {streamEvents.map((event) => (
+      {events.map((event) => (
         <div key={event.id} className="p-4 flex items-center gap-4 hover:bg-secondary/30 transition-colors">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">

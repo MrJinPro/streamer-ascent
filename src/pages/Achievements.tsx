@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { achievements } from '@/data/mockData';
+import { useAppData } from '@/contexts/AppDataContext';
 import { cn } from '@/lib/utils';
 import { Filter, Trophy } from 'lucide-react';
 
 const Achievements: React.FC = () => {
+  const { achievements } = useAppData();
   const [filter, setFilter] = useState<'all' | 'unlocked' | 'locked'>('all');
 
   const filteredAchievements = achievements.filter(a => {
