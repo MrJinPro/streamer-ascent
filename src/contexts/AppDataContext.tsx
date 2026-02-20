@@ -23,10 +23,9 @@ import {
   type StreamEvent,
 } from '@/data/mockData';
 import { supabasePublic } from '@/integrations/supabase/publicClient';
+import { useAuth } from '@/contexts/AuthContext';
 
 export type AppContentKey =
-  | 'currentUser'
-  | 'allUsers'
   | 'checkpoints'
   | 'dailyTasks'
   | 'achievements'
@@ -51,9 +50,9 @@ export interface AppDataShape {
   streamEvents: StreamEvent[];
 }
 
-const defaultData: AppDataShape = {
-  currentUser,
-  allUsers,
+type ContentOnlyShape = Omit<AppDataShape, 'currentUser' | 'allUsers'>;
+
+const defaultContent: ContentOnlyShape = {
   checkpoints,
   dailyTasks,
   achievements,
@@ -65,7 +64,67 @@ const defaultData: AppDataShape = {
   streamEvents,
 };
 
-const appKeys = Object.keys(defaultData) as AppContentKey[];
+const appKeys = Object.keys(defaultContent) as AppContentKey[];
+
+const rolePriority: Record<string, number> = {
+  owner: 1,
+  admin: 2,
+  developer: 3,
+  senior_curator: 4,
+  manager: 5,
+  curator: 6,
+  moderator: 7,
+  support: 8,
+  investor: 9,
+  streamer: 10,
+};
+
+const defaultStats = {
+  diamondsTotal: 0,
+  diamonds30Days: 0,
+  diamondsToday: 0,
+  currentLevel: 1,
+  maxLevel: 50,
+  checkpoint1: false,
+  checkpoint2: false,
+  checkpoint3: false,
+  checkpoint1Claimed: null,
+  checkpoint2Claimed: null,
+  checkpoint3Claimed: null,
+  monthlyDiamonds: 0,
+  rank: 0,
+} as const;
+
+const createUserFromProfile = (
+  profile: {
+    user_id: string;
+    display_name: string | null;
+    username: string | null;
+    avatar_url: string | null;
+    created_at: string;
+    is_online?: boolean | null;
+  },
+  role?: string | null,
+  rank?: number,
+): User => ({
+  id: profile.user_id,
+  name: profile.display_name ?? profile.username ?? 'Пользователь',
+  avatar: profile.avatar_url ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.user_id}`,
+  role: (role ?? 'streamer') as User['role'],
+  level: 1,
+  xp: 0,
+  xpToNextLevel: 1000,
+  streakDays: 0,
+  joinedDate: profile.created_at,
+  totalHours: 0,
+  completedTasks: 0,
+  achievements: 0,
+  isOnline: profile.is_online ?? false,
+  stats: {
+    ...defaultStats,
+    rank: rank ?? 0,
+  },
+});
 
 interface AppDataContextValue extends AppDataShape {
   loading: boolean;
@@ -79,16 +138,22 @@ const toRows = (data: Partial<AppDataShape>) =>
   Object.entries(data).map(([key, payload]) => ({ key, payload }));
 
 export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [dbData, setDbData] = useState<Partial<AppDataShape>>({});
+  const [dbData, setDbData] = useState<Partial<ContentOnlyShape>>({});
+  const [dbUsers, setDbUsers] = useState<User[]>([]);
 
   const hydrate = useCallback(async () => {
     setLoading(true);
 
-    const { data, error } = await supabasePublic
-      .from('app_content')
-      .select('key,payload')
-      .in('key', appKeys);
+    const [{ data, error }, { data: profiles }, { data: roleRows }] = await Promise.all([
+      supabasePublic.from('app_content').select('key,payload').in('key', appKeys),
+      supabasePublic
+        .from('profiles')
+        .select('user_id,display_name,username,avatar_url,created_at,is_online')
+        .order('created_at', { ascending: true }),
+      supabasePublic.from('user_roles').select('user_id,role'),
+    ]);
 
     if (error) {
       setLoading(false);
@@ -96,21 +161,63 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     if (!data || data.length === 0) {
-      await supabasePublic.from('app_content').upsert(toRows(defaultData), { onConflict: 'key' });
+      await supabasePublic.from('app_content').upsert(toRows(defaultContent), { onConflict: 'key' });
+      setDbData(defaultContent);
+    } else {
+      const mapped = data.reduce<Partial<ContentOnlyShape>>((acc, row) => {
+        acc[row.key as AppContentKey] = row.payload as never;
+        return acc;
+      }, {});
 
-      setDbData(defaultData);
-      setLoading(false);
-      return;
+      setDbData(mapped);
     }
 
-    const mapped = data.reduce<Partial<AppDataShape>>((acc, row) => {
-      acc[row.key as AppContentKey] = row.payload as never;
+    const roleByUserId = (roleRows ?? []).reduce<Record<string, string>>((acc, row: any) => {
+      const currentRole = acc[row.user_id];
+      const nextRole = row.role as string;
+
+      if (!currentRole || (rolePriority[nextRole] ?? 99) < (rolePriority[currentRole] ?? 99)) {
+        acc[row.user_id] = nextRole;
+      }
+
       return acc;
     }, {});
 
-    setDbData(mapped);
+    const mappedUsers = (profiles ?? []).map((profile: any, index: number) =>
+      createUserFromProfile(profile, roleByUserId[profile.user_id], index + 1),
+    );
+
+    if (mappedUsers.length > 0) {
+      setDbUsers(mappedUsers);
+    } else if (user) {
+      setDbUsers([
+        createUserFromProfile(
+          {
+            user_id: user.id,
+            display_name:
+              (user.user_metadata?.display_name as string | undefined) ??
+              (user.user_metadata?.full_name as string | undefined) ??
+              (user.user_metadata?.name as string | undefined) ??
+              user.email?.split('@')[0] ??
+              null,
+            username: null,
+            avatar_url:
+              (user.user_metadata?.avatar_url as string | undefined) ??
+              (user.user_metadata?.picture as string | undefined) ??
+              null,
+            created_at: new Date().toISOString(),
+            is_online: true,
+          },
+          'streamer',
+          1,
+        ),
+      ]);
+    } else {
+      setDbUsers([]);
+    }
+
     setLoading(false);
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     void hydrate();
@@ -132,14 +239,27 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   );
 
   const value = useMemo<AppDataContextValue>(() => {
-    const merged = { ...defaultData, ...dbData } as AppDataShape;
+    const mergedContent = { ...defaultContent, ...dbData } as ContentOnlyShape;
+    const computedCurrentUser =
+      (user ? dbUsers.find(item => item.id === user.id) : undefined) ??
+      dbUsers[0] ??
+      currentUser;
+
+    const computedAllUsers = dbUsers.length > 0 ? dbUsers : allUsers;
+
+    const merged: AppDataShape = {
+      currentUser: computedCurrentUser,
+      allUsers: computedAllUsers,
+      ...mergedContent,
+    };
+
     return {
       ...merged,
       loading,
       refresh: hydrate,
       updateContent,
     };
-  }, [dbData, hydrate, loading, updateContent]);
+  }, [dbData, dbUsers, hydrate, loading, updateContent, user]);
 
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;
 };
