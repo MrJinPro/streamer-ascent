@@ -54,7 +54,21 @@ export interface Achievement {
   unlockedAt?: string;
   progress?: number;
   maxProgress?: number;
-  reward?: string;
+  reward?:
+    | string
+    | {
+        type: 'xp';
+        xpAmount: number;
+      }
+    | {
+        type: 'gift';
+        giftId: string;
+        giftName: string;
+      }
+    | {
+        type: 'custom';
+        label: string;
+      };
   category: 'diamonds' | 'stream' | 'community' | 'special';
 }
 

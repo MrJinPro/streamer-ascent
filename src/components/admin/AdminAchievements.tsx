@@ -27,10 +27,115 @@ type FormData = {
   rarity: Achievement['rarity'];
   category: Achievement['category'];
   maxProgress?: number;
-  reward?: string;
+  rewardType: 'none' | 'xp' | 'gift' | 'custom';
+  rewardXpAmount?: number;
+  rewardGiftId?: string;
+  rewardGiftName?: string;
+  rewardCustomLabel?: string;
 };
 
-const emptyForm: FormData = { title: '', description: '', icon: '🏆', rarity: 'common', category: 'stream' };
+const emptyForm: FormData = {
+  title: '',
+  description: '',
+  icon: '🏆',
+  rarity: 'common',
+  category: 'stream',
+  rewardType: 'none',
+};
+
+const mapRewardToForm = (reward?: Achievement['reward']) => {
+  if (!reward) {
+    return {
+      rewardType: 'none' as const,
+      rewardXpAmount: undefined,
+      rewardGiftId: undefined,
+      rewardGiftName: undefined,
+      rewardCustomLabel: undefined,
+    };
+  }
+
+  if (typeof reward === 'string') {
+    return {
+      rewardType: 'custom' as const,
+      rewardXpAmount: undefined,
+      rewardGiftId: undefined,
+      rewardGiftName: undefined,
+      rewardCustomLabel: reward,
+    };
+  }
+
+  if (reward.type === 'xp') {
+    return {
+      rewardType: 'xp' as const,
+      rewardXpAmount: reward.xpAmount,
+      rewardGiftId: undefined,
+      rewardGiftName: undefined,
+      rewardCustomLabel: undefined,
+    };
+  }
+
+  if (reward.type === 'gift') {
+    return {
+      rewardType: 'gift' as const,
+      rewardXpAmount: undefined,
+      rewardGiftId: reward.giftId,
+      rewardGiftName: reward.giftName,
+      rewardCustomLabel: undefined,
+    };
+  }
+
+  return {
+    rewardType: 'custom' as const,
+    rewardXpAmount: undefined,
+    rewardGiftId: undefined,
+    rewardGiftName: undefined,
+    rewardCustomLabel: reward.label,
+  };
+};
+
+const buildRewardFromForm = (form: FormData): Achievement['reward'] | undefined => {
+  if (form.rewardType === 'none') {
+    return undefined;
+  }
+
+  if (form.rewardType === 'xp') {
+    if (!form.rewardXpAmount || form.rewardXpAmount <= 0) {
+      return undefined;
+    }
+    return {
+      type: 'xp',
+      xpAmount: form.rewardXpAmount,
+    };
+  }
+
+  if (form.rewardType === 'gift') {
+    if (!form.rewardGiftId?.trim() || !form.rewardGiftName?.trim()) {
+      return undefined;
+    }
+    return {
+      type: 'gift',
+      giftId: form.rewardGiftId.trim(),
+      giftName: form.rewardGiftName.trim(),
+    };
+  }
+
+  if (!form.rewardCustomLabel?.trim()) {
+    return undefined;
+  }
+
+  return {
+    type: 'custom',
+    label: form.rewardCustomLabel.trim(),
+  };
+};
+
+const formatReward = (reward?: Achievement['reward']): string => {
+  if (!reward) return '—';
+  if (typeof reward === 'string') return reward;
+  if (reward.type === 'xp') return `XP: +${reward.xpAmount}`;
+  if (reward.type === 'gift') return `Подарок: ${reward.giftName} (${reward.giftId})`;
+  return reward.label;
+};
 
 const AdminAchievements: React.FC = () => {
   const { achievements: items, updateContent } = useAppData();
@@ -47,7 +152,15 @@ const AdminAchievements: React.FC = () => {
 
   const openEdit = (a: Achievement) => {
     setEditId(a.id);
-    setForm({ title: a.title, description: a.description, icon: a.icon, rarity: a.rarity, category: a.category, maxProgress: a.maxProgress, reward: a.reward });
+    setForm({
+      title: a.title,
+      description: a.description,
+      icon: a.icon,
+      rarity: a.rarity,
+      category: a.category,
+      maxProgress: a.maxProgress,
+      ...mapRewardToForm(a.reward),
+    });
     setDialogOpen(true);
   };
 
@@ -57,13 +170,29 @@ const AdminAchievements: React.FC = () => {
 
     try {
       if (editId) {
-        nextItems = items.map(a => a.id === editId ? { ...a, ...form } : a);
+        const reward = buildRewardFromForm(form);
+        nextItems = items.map(a => a.id === editId ? {
+          ...a,
+          title: form.title,
+          description: form.description,
+          icon: form.icon,
+          rarity: form.rarity,
+          category: form.category,
+          maxProgress: form.maxProgress,
+          reward,
+        } : a);
         await updateContent('achievements', nextItems);
         toast({ title: 'Достижение обновлено' });
       } else {
+        const reward = buildRewardFromForm(form);
         const newItem: Achievement = {
           id: Date.now().toString(),
-          ...form,
+          title: form.title,
+          description: form.description,
+          icon: form.icon,
+          rarity: form.rarity,
+          category: form.category,
+          reward,
           unlocked: false,
           progress: 0,
           maxProgress: form.maxProgress || 1,
@@ -141,7 +270,7 @@ const AdminAchievements: React.FC = () => {
                 </td>
                 <td className="px-4 py-3 text-sm text-muted-foreground">{categoryLabels[a.category]}</td>
                 <td className="px-4 py-3 text-sm">{a.maxProgress ? `0 / ${a.maxProgress}` : '—'}</td>
-                <td className="px-4 py-3 text-sm text-muted-foreground">{a.reward || '—'}</td>
+                <td className="px-4 py-3 text-sm text-muted-foreground">{formatReward(a.reward)}</td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex items-center justify-end gap-1">
                     <Button variant="ghost" size="icon" onClick={() => openEdit(a)}><Pencil className="w-4 h-4" /></Button>
@@ -207,10 +336,59 @@ const AdminAchievements: React.FC = () => {
                 <Input type="number" value={form.maxProgress || ''} onChange={e => setForm(f => ({ ...f, maxProgress: Number(e.target.value) || undefined }))} placeholder="напр. 100" />
               </div>
               <div>
-                <Label>Награда</Label>
-                <Input value={form.reward || ''} onChange={e => setForm(f => ({ ...f, reward: e.target.value || undefined }))} placeholder="Название награды" />
+                <Label>Тип награды</Label>
+                <Select value={form.rewardType} onValueChange={v => setForm(f => ({ ...f, rewardType: v as FormData['rewardType'] }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Без награды</SelectItem>
+                    <SelectItem value="xp">XP (опыт)</SelectItem>
+                    <SelectItem value="gift">Подарок</SelectItem>
+                    <SelectItem value="custom">Другое</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
+            {form.rewardType === 'xp' && (
+              <div>
+                <Label>Количество XP</Label>
+                <Input
+                  type="number"
+                  value={form.rewardXpAmount || ''}
+                  onChange={e => setForm(f => ({ ...f, rewardXpAmount: Number(e.target.value) || undefined }))}
+                  placeholder="напр. 500"
+                />
+              </div>
+            )}
+            {form.rewardType === 'gift' && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>ID подарка</Label>
+                  <Input
+                    value={form.rewardGiftId || ''}
+                    onChange={e => setForm(f => ({ ...f, rewardGiftId: e.target.value || undefined }))}
+                    placeholder="напр. gift_101"
+                  />
+                </div>
+                <div>
+                  <Label>Название подарка</Label>
+                  <Input
+                    value={form.rewardGiftName || ''}
+                    onChange={e => setForm(f => ({ ...f, rewardGiftName: e.target.value || undefined }))}
+                    placeholder="напр. Львенок"
+                  />
+                </div>
+              </div>
+            )}
+            {form.rewardType === 'custom' && (
+              <div>
+                <Label>Описание награды</Label>
+                <Input
+                  value={form.rewardCustomLabel || ''}
+                  onChange={e => setForm(f => ({ ...f, rewardCustomLabel: e.target.value || undefined }))}
+                  placeholder="напр. Специальный бейдж"
+                />
+              </div>
+            )}
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setDialogOpen(false)}>Отмена</Button>
               <Button onClick={handleSave} disabled={!form.title.trim()}>{editId ? 'Сохранить' : 'Создать'}</Button>
