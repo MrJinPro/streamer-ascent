@@ -31,17 +31,18 @@ type SortBy = 'diamonds' | 'level' | 'streak' | 'hours';
 
 const getLeaderboardByPeriod = (allUsers: User[], period: Period): User[] => {
   const streamers = allUsers.filter(user => user.role === 'streamer');
+  const sourceUsers = streamers.length > 0 ? streamers : allUsers;
   
   switch (period) {
     case 'today':
-      return [...streamers].sort((a, b) => b.stats.diamondsToday - a.stats.diamondsToday);
+      return [...sourceUsers].sort((a, b) => b.stats.diamondsToday - a.stats.diamondsToday);
     case 'week':
-      return [...streamers].sort((a, b) => (b.stats.diamonds30Days / 4) - (a.stats.diamonds30Days / 4));
+      return [...sourceUsers].sort((a, b) => (b.stats.diamonds30Days / 4) - (a.stats.diamonds30Days / 4));
     case 'month':
-      return [...streamers].sort((a, b) => b.stats.diamonds30Days - a.stats.diamonds30Days);
+      return [...sourceUsers].sort((a, b) => b.stats.diamonds30Days - a.stats.diamonds30Days);
     case 'all':
     default:
-      return [...streamers].sort((a, b) => b.stats.diamondsTotal - a.stats.diamondsTotal);
+      return [...sourceUsers].sort((a, b) => b.stats.diamondsTotal - a.stats.diamondsTotal);
   }
 };
 
@@ -95,9 +96,18 @@ const Ranking = () => {
   };
 
   const getPositionChange = (user: User) => {
-    // Simulated position change based on rank
-    const baseChange = Math.floor(Math.random() * 5) - 2;
-    return baseChange;
+    const currentSorted = getLeaderboardByPeriod(allUsers, period);
+    const previousPeriod: Period = period === 'today' ? 'week' : period === 'week' ? 'month' : period === 'month' ? 'all' : 'all';
+    const previousSorted = getLeaderboardByPeriod(allUsers, previousPeriod);
+
+    const currentIndex = currentSorted.findIndex(item => item.id === user.id);
+    const previousIndex = previousSorted.findIndex(item => item.id === user.id);
+
+    if (currentIndex === -1 || previousIndex === -1) {
+      return 0;
+    }
+
+    return previousIndex - currentIndex;
   };
 
   const getRankStyle = (rank: number) => {
@@ -181,10 +191,10 @@ const Ranking = () => {
             key={`sparkle-${i}`}
             className="absolute w-1 h-1 bg-primary/60 rounded-full animate-ping"
             style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 3}s`,
-              animationDuration: `${2 + Math.random() * 2}s`
+              left: `${(i * 37) % 100}%`,
+              top: `${(i * 53) % 100}%`,
+              animationDelay: `${(i % 6) * 0.4}s`,
+              animationDuration: `${2 + (i % 4) * 0.5}s`
             }}
           />
         ))}

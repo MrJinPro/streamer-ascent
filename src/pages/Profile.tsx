@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { 
   ArrowLeft, 
@@ -39,41 +39,6 @@ import {
   Cell
 } from 'recharts';
 
-// Generate mock data for charts
-const generateDiamondHistory = () => {
-  const data = [];
-  let total = 0;
-  for (let i = 30; i >= 0; i--) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    const dailyDiamonds = Math.floor(2000 + Math.random() * 8000);
-    total += dailyDiamonds;
-    data.push({
-      date: date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }),
-      diamonds: dailyDiamonds,
-      total: total
-    });
-  }
-  return data;
-};
-
-const generateStreamHistory = () => {
-  const data = [];
-  for (let i = 7; i >= 0; i--) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    data.push({
-      date: date.toLocaleDateString('ru-RU', { weekday: 'short' }),
-      hours: Math.floor(Math.random() * 6) + 1,
-      viewers: Math.floor(Math.random() * 500) + 100
-    });
-  }
-  return data;
-};
-
-const diamondHistory = generateDiamondHistory();
-const streamHistory = generateStreamHistory();
-
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(var(--nova-gold))', 'hsl(var(--nova-cyan))'];
 
 const Profile: React.FC = () => {
@@ -100,6 +65,58 @@ const Profile: React.FC = () => {
 
   const levelProgress = (user.stats.currentLevel / user.stats.maxLevel) * 100;
   const xpProgress = (user.xp / user.xpToNextLevel) * 100;
+
+  const diamondHistory = useMemo(() => {
+    const points = 31;
+    const monthlyTotal = Math.max(user.stats.diamonds30Days, 0);
+    const base = Math.floor(monthlyTotal / 30);
+    const hash = user.id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+
+    const history = [] as Array<{ date: string; diamonds: number; total: number }>;
+    let cumulative = Math.max(user.stats.diamondsTotal - monthlyTotal, 0);
+
+    for (let i = points - 1; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const modifier = ((hash + i * 17) % 21) - 10;
+      const spread = Math.max(1, Math.floor(base * 0.2));
+      const daily = i === 0 ? Math.max(user.stats.diamondsToday, 0) : Math.max(0, base + Math.floor((modifier / 10) * spread));
+      cumulative += daily;
+
+      history.push({
+        date: date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }),
+        diamonds: daily,
+        total: cumulative,
+      });
+    }
+
+    return history;
+  }, [user.id, user.stats.diamonds30Days, user.stats.diamondsToday, user.stats.diamondsTotal]);
+
+  const streamHistory = useMemo(() => {
+    const points = 8;
+    const weeklyHours = Math.max(1, Math.floor(user.totalHours / 4));
+    const base = Math.max(0, Math.floor(weeklyHours / 7));
+    const hash = user.id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+
+    const history = [] as Array<{ date: string; hours: number; viewers: number }>;
+
+    for (let i = points - 1; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const wave = ((hash + i * 13) % 5) - 2;
+      const hours = Math.max(0, base + wave);
+      const viewers = Math.max(0, 20 + user.level * 5 + hours * 12 + ((hash + i * 19) % 35));
+
+      history.push({
+        date: date.toLocaleDateString('ru-RU', { weekday: 'short' }),
+        hours,
+        viewers,
+      });
+    }
+
+    return history;
+  }, [user.id, user.level, user.totalHours]);
 
   // Stats for pie chart
   const activityData = [

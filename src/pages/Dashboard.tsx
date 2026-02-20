@@ -10,7 +10,12 @@ import LevelProgress from '@/components/dashboard/LevelProgress';
 import { Link } from 'react-router-dom';
 
 const Dashboard: React.FC = () => {
-  const { currentUser } = useAppData();
+  const { currentUser, allUsers, tasks } = useAppData();
+  const streamerLeaderboard = [...allUsers]
+    .filter(user => user.role === 'streamer')
+    .sort((a, b) => b.stats.monthlyDiamonds - a.stats.monthlyDiamonds);
+  const currentRank = streamerLeaderboard.findIndex(user => user.id === currentUser.id) + 1;
+  const completedTasksCount = tasks.filter(task => task.completed).length;
 
   return (
     <div className="relative min-h-screen">
@@ -58,7 +63,7 @@ const Dashboard: React.FC = () => {
             <div className="glass-card px-3 md:px-5 py-2 md:py-3 flex items-center gap-2 md:gap-3 hover-lift cursor-pointer group flex-shrink-0">
               <TrendingUp className="w-5 md:w-6 h-5 md:h-6 text-nova-cyan" />
               <div>
-                <p className="text-xl md:text-2xl font-bold text-gradient-cyan">#3</p>
+                <p className="text-xl md:text-2xl font-bold text-gradient-cyan">#{currentRank > 0 ? currentRank : '—'}</p>
                 <p className="text-[10px] md:text-xs text-muted-foreground font-medium">в рейтинге</p>
               </div>
             </div>
@@ -85,11 +90,11 @@ const Dashboard: React.FC = () => {
               <div className="flex items-center gap-4 text-sm">
                 <div className="flex items-center gap-1">
                   <span className="text-xl">🏆</span>
-                  <span>47/90 заданий</span>
+                  <span>{completedTasksCount}/{tasks.length} заданий</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="text-xl">💎</span>
-                  <span>78k алмазов</span>
+                  <span>{Math.round(currentUser.stats.monthlyDiamonds / 1000)}k алмазов</span>
                 </div>
               </div>
             </div>
