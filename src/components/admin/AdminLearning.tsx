@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Lesson } from '@/types/app-data';
-import { Plus, Pencil, Trash2, GraduationCap, Lock, CheckCircle, Play } from 'lucide-react';
+import { Plus, Pencil, Trash2, GraduationCap, Lock, CheckCircle, Play, Type, Video, Image as ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 import { useAppData } from '@/contexts/AppDataContext';
 
@@ -17,9 +18,47 @@ type FormData = {
   duration: string;
   category: string;
   locked: boolean;
+  contentType: 'text' | 'video' | 'image' | 'mixed';
+  contentText: string;
+  videoUrl: string;
+  imageUrl: string;
 };
 
-const emptyForm: FormData = { title: '', description: '', duration: '15 мин', category: 'Основы', locked: false };
+const emptyForm: FormData = {
+  title: '',
+  description: '',
+  duration: '15 мин',
+  category: 'Основы',
+  locked: false,
+  contentType: 'text',
+  contentText: '',
+  videoUrl: '',
+  imageUrl: '',
+};
+
+const contentTypeLabels: Record<FormData['contentType'], string> = {
+  text: 'Текст',
+  video: 'Видео',
+  image: 'Изображение',
+  mixed: 'Комбинированный',
+};
+
+const toEmbedVideoUrl = (url: string): string => {
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+
+  const youtubeWatchMatch = trimmed.match(/youtube\.com\/watch\?v=([^&]+)/i);
+  if (youtubeWatchMatch?.[1]) {
+    return `https://www.youtube.com/embed/${youtubeWatchMatch[1]}`;
+  }
+
+  const youtubeShortMatch = trimmed.match(/youtu\.be\/([^?&]+)/i);
+  if (youtubeShortMatch?.[1]) {
+    return `https://www.youtube.com/embed/${youtubeShortMatch[1]}`;
+  }
+
+  return trimmed;
+};
 
 const AdminLearning: React.FC = () => {
   const { lessons: items, updateContent } = useAppData();
@@ -34,7 +73,17 @@ const AdminLearning: React.FC = () => {
 
   const openEdit = (l: Lesson) => {
     setEditId(l.id);
-    setForm({ title: l.title, description: l.description, duration: l.duration, category: l.category, locked: l.locked });
+    setForm({
+      title: l.title,
+      description: l.description,
+      duration: l.duration,
+      category: l.category,
+      locked: l.locked,
+      contentType: l.contentType ?? 'text',
+      contentText: l.contentText ?? '',
+      videoUrl: l.videoUrl ?? '',
+      imageUrl: l.imageUrl ?? '',
+    });
     setDialogOpen(true);
   };
 
@@ -42,13 +91,32 @@ const AdminLearning: React.FC = () => {
     if (!form.title.trim()) return;
     try {
       if (editId) {
-        const nextItems = items.map(l => l.id === editId ? { ...l, ...form } : l);
+        const nextItems = items.map(l => l.id === editId ? {
+          ...l,
+          title: form.title,
+          description: form.description,
+          duration: form.duration,
+          category: form.category,
+          locked: form.locked,
+          contentType: form.contentType,
+          contentText: form.contentText.trim() || undefined,
+          videoUrl: form.videoUrl.trim() || undefined,
+          imageUrl: form.imageUrl.trim() || undefined,
+        } : l);
         await updateContent('lessons', nextItems);
         toast({ title: 'Урок обновлён' });
       } else {
         const newItem: Lesson = {
           id: Date.now().toString(),
-          ...form,
+          title: form.title,
+          description: form.description,
+          duration: form.duration,
+          category: form.category,
+          locked: form.locked,
+          contentType: form.contentType,
+          contentText: form.contentText.trim() || undefined,
+          videoUrl: form.videoUrl.trim() || undefined,
+          imageUrl: form.imageUrl.trim() || undefined,
           completed: false,
         };
         const nextItems = [...items, newItem];
@@ -208,6 +276,72 @@ const AdminLearning: React.FC = () => {
                 <Input value={form.duration} onChange={e => setForm(f => ({ ...f, duration: e.target.value }))} placeholder="напр. 30 мин" />
               </div>
             </div>
+            <div>
+              <Label>Формат материала</Label>
+              <Select value={form.contentType} onValueChange={value => setForm(f => ({ ...f, contentType: value as FormData['contentType'] }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="text">Текст</SelectItem>
+                  <SelectItem value="video">Видео</SelectItem>
+                  <SelectItem value="image">Изображение</SelectItem>
+                  <SelectItem value="mixed">Комбинированный</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {(form.contentType === 'text' || form.contentType === 'mixed') && (
+              <div>
+                <Label className="flex items-center gap-2"><Type className="w-4 h-4" /> Контент (текст)</Label>
+                <Textarea
+                  value={form.contentText}
+                  onChange={e => setForm(f => ({ ...f, contentText: e.target.value }))}
+                  placeholder="Подробный текст урока: структура, шаги, советы..."
+                  className="min-h-[140px]"
+                />
+              </div>
+            )}
+
+            {(form.contentType === 'video' || form.contentType === 'mixed') && (
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2"><Video className="w-4 h-4" /> Видео URL</Label>
+                <Input
+                  value={form.videoUrl}
+                  onChange={e => setForm(f => ({ ...f, videoUrl: e.target.value }))}
+                  placeholder="https://www.youtube.com/watch?v=..."
+                />
+                {form.videoUrl.trim() && (
+                  <div className="rounded-lg border border-border overflow-hidden">
+                    <iframe
+                      src={toEmbedVideoUrl(form.videoUrl)}
+                      title="video-preview"
+                      className="w-full h-56"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      referrerPolicy="strict-origin-when-cross-origin"
+                      allowFullScreen
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {(form.contentType === 'image' || form.contentType === 'mixed') && (
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2"><ImageIcon className="w-4 h-4" /> Изображение URL</Label>
+                <Input
+                  value={form.imageUrl}
+                  onChange={e => setForm(f => ({ ...f, imageUrl: e.target.value }))}
+                  placeholder="https://.../image.png"
+                />
+                {form.imageUrl.trim() && (
+                  <div className="rounded-lg border border-border overflow-hidden bg-secondary/20">
+                    <img src={form.imageUrl} alt="preview" className="w-full max-h-56 object-cover" />
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex items-center gap-3">
               <Switch checked={form.locked} onCheckedChange={v => setForm(f => ({ ...f, locked: v }))} />
               <Label>Заблокирован по умолчанию</Label>

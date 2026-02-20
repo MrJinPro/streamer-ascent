@@ -2,10 +2,30 @@ import React, { useState } from 'react';
 import { useAppData } from '@/contexts/AppDataContext';
 import { CheckCircle, Lock, Play, Clock, BookOpen, Filter } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import type { Lesson } from '@/types/app-data';
+
+const toEmbedVideoUrl = (url?: string): string => {
+  const trimmed = (url ?? '').trim();
+  if (!trimmed) return '';
+
+  const youtubeWatchMatch = trimmed.match(/youtube\.com\/watch\?v=([^&]+)/i);
+  if (youtubeWatchMatch?.[1]) {
+    return `https://www.youtube.com/embed/${youtubeWatchMatch[1]}`;
+  }
+
+  const youtubeShortMatch = trimmed.match(/youtu\.be\/([^?&]+)/i);
+  if (youtubeShortMatch?.[1]) {
+    return `https://www.youtube.com/embed/${youtubeShortMatch[1]}`;
+  }
+
+  return trimmed;
+};
 
 const Learning: React.FC = () => {
   const { lessons } = useAppData();
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
 
   const categories = ['all', ...Array.from(new Set(lessons.map(l => l.category)))];
 
@@ -19,6 +39,8 @@ const Learning: React.FC = () => {
     completed: lessons.filter(l => l.completed).length,
     available: lessons.filter(l => !l.locked && !l.completed).length,
   };
+
+  const progressPercent = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -41,13 +63,13 @@ const Learning: React.FC = () => {
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-display font-semibold">Общий прогресс</h3>
           <span className="text-sm text-muted-foreground">
-            {Math.round((stats.completed / stats.total) * 100)}% завершено
+            {progressPercent}% завершено
           </span>
         </div>
         <div className="h-3 bg-muted rounded-full overflow-hidden">
           <div 
             className="h-full bg-gradient-cosmic rounded-full transition-all duration-700"
-            style={{ width: `${(stats.completed / stats.total) * 100}%` }}
+            style={{ width: `${progressPercent}%` }}
           />
         </div>
         <div className="flex justify-between mt-3 text-sm">
@@ -133,8 +155,11 @@ const Learning: React.FC = () => {
                 {lesson.duration}
               </div>
               {!lesson.locked && !lesson.completed && (
-                <button className="text-sm font-medium text-primary hover:text-primary/80 transition-colors">
-                  Начать →
+                <button
+                  className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+                  onClick={() => setSelectedLesson(lesson)}
+                >
+                  Открыть материал →
                 </button>
               )}
               {lesson.completed && (
@@ -144,6 +169,45 @@ const Learning: React.FC = () => {
           </div>
         ))}
       </div>
+
+      <Dialog open={Boolean(selectedLesson)} onOpenChange={(open) => !open && setSelectedLesson(null)}>
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{selectedLesson?.title}</DialogTitle>
+          </DialogHeader>
+
+          {selectedLesson && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">{selectedLesson.description}</p>
+
+              {(selectedLesson.contentType === 'image' || selectedLesson.contentType === 'mixed') && selectedLesson.imageUrl && (
+                <div className="rounded-xl overflow-hidden border border-border bg-secondary/20">
+                  <img src={selectedLesson.imageUrl} alt={selectedLesson.title} className="w-full max-h-[360px] object-cover" />
+                </div>
+              )}
+
+              {(selectedLesson.contentType === 'video' || selectedLesson.contentType === 'mixed') && selectedLesson.videoUrl && (
+                <div className="rounded-xl overflow-hidden border border-border">
+                  <iframe
+                    src={toEmbedVideoUrl(selectedLesson.videoUrl)}
+                    title={`lesson-video-${selectedLesson.id}`}
+                    className="w-full h-72"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    allowFullScreen
+                  />
+                </div>
+              )}
+
+              {(selectedLesson.contentType === 'text' || selectedLesson.contentType === 'mixed' || !selectedLesson.contentType) && (
+                <div className="rounded-xl border border-border bg-secondary/20 p-4 whitespace-pre-wrap leading-relaxed">
+                  {selectedLesson.contentText?.trim() || 'Текстовое содержимое урока пока не добавлено.'}
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

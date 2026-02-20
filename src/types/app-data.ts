@@ -150,6 +150,10 @@ export interface Lesson {
   description: string;
   duration: string;
   category: string;
+  contentType?: 'text' | 'video' | 'image' | 'mixed';
+  contentText?: string;
+  videoUrl?: string;
+  imageUrl?: string;
   completed: boolean;
   locked: boolean;
 }
