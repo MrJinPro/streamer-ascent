@@ -40,33 +40,57 @@ const AdminLearning: React.FC = () => {
 
   const handleSave = async () => {
     if (!form.title.trim()) return;
-    if (editId) {
-      const nextItems = items.map(l => l.id === editId ? { ...l, ...form } : l);
-      await updateContent('lessons', nextItems);
-      toast({ title: 'Урок обновлён' });
-    } else {
-      const newItem: Lesson = {
-        id: Date.now().toString(),
-        ...form,
-        completed: false,
-      };
-      const nextItems = [...items, newItem];
-      await updateContent('lessons', nextItems);
-      toast({ title: 'Урок создан' });
+    try {
+      if (editId) {
+        const nextItems = items.map(l => l.id === editId ? { ...l, ...form } : l);
+        await updateContent('lessons', nextItems);
+        toast({ title: 'Урок обновлён' });
+      } else {
+        const newItem: Lesson = {
+          id: Date.now().toString(),
+          ...form,
+          completed: false,
+        };
+        const nextItems = [...items, newItem];
+        await updateContent('lessons', nextItems);
+        toast({ title: 'Урок создан' });
+      }
+      setDialogOpen(false);
+    } catch (error) {
+      toast({
+        title: 'Не удалось сохранить урок',
+        description: error instanceof Error ? error.message : 'Ошибка записи в базу данных',
+        variant: 'destructive',
+      });
     }
-    setDialogOpen(false);
   };
 
   const handleDelete = async (id: string) => {
-    const nextItems = items.filter(l => l.id !== id);
-    await updateContent('lessons', nextItems);
-    setDeleteConfirm(null);
-    toast({ title: 'Урок удалён' });
+    try {
+      const nextItems = items.filter(l => l.id !== id);
+      await updateContent('lessons', nextItems);
+      setDeleteConfirm(null);
+      toast({ title: 'Урок удалён' });
+    } catch (error) {
+      toast({
+        title: 'Не удалось удалить урок',
+        description: error instanceof Error ? error.message : 'Ошибка записи в базу данных',
+        variant: 'destructive',
+      });
+    }
   };
 
   const toggleLocked = async (id: string) => {
-    const nextItems = items.map(l => l.id === id ? { ...l, locked: !l.locked } : l);
-    await updateContent('lessons', nextItems);
+    try {
+      const nextItems = items.map(l => l.id === id ? { ...l, locked: !l.locked } : l);
+      await updateContent('lessons', nextItems);
+    } catch (error) {
+      toast({
+        title: 'Не удалось изменить доступ',
+        description: error instanceof Error ? error.message : 'Ошибка записи в базу данных',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (

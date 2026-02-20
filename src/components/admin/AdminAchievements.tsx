@@ -55,30 +55,46 @@ const AdminAchievements: React.FC = () => {
     if (!form.title.trim()) return;
     let nextItems: Achievement[];
 
-    if (editId) {
-      nextItems = items.map(a => a.id === editId ? { ...a, ...form } : a);
-      await updateContent('achievements', nextItems);
-      toast({ title: 'Достижение обновлено' });
-    } else {
-      const newItem: Achievement = {
-        id: Date.now().toString(),
-        ...form,
-        unlocked: false,
-        progress: 0,
-        maxProgress: form.maxProgress || 1,
-      };
-      nextItems = [...items, newItem];
-      await updateContent('achievements', nextItems);
-      toast({ title: 'Достижение создано' });
+    try {
+      if (editId) {
+        nextItems = items.map(a => a.id === editId ? { ...a, ...form } : a);
+        await updateContent('achievements', nextItems);
+        toast({ title: 'Достижение обновлено' });
+      } else {
+        const newItem: Achievement = {
+          id: Date.now().toString(),
+          ...form,
+          unlocked: false,
+          progress: 0,
+          maxProgress: form.maxProgress || 1,
+        };
+        nextItems = [...items, newItem];
+        await updateContent('achievements', nextItems);
+        toast({ title: 'Достижение создано' });
+      }
+      setDialogOpen(false);
+    } catch (error) {
+      toast({
+        title: 'Не удалось сохранить достижение',
+        description: error instanceof Error ? error.message : 'Ошибка записи в базу данных',
+        variant: 'destructive',
+      });
     }
-    setDialogOpen(false);
   };
 
   const handleDelete = async (id: string) => {
-    const nextItems = items.filter(a => a.id !== id);
-    await updateContent('achievements', nextItems);
-    setDeleteConfirm(null);
-    toast({ title: 'Достижение удалено' });
+    try {
+      const nextItems = items.filter(a => a.id !== id);
+      await updateContent('achievements', nextItems);
+      setDeleteConfirm(null);
+      toast({ title: 'Достижение удалено' });
+    } catch (error) {
+      toast({
+        title: 'Не удалось удалить достижение',
+        description: error instanceof Error ? error.message : 'Ошибка записи в базу данных',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (

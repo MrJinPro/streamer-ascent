@@ -226,7 +226,15 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .upsert({ key, payload }, { onConflict: 'key' });
 
       if (error) {
-        throw error;
+        if (error.code === '42P01') {
+          throw new Error('Таблица app_content не найдена. Примените миграции Supabase (supabase db push).');
+        }
+
+        if (error.code === '42501') {
+          throw new Error('Недостаточно прав для записи в app_content. Проверьте RLS/роль пользователя.');
+        }
+
+        throw new Error(error.message || 'Ошибка записи в базу данных.');
       }
 
       setDbData(prev => ({ ...prev, [key]: payload }));

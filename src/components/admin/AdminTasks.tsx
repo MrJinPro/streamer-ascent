@@ -46,31 +46,47 @@ const AdminTasks: React.FC = () => {
 
   const handleSave = async () => {
     if (!form.title.trim()) return;
-    if (editId) {
-      const nextItems = items.map(t => t.id === editId ? { ...t, ...form, dueDate: form.deadline } : t);
-      await updateContent('tasks', nextItems);
-      toast({ title: 'Задание обновлено' });
-    } else {
-      const newItem: Task = {
-        id: Date.now().toString(),
-        ...form,
-        progress: 0,
-        completed: false,
-        status: 'pending',
-        dueDate: form.deadline,
-      };
-      const nextItems = [...items, newItem];
-      await updateContent('tasks', nextItems);
-      toast({ title: 'Задание создано' });
+    try {
+      if (editId) {
+        const nextItems = items.map(t => t.id === editId ? { ...t, ...form, dueDate: form.deadline } : t);
+        await updateContent('tasks', nextItems);
+        toast({ title: 'Задание обновлено' });
+      } else {
+        const newItem: Task = {
+          id: Date.now().toString(),
+          ...form,
+          progress: 0,
+          completed: false,
+          status: 'pending',
+          dueDate: form.deadline,
+        };
+        const nextItems = [...items, newItem];
+        await updateContent('tasks', nextItems);
+        toast({ title: 'Задание создано' });
+      }
+      setDialogOpen(false);
+    } catch (error) {
+      toast({
+        title: 'Не удалось сохранить задание',
+        description: error instanceof Error ? error.message : 'Ошибка записи в базу данных',
+        variant: 'destructive',
+      });
     }
-    setDialogOpen(false);
   };
 
   const handleDelete = async (id: string) => {
-    const nextItems = items.filter(t => t.id !== id);
-    await updateContent('tasks', nextItems);
-    setDeleteConfirm(null);
-    toast({ title: 'Задание удалено' });
+    try {
+      const nextItems = items.filter(t => t.id !== id);
+      await updateContent('tasks', nextItems);
+      setDeleteConfirm(null);
+      toast({ title: 'Задание удалено' });
+    } catch (error) {
+      toast({
+        title: 'Не удалось удалить задание',
+        description: error instanceof Error ? error.message : 'Ошибка записи в базу данных',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (

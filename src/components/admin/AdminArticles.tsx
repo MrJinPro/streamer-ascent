@@ -38,33 +38,57 @@ const AdminArticles: React.FC = () => {
 
   const handleSave = async () => {
     if (!form.title.trim()) return;
-    if (editId) {
-      const nextItems = items.map(a => a.id === editId ? { ...a, ...form } : a);
-      await updateContent('articles', nextItems);
-      toast({ title: 'Статья обновлена' });
-    } else {
-      const newItem: Article = {
-        id: Date.now().toString(),
-        ...form,
-        date: new Date().toISOString().split('T')[0],
-      };
-      const nextItems = [...items, newItem];
-      await updateContent('articles', nextItems);
-      toast({ title: 'Статья создана' });
+    try {
+      if (editId) {
+        const nextItems = items.map(a => a.id === editId ? { ...a, ...form } : a);
+        await updateContent('articles', nextItems);
+        toast({ title: 'Статья обновлена' });
+      } else {
+        const newItem: Article = {
+          id: Date.now().toString(),
+          ...form,
+          date: new Date().toISOString().split('T')[0],
+        };
+        const nextItems = [...items, newItem];
+        await updateContent('articles', nextItems);
+        toast({ title: 'Статья создана' });
+      }
+      setDialogOpen(false);
+    } catch (error) {
+      toast({
+        title: 'Не удалось сохранить статью',
+        description: error instanceof Error ? error.message : 'Ошибка записи в базу данных',
+        variant: 'destructive',
+      });
     }
-    setDialogOpen(false);
   };
 
   const handleDelete = async (id: string) => {
-    const nextItems = items.filter(a => a.id !== id);
-    await updateContent('articles', nextItems);
-    setDeleteConfirm(null);
-    toast({ title: 'Статья удалена' });
+    try {
+      const nextItems = items.filter(a => a.id !== id);
+      await updateContent('articles', nextItems);
+      setDeleteConfirm(null);
+      toast({ title: 'Статья удалена' });
+    } catch (error) {
+      toast({
+        title: 'Не удалось удалить статью',
+        description: error instanceof Error ? error.message : 'Ошибка записи в базу данных',
+        variant: 'destructive',
+      });
+    }
   };
 
   const toggleFeatured = async (id: string) => {
-    const nextItems = items.map(a => a.id === id ? { ...a, featured: !a.featured } : a);
-    await updateContent('articles', nextItems);
+    try {
+      const nextItems = items.map(a => a.id === id ? { ...a, featured: !a.featured } : a);
+      await updateContent('articles', nextItems);
+    } catch (error) {
+      toast({
+        title: 'Не удалось изменить флаг избранного',
+        description: error instanceof Error ? error.message : 'Ошибка записи в базу данных',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
