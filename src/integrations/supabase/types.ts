@@ -80,6 +80,45 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_log: {
+        Row: {
+          action: string
+          actor_user_id: string | null
+          after_data: Json | null
+          before_data: Json | null
+          created_at: string
+          entity: string | null
+          entity_id: string | null
+          id: string
+          ip_address: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          actor_user_id?: string | null
+          after_data?: Json | null
+          before_data?: Json | null
+          created_at?: string
+          entity?: string | null
+          entity_id?: string | null
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string | null
+          after_data?: Json | null
+          before_data?: Json | null
+          created_at?: string
+          entity?: string | null
+          entity_id?: string | null
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       chat_messages: {
         Row: {
           event_ts: string
@@ -788,6 +827,30 @@ export type Database = {
           },
         ]
       }
+      permissions: {
+        Row: {
+          created_at: string
+          description_en: string | null
+          description_ru: string | null
+          id: string
+          key: string
+        }
+        Insert: {
+          created_at?: string
+          description_en?: string | null
+          description_ru?: string | null
+          id?: string
+          key: string
+        }
+        Update: {
+          created_at?: string
+          description_en?: string | null
+          description_ru?: string | null
+          id?: string
+          key?: string
+        }
+        Relationships: []
+      }
       platform_identities: {
         Row: {
           avatar_url: string | null
@@ -837,6 +900,11 @@ export type Database = {
           last_seen_at: string | null
           region: string | null
           telegram_username: string | null
+          tiktok_avatar_url: string | null
+          tiktok_bio: string | null
+          tiktok_followers: number | null
+          tiktok_last_sync_at: string | null
+          tiktok_nickname: string | null
           tiktok_username: string | null
           updated_at: string
           user_id: string
@@ -854,6 +922,11 @@ export type Database = {
           last_seen_at?: string | null
           region?: string | null
           telegram_username?: string | null
+          tiktok_avatar_url?: string | null
+          tiktok_bio?: string | null
+          tiktok_followers?: number | null
+          tiktok_last_sync_at?: string | null
+          tiktok_nickname?: string | null
           tiktok_username?: string | null
           updated_at?: string
           user_id: string
@@ -871,10 +944,81 @@ export type Database = {
           last_seen_at?: string | null
           region?: string | null
           telegram_username?: string | null
+          tiktok_avatar_url?: string | null
+          tiktok_bio?: string | null
+          tiktok_followers?: number | null
+          tiktok_last_sync_at?: string | null
+          tiktok_nickname?: string | null
           tiktok_username?: string | null
           updated_at?: string
           user_id?: string
           username?: string | null
+        }
+        Relationships: []
+      }
+      role_permissions: {
+        Row: {
+          permission_id: string
+          role_id: string
+        }
+        Insert: {
+          permission_id: string
+          role_id: string
+        }
+        Update: {
+          permission_id?: string
+          role_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_permissions_permission_id_fkey"
+            columns: ["permission_id"]
+            isOneToOne: false
+            referencedRelation: "permissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "role_permissions_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roles: {
+        Row: {
+          created_at: string
+          description_en: string | null
+          description_ru: string | null
+          id: string
+          is_system_role: boolean
+          name: string
+          slug: string
+          tier: Database["public"]["Enums"]["access_tier"]
+          visibility: Database["public"]["Enums"]["role_visibility"]
+        }
+        Insert: {
+          created_at?: string
+          description_en?: string | null
+          description_ru?: string | null
+          id?: string
+          is_system_role?: boolean
+          name: string
+          slug: string
+          tier?: Database["public"]["Enums"]["access_tier"]
+          visibility?: Database["public"]["Enums"]["role_visibility"]
+        }
+        Update: {
+          created_at?: string
+          description_en?: string | null
+          description_ru?: string | null
+          id?: string
+          is_system_role?: boolean
+          name?: string
+          slug?: string
+          tier?: Database["public"]["Enums"]["access_tier"]
+          visibility?: Database["public"]["Enums"]["role_visibility"]
         }
         Relationships: []
       }
@@ -1001,6 +1145,33 @@ export type Database = {
           },
         ]
       }
+      tiktok_sync_logs: {
+        Row: {
+          error: string | null
+          finished_at: string | null
+          id: string
+          started_at: string
+          status: Database["public"]["Enums"]["tiktok_sync_status"]
+          user_id: string
+        }
+        Insert: {
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["tiktok_sync_status"]
+          user_id: string
+        }
+        Update: {
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["tiktok_sync_status"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       updates: {
         Row: {
           changelog: string | null
@@ -1043,6 +1214,7 @@ export type Database = {
           assigned_by: string | null
           id: string
           role: Database["public"]["Enums"]["app_role"]
+          role_id: string | null
           scope: string | null
           user_id: string
         }
@@ -1051,6 +1223,7 @@ export type Database = {
           assigned_by?: string | null
           id?: string
           role: Database["public"]["Enums"]["app_role"]
+          role_id?: string | null
           scope?: string | null
           user_id: string
         }
@@ -1059,10 +1232,19 @@ export type Database = {
           assigned_by?: string | null
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          role_id?: string | null
           scope?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       viewer_rollup_daily: {
         Row: {
@@ -1159,13 +1341,46 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_investor_growth: {
+        Row: {
+          month: string | null
+          new_users: number | null
+        }
+        Relationships: []
+      }
+      v_investor_kpi_monthly: {
+        Row: {
+          active_streamers: number | null
+          month: string | null
+          total_diamonds: number | null
+          total_gifts: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       can_access_streamer: { Args: { _streamer_id: string }; Returns: boolean }
+      ensure_profile_access_data: {
+        Args: never
+        Returns: {
+          referral_code: string
+          role: string
+        }[]
+      }
+      get_user_permissions: { Args: { _user_id: string }; Returns: string[] }
+      get_user_tier: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["access_tier"]
+      }
+      has_permission: {
+        Args: { _permission_key: string; _user_id: string }
+        Returns: boolean
+      }
+      has_public_role: { Args: { _user_id: string }; Returns: boolean }
       is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
+      access_tier: "tier_0" | "tier_1" | "tier_2" | "tier_3" | "tier_4"
       app_role:
         | "streamer"
         | "curator"
@@ -1206,11 +1421,13 @@ export type Database = {
       org_type_t: "agency" | "streamer_team" | "solo"
       platform_t: "tiktok"
       product_t: "mobile" | "desktop" | "tools" | "overlays"
+      role_visibility: "public" | "internal"
       streamer_member_role_t:
         | "streamer_owner"
         | "agency_manager"
         | "editor"
         | "viewer_analyst"
+      tiktok_sync_status: "pending" | "running" | "success" | "failed"
       update_channel_t: "stable" | "beta"
     }
     CompositeTypes: {
@@ -1339,6 +1556,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      access_tier: ["tier_0", "tier_1", "tier_2", "tier_3", "tier_4"],
       app_role: [
         "streamer",
         "curator",
@@ -1383,12 +1601,14 @@ export const Constants = {
       org_type_t: ["agency", "streamer_team", "solo"],
       platform_t: ["tiktok"],
       product_t: ["mobile", "desktop", "tools", "overlays"],
+      role_visibility: ["public", "internal"],
       streamer_member_role_t: [
         "streamer_owner",
         "agency_manager",
         "editor",
         "viewer_analyst",
       ],
+      tiktok_sync_status: ["pending", "running", "success", "failed"],
       update_channel_t: ["stable", "beta"],
     },
   },
