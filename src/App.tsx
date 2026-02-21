@@ -8,6 +8,9 @@ import { AppDataProvider } from "@/contexts/AppDataContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import MainLayout from "@/components/layout/MainLayout";
 import Landing from "@/pages/Landing";
+import AgencyOffer from "@/pages/AgencyOffer";
+import TermsOfUse from "@/pages/TermsOfUse";
+import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import Dashboard from "@/pages/Dashboard";
 import Progress from "@/pages/Progress";
 import Achievements from "@/pages/Achievements";
@@ -68,6 +71,9 @@ const AppRoutes = () => {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Landing />} />
+        <Route path="/documents/agency-offer" element={<AgencyOffer />} />
+        <Route path="/documents/terms" element={<TermsOfUse />} />
+        <Route path="/documents/privacy" element={<PrivacyPolicy />} />
         <Route path="/auth" element={<PublicAuth />} />
 
         <Route element={<ProtectedArea />}>

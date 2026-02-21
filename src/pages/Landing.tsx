@@ -356,11 +356,15 @@ const Landing: React.FC = () => {
         <section id="docs" className="max-w-7xl mx-auto px-4 md:px-6 py-10">
           <h2 className="text-2xl md:text-3xl font-bold mb-6">Документы</h2>
           <div className="grid md:grid-cols-3 gap-4">
-            {['Условия использования', 'Политика конфиденциальности', 'Оферта агентства'].map(item => (
-              <a key={item} href="#" className="rounded-xl border border-border p-5 bg-card/60 hover:border-primary/40 transition-colors">
+            {[
+              { label: 'Условия использования', href: '/documents/terms' },
+              { label: 'Политика конфиденциальности', href: '/documents/privacy' },
+              { label: 'Оферта агентства', href: '/documents/agency-offer' },
+            ].map(item => (
+              <Link key={item.label} to={item.href} className="rounded-xl border border-border p-5 bg-card/60 hover:border-primary/40 transition-colors">
                 <ShieldCheck className="w-5 h-5 text-primary" />
-                <p className="mt-3 font-medium">{item}</p>
-              </a>
+                <p className="mt-3 font-medium">{item.label}</p>
+              </Link>
             ))}
           </div>
         </section>
@@ -392,8 +396,9 @@ const Landing: React.FC = () => {
           <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
             <a href="https://t.me" target="_blank" rel="noreferrer">Telegram</a>
             <a href="mailto:hello@novaboost.tools">Email</a>
-            <a href="#">Контакты</a>
-            <a href="#">Соцсети</a>
+            <Link to="/documents/terms">Условия использования</Link>
+            <Link to="/documents/privacy">Политика конфиденциальности</Link>
+            <Link to="/documents/agency-offer">Оферта агентства</Link>
           </div>
         </div>
       </footer>
