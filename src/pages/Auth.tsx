@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { LogIn, Send, ShieldCheck } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,8 +9,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 import { supabasePublic } from '@/integrations/supabase/publicClient';
+import { trackEvent } from '@/lib/analytics';
 
 const Auth: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
@@ -23,9 +26,21 @@ const Auth: React.FC = () => {
   const [applicationInviterCode, setApplicationInviterCode] = useState('');
 
   const [isLoading, setIsLoading] = useState(false);
+  const [lastLoginAttemptAt, setLastLoginAttemptAt] = useState(0);
+  const [lastApplicationAttemptAt, setLastApplicationAttemptAt] = useState(0);
+
+  const defaultTab = searchParams.get('tab') === 'application' ? 'application' : 'login';
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
+
+    const now = Date.now();
+    if (now - lastLoginAttemptAt < 5000) {
+      toast({ title: 'Слишком часто', description: 'Подождите несколько секунд перед новой попыткой входа.', variant: 'destructive' });
+      return;
+    }
+
+    setLastLoginAttemptAt(now);
     setIsLoading(true);
 
     const { error } = await supabasePublic.auth.signInWithPassword({
@@ -36,15 +51,25 @@ const Auth: React.FC = () => {
     setIsLoading(false);
 
     if (error) {
+      trackEvent('auth_login_failed', { reason: error.message });
       toast({ title: 'Ошибка входа', description: error.message, variant: 'destructive' });
       return;
     }
 
+    trackEvent('auth_login_success');
     toast({ title: 'Вход выполнен', description: 'Добро пожаловать в NovaBoost Tools' });
   };
 
   const handleAgencyApplication = async (event: React.FormEvent) => {
     event.preventDefault();
+
+    const now = Date.now();
+    if (now - lastApplicationAttemptAt < 15000) {
+      toast({ title: 'Слишком часто', description: 'Подождите 15 секунд перед повторной отправкой заявки.', variant: 'destructive' });
+      return;
+    }
+
+    setLastApplicationAttemptAt(now);
 
     if (!applicationSource) {
       toast({ title: 'Выберите источник', description: 'Укажите, как вы узнали о нас', variant: 'destructive' });
@@ -73,6 +98,7 @@ const Auth: React.FC = () => {
     setIsLoading(false);
 
     if (error) {
+      trackEvent('agency_application_failed', { reason: error.message });
       toast({ title: 'Ошибка отправки заявки', description: error.message, variant: 'destructive' });
       return;
     }
@@ -86,6 +112,7 @@ const Auth: React.FC = () => {
     setApplicationSource('');
     setApplicationInviterCode('');
 
+    trackEvent('agency_application_submitted');
     toast({ title: 'Заявка отправлена', description: 'Менеджер NovaBoost Agency свяжется с вами после проверки.' });
   };
 
@@ -106,7 +133,7 @@ const Auth: React.FC = () => {
         </CardHeader>
 
         <CardContent>
-          <Tabs defaultValue="login" className="space-y-4">
+          <Tabs defaultValue={defaultTab} className="space-y-4">
             <TabsList className="grid grid-cols-2">
               <TabsTrigger value="login">Вход</TabsTrigger>
               <TabsTrigger value="application">Заявка в Agency</TabsTrigger>

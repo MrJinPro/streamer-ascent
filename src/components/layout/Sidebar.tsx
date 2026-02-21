@@ -35,7 +35,7 @@ interface NavItem {
 }
 
 const mainNavItems: NavItem[] = [
-  { icon: LayoutDashboard, label: 'Dashboard', href: '/' },
+  { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
   { icon: TrendingUp, label: 'Прогресс', href: '/progress' },
   { icon: Trophy, label: 'Достижения', href: '/achievements' },
   { icon: ListTodo, label: 'Задачи', href: '/tasks', badge: 3 },
