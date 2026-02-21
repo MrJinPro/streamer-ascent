@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import UserRoleBadges from '@/components/UserRoleBadges';
 import { 
   ArrowLeft, 
   Diamond, 
@@ -181,6 +182,7 @@ const Profile: React.FC = () => {
                   {getRoleLabel(effectiveRole)} • 
                   Присоединился {new Date(user.joinedDate).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}
                 </p>
+                <UserRoleBadges userId={user.id} className="mt-1" />
                 {!userId && referralCode && (
                   <div className="mt-2 inline-flex items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-1.5">
                     <span className="text-xs text-muted-foreground">Ваш реферальный код:</span>

@@ -14,6 +14,384 @@ export type Database = {
   }
   public: {
     Tables: {
+      academy_blocks: {
+        Row: {
+          block_type: Database["public"]["Enums"]["academy_block_type_t"]
+          content: Json
+          created_at: string
+          id: string
+          lesson_id: string
+          order_index: number
+          required: boolean
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          block_type: Database["public"]["Enums"]["academy_block_type_t"]
+          content?: Json
+          created_at?: string
+          id?: string
+          lesson_id: string
+          order_index?: number
+          required?: boolean
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          block_type?: Database["public"]["Enums"]["academy_block_type_t"]
+          content?: Json
+          created_at?: string
+          id?: string
+          lesson_id?: string
+          order_index?: number
+          required?: boolean
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_blocks_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "academy_lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academy_courses: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          difficulty: number
+          id: string
+          is_published: boolean
+          order_index: number
+          required_level: number
+          tags: string[]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          difficulty?: number
+          id?: string
+          is_published?: boolean
+          order_index?: number
+          required_level?: number
+          tags?: string[]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          difficulty?: number
+          id?: string
+          is_published?: boolean
+          order_index?: number
+          required_level?: number
+          tags?: string[]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_courses_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      academy_generated_tasks: {
+        Row: {
+          created_at: string
+          id: string
+          lesson_id: string
+          status: string
+          title: string
+          user_id: string
+          verification_payload: Json
+          verification_type: string
+          verified_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lesson_id: string
+          status?: string
+          title: string
+          user_id: string
+          verification_payload?: Json
+          verification_type?: string
+          verified_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lesson_id?: string
+          status?: string
+          title?: string
+          user_id?: string
+          verification_payload?: Json
+          verification_type?: string
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_generated_tasks_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "academy_lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academy_generated_tasks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      academy_lessons: {
+        Row: {
+          course_id: string
+          created_at: string
+          difficulty: number
+          estimated_minutes: number
+          id: string
+          is_published: boolean
+          order_index: number
+          required_video_percent: number
+          reward_meta: Json
+          summary: string | null
+          task_template: Json
+          title: string
+          updated_at: string
+          xp_base: number
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          difficulty?: number
+          estimated_minutes?: number
+          id?: string
+          is_published?: boolean
+          order_index?: number
+          required_video_percent?: number
+          reward_meta?: Json
+          summary?: string | null
+          task_template?: Json
+          title: string
+          updated_at?: string
+          xp_base?: number
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          difficulty?: number
+          estimated_minutes?: number
+          id?: string
+          is_published?: boolean
+          order_index?: number
+          required_video_percent?: number
+          reward_meta?: Json
+          summary?: string | null
+          task_template?: Json
+          title?: string
+          updated_at?: string
+          xp_base?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_lessons_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "academy_courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academy_progress: {
+        Row: {
+          completed_at: string | null
+          id: string
+          last_xp_award_at: string | null
+          lesson_id: string
+          quiz_score: number | null
+          started_at: string
+          status: string
+          task_completed: boolean
+          updated_at: string
+          user_id: string
+          video_progress_percent: number
+          video_seconds: number
+          watch_seconds: number
+          xp_awarded: number
+        }
+        Insert: {
+          completed_at?: string | null
+          id?: string
+          last_xp_award_at?: string | null
+          lesson_id: string
+          quiz_score?: number | null
+          started_at?: string
+          status?: string
+          task_completed?: boolean
+          updated_at?: string
+          user_id: string
+          video_progress_percent?: number
+          video_seconds?: number
+          watch_seconds?: number
+          xp_awarded?: number
+        }
+        Update: {
+          completed_at?: string | null
+          id?: string
+          last_xp_award_at?: string | null
+          lesson_id?: string
+          quiz_score?: number | null
+          started_at?: string
+          status?: string
+          task_completed?: boolean
+          updated_at?: string
+          user_id?: string
+          video_progress_percent?: number
+          video_seconds?: number
+          watch_seconds?: number
+          xp_awarded?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_progress_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "academy_lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academy_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      academy_quizzes: {
+        Row: {
+          created_at: string
+          id: string
+          lesson_id: string
+          passing_score: number
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lesson_id: string
+          passing_score?: number
+          title: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lesson_id?: string
+          passing_score?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_quizzes_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "academy_lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academy_rewards: {
+        Row: {
+          created_at: string
+          id: string
+          lesson_id: string
+          reward_type: string
+          value: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lesson_id: string
+          reward_type: string
+          value?: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lesson_id?: string
+          reward_type?: string
+          value?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_rewards_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "academy_lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academy_user_activity: {
+        Row: {
+          activity_date: string
+          created_at: string
+          engagement_score: number
+          id: string
+          lessons_completed: number
+          stream_minutes: number
+          updated_at: string
+          user_id: string
+          xp_earned: number
+        }
+        Insert: {
+          activity_date: string
+          created_at?: string
+          engagement_score?: number
+          id?: string
+          lessons_completed?: number
+          stream_minutes?: number
+          updated_at?: string
+          user_id: string
+          xp_earned?: number
+        }
+        Update: {
+          activity_date?: string
+          created_at?: string
+          engagement_score?: number
+          id?: string
+          lessons_completed?: number
+          stream_minutes?: number
+          updated_at?: string
+          user_id?: string
+          xp_earned?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_user_activity_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       api_tokens: {
         Row: {
           created_at: string
@@ -1359,6 +1737,79 @@ export type Database = {
       }
     }
     Functions: {
+      academy_award_xp: {
+        Args: { p_lesson_id: string }
+        Returns: {
+          granted_xp: number
+          reason: string
+        }[]
+      }
+      academy_calculate_xp: {
+        Args: { p_lesson_id: string; p_user_id: string }
+        Returns: number
+      }
+      academy_confirm_task: {
+        Args: { p_completed?: boolean; p_lesson_id: string }
+        Returns: {
+          completed_at: string | null
+          id: string
+          last_xp_award_at: string | null
+          lesson_id: string
+          quiz_score: number | null
+          started_at: string
+          status: string
+          task_completed: boolean
+          updated_at: string
+          user_id: string
+          video_progress_percent: number
+          video_seconds: number
+          watch_seconds: number
+          xp_awarded: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "academy_progress"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      academy_mark_video_progress: {
+        Args: {
+          p_lesson_id: string
+          p_video_seconds: number
+          p_watch_seconds: number
+        }
+        Returns: {
+          completed_at: string | null
+          id: string
+          last_xp_award_at: string | null
+          lesson_id: string
+          quiz_score: number | null
+          started_at: string
+          status: string
+          task_completed: boolean
+          updated_at: string
+          user_id: string
+          video_progress_percent: number
+          video_seconds: number
+          watch_seconds: number
+          xp_awarded: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "academy_progress"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      apply_xp_to_user_stats: {
+        Args: { p_user_id: string; p_xp_gain: number }
+        Returns: {
+          level: number
+          xp: number
+          xp_to_next: number
+        }[]
+      }
       can_access_streamer: { Args: { _streamer_id: string }; Returns: boolean }
       ensure_profile_access_data: {
         Args: never
@@ -1366,6 +1817,10 @@ export type Database = {
           referral_code: string
           role: string
         }[]
+      }
+      get_user_level_from_app_content: {
+        Args: { p_user_id: string }
+        Returns: number
       }
       get_user_permissions: { Args: { _user_id: string }; Returns: string[] }
       get_user_tier: {
@@ -1380,6 +1835,16 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
+      academy_block_type_t:
+        | "video"
+        | "text"
+        | "image"
+        | "gallery"
+        | "checklist"
+        | "quiz"
+        | "cta"
+        | "reward"
+        | "task"
       access_tier: "tier_0" | "tier_1" | "tier_2" | "tier_3" | "tier_4"
       app_role:
         | "streamer"
@@ -1556,6 +2021,17 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      academy_block_type_t: [
+        "video",
+        "text",
+        "image",
+        "gallery",
+        "checklist",
+        "quiz",
+        "cta",
+        "reward",
+        "task",
+      ],
       access_tier: ["tier_0", "tier_1", "tier_2", "tier_3", "tier_4"],
       app_role: [
         "streamer",
