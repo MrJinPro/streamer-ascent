@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import type { Lesson } from '@/types/app-data';
 import { Plus, Pencil, Trash2, GraduationCap, Lock, CheckCircle, Play, Type, Video, Image as ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -11,6 +11,8 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 import { useAppData } from '@/contexts/AppDataContext';
+import { supabasePublic } from '@/integrations/supabase/publicClient';
+import { useAuth } from '@/contexts/AuthContext';
 
 type FormData = {
   title: string;
@@ -60,12 +62,22 @@ const toEmbedVideoUrl = (url: string): string => {
   return trimmed;
 };
 
+const isYoutubeUrl = (url: string): boolean => {
+  const value = url.toLowerCase();
+  return value.includes('youtube.com') || value.includes('youtu.be');
+};
+
 const AdminLearning: React.FC = () => {
   const { lessons: items, updateContent } = useAppData();
+  const { user } = useAuth();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<FormData>(emptyForm);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const videoInputRef = useRef<HTMLInputElement | null>(null);
 
   const categories = Array.from(new Set(items.map(l => l.category)));
 
@@ -158,6 +170,67 @@ const AdminLearning: React.FC = () => {
         description: error instanceof Error ? error.message : 'Ошибка записи в базу данных',
         variant: 'destructive',
       });
+    }
+  };
+
+  const uploadMediaFile = async (file: File, target: 'image' | 'video') => {
+    const extension = file.name.split('.').pop() ?? 'bin';
+    const ownerId = user?.id ?? 'anonymous';
+    const path = `${ownerId}/${target}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
+
+    const { error } = await supabasePublic.storage
+      .from('lesson-media')
+      .upload(path, file, { upsert: true, contentType: file.type || undefined });
+
+    if (error) {
+      throw error;
+    }
+
+    const { data } = supabasePublic.storage.from('lesson-media').getPublicUrl(path);
+    return data.publicUrl;
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+
+    if (!file) return;
+
+    try {
+      setUploadingImage(true);
+      const url = await uploadMediaFile(file, 'image');
+      setForm(prev => ({ ...prev, imageUrl: url }));
+      toast({ title: 'Изображение загружено' });
+    } catch (error) {
+      toast({
+        title: 'Не удалось загрузить изображение',
+        description: error instanceof Error ? error.message : 'Ошибка загрузки в Storage',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleVideoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+
+    if (!file) return;
+
+    try {
+      setUploadingVideo(true);
+      const url = await uploadMediaFile(file, 'video');
+      setForm(prev => ({ ...prev, videoUrl: url }));
+      toast({ title: 'Видео загружено' });
+    } catch (error) {
+      toast({
+        title: 'Не удалось загрузить видео',
+        description: error instanceof Error ? error.message : 'Ошибка загрузки в Storage',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploadingVideo(false);
     }
   };
 
@@ -306,21 +379,42 @@ const AdminLearning: React.FC = () => {
             {(form.contentType === 'video' || form.contentType === 'mixed') && (
               <div className="space-y-2">
                 <Label className="flex items-center gap-2"><Video className="w-4 h-4" /> Видео URL</Label>
-                <Input
-                  value={form.videoUrl}
-                  onChange={e => setForm(f => ({ ...f, videoUrl: e.target.value }))}
-                  placeholder="https://www.youtube.com/watch?v=..."
+                <div className="flex gap-2">
+                  <Input
+                    value={form.videoUrl}
+                    onChange={e => setForm(f => ({ ...f, videoUrl: e.target.value }))}
+                    placeholder="https://www.youtube.com/watch?v=..."
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => videoInputRef.current?.click()}
+                    disabled={uploadingVideo}
+                  >
+                    {uploadingVideo ? 'Загрузка...' : 'Загрузить'}
+                  </Button>
+                </div>
+                <input
+                  ref={videoInputRef}
+                  type="file"
+                  accept="video/*"
+                  className="hidden"
+                  onChange={handleVideoUpload}
                 />
                 {form.videoUrl.trim() && (
                   <div className="rounded-lg border border-border overflow-hidden">
-                    <iframe
-                      src={toEmbedVideoUrl(form.videoUrl)}
-                      title="video-preview"
-                      className="w-full h-56"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                      referrerPolicy="strict-origin-when-cross-origin"
-                      allowFullScreen
-                    />
+                    {isYoutubeUrl(form.videoUrl) ? (
+                      <iframe
+                        src={toEmbedVideoUrl(form.videoUrl)}
+                        title="video-preview"
+                        className="w-full h-56"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        referrerPolicy="strict-origin-when-cross-origin"
+                        allowFullScreen
+                      />
+                    ) : (
+                      <video src={form.videoUrl} className="w-full h-56 object-cover bg-black" controls />
+                    )}
                   </div>
                 )}
               </div>
@@ -329,10 +423,27 @@ const AdminLearning: React.FC = () => {
             {(form.contentType === 'image' || form.contentType === 'mixed') && (
               <div className="space-y-2">
                 <Label className="flex items-center gap-2"><ImageIcon className="w-4 h-4" /> Изображение URL</Label>
-                <Input
-                  value={form.imageUrl}
-                  onChange={e => setForm(f => ({ ...f, imageUrl: e.target.value }))}
-                  placeholder="https://.../image.png"
+                <div className="flex gap-2">
+                  <Input
+                    value={form.imageUrl}
+                    onChange={e => setForm(f => ({ ...f, imageUrl: e.target.value }))}
+                    placeholder="https://.../image.png"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => imageInputRef.current?.click()}
+                    disabled={uploadingImage}
+                  >
+                    {uploadingImage ? 'Загрузка...' : 'Загрузить'}
+                  </Button>
+                </div>
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageUpload}
                 />
                 {form.imageUrl.trim() && (
                   <div className="rounded-lg border border-border overflow-hidden bg-secondary/20">

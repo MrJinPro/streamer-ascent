@@ -22,6 +22,11 @@ const toEmbedVideoUrl = (url?: string): string => {
   return trimmed;
 };
 
+const isYoutubeUrl = (url?: string): boolean => {
+  const value = (url ?? '').toLowerCase();
+  return value.includes('youtube.com') || value.includes('youtu.be');
+};
+
 const Learning: React.FC = () => {
   const { lessons } = useAppData();
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -188,14 +193,18 @@ const Learning: React.FC = () => {
 
               {(selectedLesson.contentType === 'video' || selectedLesson.contentType === 'mixed') && selectedLesson.videoUrl && (
                 <div className="rounded-xl overflow-hidden border border-border">
-                  <iframe
-                    src={toEmbedVideoUrl(selectedLesson.videoUrl)}
-                    title={`lesson-video-${selectedLesson.id}`}
-                    className="w-full h-72"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    referrerPolicy="strict-origin-when-cross-origin"
-                    allowFullScreen
-                  />
+                  {isYoutubeUrl(selectedLesson.videoUrl) ? (
+                    <iframe
+                      src={toEmbedVideoUrl(selectedLesson.videoUrl)}
+                      title={`lesson-video-${selectedLesson.id}`}
+                      className="w-full h-72"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      referrerPolicy="strict-origin-when-cross-origin"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <video src={selectedLesson.videoUrl} className="w-full h-72 object-cover bg-black" controls />
+                  )}
                 </div>
               )}
 
