@@ -165,7 +165,7 @@ const AdminAcademy: React.FC = () => {
       title: newCourseTitle.trim(),
       description: newCourseDescription.trim() || null,
       order_index: orderIndex,
-      is_published: false,
+      is_published: true,
       difficulty: 1,
     });
 
@@ -193,7 +193,7 @@ const AdminAcademy: React.FC = () => {
       difficulty: Number(newLessonDifficulty) || 1,
       xp_base: Number(newLessonXpBase) || 50,
       required_video_percent: 70,
-      is_published: false,
+      is_published: true,
     });
 
     if (error) {

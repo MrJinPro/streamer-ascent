@@ -5,14 +5,13 @@ import { Users, Activity, Settings, Shield, Search, MoreVertical, Trophy, ListTo
 import { cn } from '@/lib/utils';
 import AdminAchievements from '@/components/admin/AdminAchievements';
 import AdminTasks from '@/components/admin/AdminTasks';
-import AdminLearning from '@/components/admin/AdminLearning';
 import AdminArticles from '@/components/admin/AdminArticles';
 import AdminReferralSettings from '@/components/admin/AdminReferralSettings';
 import AdminAcademy from '@/components/admin/AdminAcademy';
 import { canAccessAdminSettings, getRoleLabel } from '@/lib/roles';
 import { useAuth } from '@/contexts/AuthContext';
 
-type TabId = 'users' | 'events' | 'achievements' | 'tasks' | 'learning' | 'academy' | 'articles' | 'settings';
+type TabId = 'users' | 'events' | 'achievements' | 'tasks' | 'academy' | 'articles' | 'settings';
 
 const Admin: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabId>('users');
@@ -34,8 +33,7 @@ const Admin: React.FC = () => {
     { id: 'events', label: 'События', icon: Activity },
     { id: 'achievements', label: 'Достижения', icon: Trophy },
     { id: 'tasks', label: 'Задания', icon: ListTodo },
-    { id: 'learning', label: 'Обучение', icon: GraduationCap },
-    { id: 'academy', label: 'Academy', icon: GraduationCap },
+    { id: 'academy', label: 'Обучение (Academy)', icon: GraduationCap },
     { id: 'articles', label: 'Статьи', icon: BookOpen },
     { id: 'settings', label: 'Настройки', icon: Settings },
   ];
@@ -144,7 +142,6 @@ const Admin: React.FC = () => {
 
       {activeTab === 'achievements' && <AdminAchievements />}
       {activeTab === 'tasks' && <AdminTasks />}
-      {activeTab === 'learning' && <AdminLearning />}
       {activeTab === 'academy' && <AdminAcademy />}
       {activeTab === 'articles' && <AdminArticles />}
 
