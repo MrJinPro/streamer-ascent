@@ -62,6 +62,24 @@ export type Database = {
           },
         ]
       }
+      app_content: {
+        Row: {
+          key: string
+          payload: Json
+          updated_at: string
+        }
+        Insert: {
+          key: string
+          payload: Json
+          updated_at?: string
+        }
+        Update: {
+          key?: string
+          payload?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       chat_messages: {
         Row: {
           event_ts: string
