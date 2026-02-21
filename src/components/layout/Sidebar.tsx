@@ -95,7 +95,16 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ onNavigate }) => {
 
       {/* User Card */}
       <div className="relative px-3 py-3">
-        <div className="glass-card p-3 space-y-3">
+        <NavLink
+          to="/profile"
+          onClick={onNavigate}
+          className={cn(
+            'glass-card block p-3 space-y-3 transition-colors',
+            location.pathname === '/profile' || location.pathname.startsWith('/profile/')
+              ? 'ring-1 ring-primary/40 bg-primary/5'
+              : 'hover:bg-secondary/40'
+          )}
+        >
           <div className="flex items-center gap-3">
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-primary rounded-full blur-md opacity-40" />
@@ -142,7 +151,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ onNavigate }) => {
               <span className="text-sm font-semibold">{currentUser.totalHours}h</span>
             </div>
           </div>
-        </div>
+        </NavLink>
       </div>
 
       {/* Navigation */}

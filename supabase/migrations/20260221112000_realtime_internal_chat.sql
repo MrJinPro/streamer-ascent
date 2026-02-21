@@ -482,12 +482,63 @@ as $$
   group by m.thread_id;
 $$;
 
+create or replace function public.chat_user_is_thread_member(p_thread_id uuid, p_user_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.chat_thread_members m
+    where m.thread_id = p_thread_id
+      and m.user_id = p_user_id
+      and m.is_active = true
+  );
+$$;
+
+create or replace function public.chat_user_is_thread_admin(p_thread_id uuid, p_user_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.chat_thread_members m
+    where m.thread_id = p_thread_id
+      and m.user_id = p_user_id
+      and m.member_role = 'admin'
+      and m.is_active = true
+  );
+$$;
+
+create or replace function public.chat_user_is_message_sender(p_message_id uuid, p_user_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.chat_messages_internal m
+    where m.id = p_message_id
+      and m.sender_user_id = p_user_id
+  );
+$$;
+
 grant execute on function public.chat_get_or_create_direct_thread(uuid) to authenticated;
 grant execute on function public.chat_get_or_create_support_thread() to authenticated;
 grant execute on function public.chat_create_group(text, uuid[]) to authenticated;
 grant execute on function public.chat_send_message(uuid, text, uuid[]) to authenticated;
 grant execute on function public.chat_mark_thread_read(uuid) to authenticated;
 grant execute on function public.chat_get_unread_counts() to authenticated;
+grant execute on function public.chat_user_is_thread_member(uuid, uuid) to authenticated;
+grant execute on function public.chat_user_is_thread_admin(uuid, uuid) to authenticated;
+grant execute on function public.chat_user_is_message_sender(uuid, uuid) to authenticated;
 
 grant execute on function public.chat_user_can_dm(uuid, uuid) to authenticated;
 
@@ -524,13 +575,7 @@ for select
 to authenticated
 using (
   public.is_admin()
-  or exists (
-    select 1
-    from public.chat_thread_members m
-    where m.thread_id = id
-      and m.user_id = auth.uid()
-      and m.is_active = true
-  )
+  or public.chat_user_is_thread_member(id, auth.uid())
 );
 
 drop policy if exists "chat_threads_insert" on public.chat_threads;
@@ -547,25 +592,11 @@ for update
 to authenticated
 using (
   public.is_admin()
-  or exists (
-    select 1
-    from public.chat_thread_members m
-    where m.thread_id = id
-      and m.user_id = auth.uid()
-      and m.member_role = 'admin'
-      and m.is_active = true
-  )
+  or public.chat_user_is_thread_admin(id, auth.uid())
 )
 with check (
   public.is_admin()
-  or exists (
-    select 1
-    from public.chat_thread_members m
-    where m.thread_id = id
-      and m.user_id = auth.uid()
-      and m.member_role = 'admin'
-      and m.is_active = true
-  )
+  or public.chat_user_is_thread_admin(id, auth.uid())
 );
 
 drop policy if exists "chat_members_read" on public.chat_thread_members;
@@ -576,13 +607,7 @@ to authenticated
 using (
   public.is_admin()
   or user_id = auth.uid()
-  or exists (
-    select 1
-    from public.chat_thread_members own
-    where own.thread_id = thread_id
-      and own.user_id = auth.uid()
-      and own.is_active = true
-  )
+  or public.chat_user_is_thread_member(thread_id, auth.uid())
 );
 
 drop policy if exists "chat_members_insert_self_or_admin" on public.chat_thread_members;
@@ -631,13 +656,7 @@ for insert
 to authenticated
 with check (
   sender_user_id = auth.uid()
-  and exists (
-    select 1
-    from public.chat_thread_members m
-    where m.thread_id = thread_id
-      and m.user_id = auth.uid()
-      and m.is_active = true
-  )
+  and public.chat_user_is_thread_member(thread_id, auth.uid())
 );
 
 drop policy if exists "chat_message_exclusions_read" on public.chat_message_exclusions;
@@ -648,12 +667,7 @@ to authenticated
 using (
   public.is_admin()
   or user_id = auth.uid()
-  or exists (
-    select 1
-    from public.chat_messages_internal m
-    where m.id = message_id
-      and m.sender_user_id = auth.uid()
-  )
+  or public.chat_user_is_message_sender(message_id, auth.uid())
 );
 
 drop policy if exists "chat_message_exclusions_insert_owner" on public.chat_message_exclusions;
@@ -663,12 +677,7 @@ for insert
 to authenticated
 with check (
   public.is_admin()
-  or exists (
-    select 1
-    from public.chat_messages_internal m
-    where m.id = message_id
-      and m.sender_user_id = auth.uid()
-  )
+  or public.chat_user_is_message_sender(message_id, auth.uid())
 );
 
 drop policy if exists "chat_receipts_read" on public.chat_message_receipts;
@@ -679,12 +688,7 @@ to authenticated
 using (
   public.is_admin()
   or recipient_user_id = auth.uid()
-  or exists (
-    select 1
-    from public.chat_messages_internal m
-    where m.id = message_id
-      and m.sender_user_id = auth.uid()
-  )
+  or public.chat_user_is_message_sender(message_id, auth.uid())
 );
 
 drop policy if exists "chat_receipts_insert_message_owner" on public.chat_message_receipts;
@@ -694,12 +698,7 @@ for insert
 to authenticated
 with check (
   public.is_admin()
-  or exists (
-    select 1
-    from public.chat_messages_internal m
-    where m.id = message_id
-      and m.sender_user_id = auth.uid()
-  )
+  or public.chat_user_is_message_sender(message_id, auth.uid())
 );
 
 drop policy if exists "chat_receipts_update_recipient" on public.chat_message_receipts;
