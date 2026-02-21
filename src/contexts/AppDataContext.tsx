@@ -24,8 +24,9 @@ export type AppContentKey =
   | 'lessons'
   | 'articles'
   | 'chatMessages'
-  | 'streamEvents'
-  | 'userStats';
+  | 'streamEvents';
+
+export type PersistedContentKey = AppContentKey | 'userStats';
 
 export interface AppDataShape {
   currentUser: User;
@@ -59,7 +60,7 @@ const defaultContent: PersistedContentShape = {
   userStats: {},
 };
 
-const appKeys = Object.keys(defaultContent) as AppContentKey[];
+const appKeys = Object.keys(defaultContent) as PersistedContentKey[];
 
 const rolePriority: Record<string, number> = {
   owner: 1,
@@ -179,7 +180,7 @@ const applyUserStats = (user: User, stats?: UserAppStats): User => {
 interface AppDataContextValue extends AppDataShape {
   loading: boolean;
   refresh: () => Promise<void>;
-  updateContent: <K extends AppContentKey>(key: K, payload: AppDataShape[K]) => Promise<void>;
+  updateContent: <K extends keyof ContentOnlyShape>(key: K, payload: ContentOnlyShape[K]) => Promise<void>;
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
