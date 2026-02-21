@@ -1,17 +1,23 @@
 import React, { useState } from 'react';
 import { useAppData } from '@/contexts/AppDataContext';
 import type { User, StreamEvent } from '@/types/app-data';
-import { Users, Activity, Settings, Shield, Search, MoreVertical, Trophy, ListTodo, GraduationCap, BookOpen } from 'lucide-react';
+import { Users, Activity, Settings, Shield, Search, MoreVertical, Trophy, ListTodo, GraduationCap, BookOpen, Key, ScrollText, RefreshCw, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AdminAchievements from '@/components/admin/AdminAchievements';
 import AdminTasks from '@/components/admin/AdminTasks';
 import AdminArticles from '@/components/admin/AdminArticles';
 import AdminReferralSettings from '@/components/admin/AdminReferralSettings';
 import AdminAcademy from '@/components/admin/AdminAcademy';
+import AdminRoles from '@/components/admin/AdminRoles';
+import AdminPermissions from '@/components/admin/AdminPermissions';
+import AdminAuditLog from '@/components/admin/AdminAuditLog';
+import AdminTikTokSyncLogs from '@/components/admin/AdminTikTokSyncLogs';
+import UserRoleAssign from '@/components/admin/UserRoleAssign';
+import UserRoleBadges from '@/components/UserRoleBadges';
 import { canAccessAdminSettings, getRoleLabel } from '@/lib/roles';
 import { useAuth } from '@/contexts/AuthContext';
 
-type TabId = 'users' | 'events' | 'achievements' | 'tasks' | 'academy' | 'articles' | 'settings';
+type TabId = 'users' | 'events' | 'achievements' | 'tasks' | 'academy' | 'articles' | 'roles' | 'permissions' | 'audit' | 'tiktok_sync' | 'settings';
 
 const Admin: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabId>('users');
@@ -35,48 +41,12 @@ const Admin: React.FC = () => {
     { id: 'tasks', label: 'Задания', icon: ListTodo },
     { id: 'academy', label: 'Обучение (Academy)', icon: GraduationCap },
     { id: 'articles', label: 'Статьи', icon: BookOpen },
+    { id: 'roles', label: 'Роли', icon: Shield },
+    { id: 'permissions', label: 'Разрешения', icon: Key },
+    { id: 'audit', label: 'Аудит', icon: ScrollText },
+    { id: 'tiktok_sync', label: 'TikTok Sync', icon: RefreshCw },
     { id: 'settings', label: 'Настройки', icon: Settings },
   ];
-
-  const roleStyles: Record<string, string> = {
-    owner: 'bg-nova-purple/20 text-nova-purple',
-    admin: 'bg-nova-purple/20 text-nova-purple',
-    developer: 'bg-accent/20 text-accent',
-    senior_curator: 'bg-primary/20 text-primary',
-    streamer: 'bg-primary/20 text-primary',
-    curator: 'bg-accent/20 text-accent',
-    manager: 'bg-secondary text-secondary-foreground',
-    moderator: 'bg-secondary text-secondary-foreground',
-    support: 'bg-secondary text-secondary-foreground',
-    investor: 'bg-secondary text-secondary-foreground',
-  };
-
-  const roleLabels: Record<string, string> = {
-    owner: getRoleLabel('owner'),
-    admin: getRoleLabel('admin'),
-    developer: getRoleLabel('developer'),
-    senior_curator: getRoleLabel('senior_curator'),
-    streamer: getRoleLabel('streamer'),
-    curator: getRoleLabel('curator'),
-    manager: getRoleLabel('manager'),
-    moderator: getRoleLabel('moderator'),
-    support: getRoleLabel('support'),
-    investor: getRoleLabel('investor'),
-  };
-
-  const eventTypeStyles: Record<string, string> = {
-    stream_start: 'bg-success/20 text-success',
-    stream_end: 'bg-muted text-muted-foreground',
-    milestone: 'bg-accent/20 text-accent',
-    achievement: 'bg-nova-purple/20 text-nova-purple',
-  };
-
-  const eventTypeLabels: Record<string, string> = {
-    stream_start: 'Начало стрима',
-    stream_end: 'Конец стрима',
-    milestone: 'Milestone',
-    achievement: 'Достижение',
-  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -99,12 +69,12 @@ const Admin: React.FC = () => {
           <p className="text-2xl font-bold">{allUsers.filter(u => u.role === 'streamer').length}</p>
         </div>
         <div className="p-4 rounded-xl glass border border-border">
-          <p className="text-sm text-muted-foreground">Кураторов</p>
-          <p className="text-2xl font-bold">{allUsers.filter(u => u.role === 'curator').length}</p>
+          <p className="text-sm text-muted-foreground">Всего пользователей</p>
+          <p className="text-2xl font-bold">{allUsers.length}</p>
         </div>
         <div className="p-4 rounded-xl glass border border-border">
           <p className="text-sm text-muted-foreground">Активных сегодня</p>
-          <p className="text-2xl font-bold text-success">3</p>
+          <p className="text-2xl font-bold text-success">{allUsers.filter(u => u.isOnline).length}</p>
         </div>
         <div className="p-4 rounded-xl glass border border-border">
           <p className="text-sm text-muted-foreground">События за сутки</p>
@@ -120,8 +90,8 @@ const Admin: React.FC = () => {
             onClick={() => setActiveTab(tab.id)}
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all whitespace-nowrap",
-              activeTab === tab.id 
-                ? "bg-primary text-primary-foreground shadow" 
+              activeTab === tab.id
+                ? "bg-primary text-primary-foreground shadow"
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
@@ -132,88 +102,142 @@ const Admin: React.FC = () => {
       </div>
 
       {/* Content */}
-      {activeTab === 'users' && (
-        <UsersTab users={allUsers} roleStyles={roleStyles} roleLabels={roleLabels} />
-      )}
-
-      {activeTab === 'events' && (
-        <EventsTab events={streamEvents} eventTypeStyles={eventTypeStyles} eventTypeLabels={eventTypeLabels} />
-      )}
-
+      {activeTab === 'users' && <UsersTab users={allUsers} />}
+      {activeTab === 'events' && <EventsTab events={streamEvents} />}
       {activeTab === 'achievements' && <AdminAchievements />}
       {activeTab === 'tasks' && <AdminTasks />}
       {activeTab === 'academy' && <AdminAcademy />}
       {activeTab === 'articles' && <AdminArticles />}
-
-      {activeTab === 'settings' && (
-        <AdminReferralSettings />
-      )}
+      {activeTab === 'roles' && <AdminRoles />}
+      {activeTab === 'permissions' && <AdminPermissions />}
+      {activeTab === 'audit' && <AdminAuditLog />}
+      {activeTab === 'tiktok_sync' && <AdminTikTokSyncLogs />}
+      {activeTab === 'settings' && <AdminReferralSettings />}
     </div>
   );
 };
 
-// Extracted sub-components to keep Admin clean
-const UsersTab: React.FC<{ users: User[]; roleStyles: Record<string, string>; roleLabels: Record<string, string> }> = ({ users, roleStyles, roleLabels }) => (
-  <div className="rounded-xl glass border border-border overflow-hidden">
-    <div className="p-4 border-b border-border flex items-center justify-between">
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <input
-          type="text"
-          placeholder="Поиск пользователей..."
-          className="pl-9 pr-4 py-2 rounded-lg bg-secondary border border-border focus:border-primary focus:outline-none w-64"
-        />
-      </div>
-      <button className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
-        Добавить пользователя
-      </button>
-    </div>
-    <table className="w-full">
-      <thead className="bg-secondary/50">
-        <tr>
-          <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Пользователь</th>
-          <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Роль</th>
-          <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Уровень</th>
-          <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Streak</th>
-          <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Часов</th>
-          <th className="text-right px-4 py-3 text-sm font-medium text-muted-foreground"></th>
-        </tr>
-      </thead>
-      <tbody>
-        {users.map((user) => (
-          <tr key={user.id} className="border-t border-border hover:bg-secondary/30 transition-colors">
-            <td className="px-4 py-3">
-              <div className="flex items-center gap-3">
-                <img src={user.avatar} alt={user.name} className="w-10 h-10 rounded-full" />
-                <div>
-                  <p className="font-medium">{user.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Присоединился {new Date(user.joinedDate).toLocaleDateString('ru-RU')}
-                  </p>
-                </div>
-              </div>
-            </td>
-            <td className="px-4 py-3">
-              <span className={cn("px-2 py-1 text-xs font-medium rounded-full", roleStyles[user.role])}>
-                {roleLabels[user.role]}
-              </span>
-            </td>
-            <td className="px-4 py-3"><span className="font-medium">{user.level}</span></td>
-            <td className="px-4 py-3"><span className="flex items-center gap-1">🔥 {user.streakDays}</span></td>
-            <td className="px-4 py-3"><span className="text-muted-foreground">{user.totalHours}ч</span></td>
-            <td className="px-4 py-3 text-right">
-              <button className="p-2 rounded-lg hover:bg-secondary transition-colors">
-                <MoreVertical className="w-4 h-4 text-muted-foreground" />
-              </button>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-);
+// ─── Users Tab ───────────────────────────────────────────────
+const roleStyles: Record<string, string> = {
+  owner: 'bg-nova-purple/20 text-nova-purple',
+  admin: 'bg-nova-purple/20 text-nova-purple',
+  architect: 'bg-nova-purple/20 text-nova-purple',
+  system_owner: 'bg-nova-purple/20 text-nova-purple',
+  developer: 'bg-accent/20 text-accent',
+  engineer: 'bg-accent/20 text-accent',
+  senior_curator: 'bg-primary/20 text-primary',
+  head_mentor: 'bg-primary/20 text-primary',
+  streamer: 'bg-primary/20 text-primary',
+  curator: 'bg-accent/20 text-accent',
+  mentor: 'bg-accent/20 text-accent',
+  manager: 'bg-secondary text-secondary-foreground',
+  agency_manager: 'bg-secondary text-secondary-foreground',
+  moderator: 'bg-secondary text-secondary-foreground',
+  support: 'bg-secondary text-secondary-foreground',
+  analyst: 'bg-secondary text-secondary-foreground',
+  investor: 'bg-secondary text-secondary-foreground',
+};
 
-const EventsTab: React.FC<{ events: StreamEvent[]; eventTypeStyles: Record<string, string>; eventTypeLabels: Record<string, string> }> = ({ events, eventTypeStyles, eventTypeLabels }) => (
+const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [roleAssignUser, setRoleAssignUser] = useState<{ id: string; name: string } | null>(null);
+
+  const filtered = searchQuery
+    ? users.filter(u => u.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : users;
+
+  return (
+    <>
+      <div className="rounded-xl glass border border-border overflow-hidden">
+        <div className="p-4 border-b border-border flex items-center justify-between">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Поиск пользователей..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="pl-9 pr-4 py-2 rounded-lg bg-secondary border border-border focus:border-primary focus:outline-none w-64"
+            />
+          </div>
+        </div>
+        <table className="w-full">
+          <thead className="bg-secondary/50">
+            <tr>
+              <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Пользователь</th>
+              <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Осн. роль</th>
+              <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Все роли</th>
+              <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Уровень</th>
+              <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Streak</th>
+              <th className="text-right px-4 py-3 text-sm font-medium text-muted-foreground">Действия</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((user) => (
+              <tr key={user.id} className="border-t border-border hover:bg-secondary/30 transition-colors">
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <img src={user.avatar} alt={user.name} className="w-10 h-10 rounded-full" />
+                    <div>
+                      <p className="font-medium">{user.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Присоединился {new Date(user.joinedDate).toLocaleDateString('ru-RU')}
+                      </p>
+                    </div>
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  <span className={cn("px-2 py-1 text-xs font-medium rounded-full", roleStyles[user.role] ?? 'bg-secondary text-secondary-foreground')}>
+                    {getRoleLabel(user.role)}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  <UserRoleBadges userId={user.id} showInternal />
+                </td>
+                <td className="px-4 py-3"><span className="font-medium">{user.level}</span></td>
+                <td className="px-4 py-3"><span className="flex items-center gap-1">🔥 {user.streakDays}</span></td>
+                <td className="px-4 py-3 text-right">
+                  <button
+                    onClick={() => setRoleAssignUser({ id: user.id, name: user.name })}
+                    className="p-2 rounded-lg hover:bg-secondary transition-colors"
+                    title="Назначить роли"
+                  >
+                    <UserPlus className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {roleAssignUser && (
+        <UserRoleAssign
+          userId={roleAssignUser.id}
+          userName={roleAssignUser.name}
+          onClose={() => setRoleAssignUser(null)}
+        />
+      )}
+    </>
+  );
+};
+
+// ─── Events Tab ──────────────────────────────────────────────
+const eventTypeStyles: Record<string, string> = {
+  stream_start: 'bg-success/20 text-success',
+  stream_end: 'bg-muted text-muted-foreground',
+  milestone: 'bg-accent/20 text-accent',
+  achievement: 'bg-nova-purple/20 text-nova-purple',
+};
+
+const eventTypeLabels: Record<string, string> = {
+  stream_start: 'Начало стрима',
+  stream_end: 'Конец стрима',
+  milestone: 'Milestone',
+  achievement: 'Достижение',
+};
+
+const EventsTab: React.FC<{ events: StreamEvent[] }> = ({ events }) => (
   <div className="rounded-xl glass border border-border overflow-hidden">
     <div className="p-4 border-b border-border">
       <h3 className="font-semibold">Последние события</h3>
