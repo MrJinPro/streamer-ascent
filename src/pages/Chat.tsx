@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAppData } from '@/contexts/AppDataContext';
 import { Send, Paperclip, Smile } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import UserRoleBadges from '@/components/UserRoleBadges';
 
 const Chat: React.FC = () => {
   const { chatMessages } = useAppData();
@@ -80,18 +81,28 @@ const Chat: React.FC = () => {
                 <img src={msg.senderAvatar} alt={msg.senderName} className="w-8 h-8 rounded-full" />
               )}
               <div className={cn(
-                "max-w-[70%] p-3 rounded-2xl",
-                msg.isOwn 
-                  ? "bg-primary text-primary-foreground rounded-br-sm" 
-                  : "bg-secondary text-foreground rounded-bl-sm"
+                "max-w-[70%]",
               )}>
-                <p className="text-sm">{msg.content}</p>
-                <p className={cn(
-                  "text-[10px] mt-1",
-                  msg.isOwn ? "text-primary-foreground/70" : "text-muted-foreground"
+                {!msg.isOwn && (
+                  <div className="flex items-center gap-1.5 mb-0.5 ml-1">
+                    <span className="text-xs font-medium">{msg.senderName}</span>
+                    <UserRoleBadges userId={msg.senderId} showInternal />
+                  </div>
+                )}
+                <div className={cn(
+                  "p-3 rounded-2xl",
+                  msg.isOwn 
+                    ? "bg-primary text-primary-foreground rounded-br-sm" 
+                    : "bg-secondary text-foreground rounded-bl-sm"
                 )}>
-                  {new Date(msg.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
-                </p>
+                  <p className="text-sm">{msg.content}</p>
+                  <p className={cn(
+                    "text-[10px] mt-1",
+                    msg.isOwn ? "text-primary-foreground/70" : "text-muted-foreground"
+                  )}>
+                    {new Date(msg.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
               </div>
             </div>
           ))}
