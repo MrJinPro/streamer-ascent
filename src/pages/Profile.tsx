@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import UserRoleBadges from '@/components/UserRoleBadges';
 import { 
@@ -13,7 +13,10 @@ import {
   Award,
   Star,
   Zap,
-  Gift
+  Gift,
+  FileSignature,
+  Save,
+  UserCog
 } from 'lucide-react';
 import { useAppData } from '@/contexts/AppDataContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,8 +24,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 import AnimatedBackground from '@/components/dashboard/AnimatedBackground';
 import { getRoleLabel } from '@/lib/roles';
+import { supabasePublic } from '@/integrations/supabase/publicClient';
+import { toast } from '@/hooks/use-toast';
 import {
   LineChart,
   Line,
@@ -41,17 +50,57 @@ import {
 } from 'recharts';
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(var(--nova-gold))', 'hsl(var(--nova-cyan))'];
+const LEGAL_VERSION = '2026-02-21';
+
+type EditableProfile = {
+  displayName: string;
+  username: string;
+  bio: string;
+  telegram: string;
+  country: string;
+  region: string;
+  language: string;
+  tiktokUsername: string;
+};
+
+type LegalStatus = {
+  agencyOfferAcceptedAt: string | null;
+  termsAcceptedAt: string | null;
+  privacyAcceptedAt: string | null;
+};
+
+const emptyEditableProfile: EditableProfile = {
+  displayName: '',
+  username: '',
+  bio: '',
+  telegram: '',
+  country: '',
+  region: '',
+  language: '',
+  tiktokUsername: '',
+};
 
 const Profile: React.FC = () => {
-  const { currentUser, allUsers, checkpoints, achievements: allAchievements } = useAppData();
-  const { role, referralCode, user: authUser } = useAuth();
+  const { currentUser, allUsers, checkpoints, achievements: allAchievements, refresh } = useAppData();
+  const { role, referralCode, user: authUser, refreshProfile } = useAuth();
   const { userId } = useParams<{ userId: string }>();
   const [activeTab, setActiveTab] = useState('overview');
+  const [profileForm, setProfileForm] = useState<EditableProfile>(emptyEditableProfile);
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [agreeAgencyOffer, setAgreeAgencyOffer] = useState(false);
+  const [signingOffer, setSigningOffer] = useState(false);
+  const [legalStatus, setLegalStatus] = useState<LegalStatus>({
+    agencyOfferAcceptedAt: null,
+    termsAcceptedAt: null,
+    privacyAcceptedAt: null,
+  });
   
   // Get user by ID or show current user
   const user = userId 
     ? allUsers.find(u => u.id === userId) || currentUser 
     : currentUser;
+  const isOwnProfile = !userId || user.id === currentUser.id;
   const effectiveRole = userId ? user.role : (role ?? user.role);
   const authDisplayName =
     (authUser?.user_metadata?.display_name as string | undefined) ??
@@ -128,6 +177,138 @@ const Profile: React.FC = () => {
 
   // User achievements (mock - take first few from allAchievements)
   const userAchievements = allAchievements.filter(a => a.unlocked).slice(0, 6);
+
+  useEffect(() => {
+    if (!authUser?.id || !isOwnProfile) return;
+
+    const loadProfileSettings = async () => {
+      const [{ data: profileData, error: profileError }, { data: legalRows, error: legalError }] = await Promise.all([
+        supabasePublic
+          .from('profiles')
+          .select('display_name,username,bio,telegram_username,country,region,language,tiktok_username')
+          .eq('user_id', authUser.id)
+          .maybeSingle(),
+        supabasePublic
+          .from('user_legal_acceptances')
+          .select('document_type,accepted_at,accepted')
+          .eq('user_id', authUser.id)
+          .eq('document_version', LEGAL_VERSION)
+          .eq('accepted', true),
+      ]);
+
+      if (profileError) {
+        toast({ title: 'Не удалось загрузить профиль', description: profileError.message, variant: 'destructive' });
+      } else {
+        setProfileForm({
+          displayName: profileData?.display_name ?? displayName,
+          username: profileData?.username ?? '',
+          bio: profileData?.bio ?? '',
+          telegram: profileData?.telegram_username ?? '',
+          country: profileData?.country ?? '',
+          region: profileData?.region ?? '',
+          language: profileData?.language ?? '',
+          tiktokUsername: profileData?.tiktok_username ?? '',
+        });
+      }
+
+      if (legalError) {
+        toast({ title: 'Не удалось загрузить статусы документов', description: legalError.message, variant: 'destructive' });
+      } else {
+        const nextStatus: LegalStatus = {
+          agencyOfferAcceptedAt: null,
+          termsAcceptedAt: null,
+          privacyAcceptedAt: null,
+        };
+
+        for (const row of legalRows ?? []) {
+          if (row.document_type === 'agency_offer') nextStatus.agencyOfferAcceptedAt = row.accepted_at;
+          if (row.document_type === 'terms') nextStatus.termsAcceptedAt = row.accepted_at;
+          if (row.document_type === 'privacy') nextStatus.privacyAcceptedAt = row.accepted_at;
+        }
+
+        setLegalStatus(nextStatus);
+      }
+
+      setProfileLoaded(true);
+    };
+
+    void loadProfileSettings();
+  }, [authUser?.id, isOwnProfile, displayName]);
+
+  const handleProfileSave = async () => {
+    if (!authUser?.id) return;
+
+    if (!profileForm.displayName.trim()) {
+      toast({ title: 'Имя обязательно', description: 'Укажите отображаемое имя', variant: 'destructive' });
+      return;
+    }
+
+    setSavingProfile(true);
+
+    const { error } = await supabasePublic
+      .from('profiles')
+      .upsert(
+        {
+          user_id: authUser.id,
+          display_name: profileForm.displayName.trim(),
+          username: profileForm.username.trim() || null,
+          bio: profileForm.bio.trim() || null,
+          telegram_username: profileForm.telegram.trim() || null,
+          country: profileForm.country.trim() || null,
+          region: profileForm.region.trim() || null,
+          language: profileForm.language.trim() || null,
+          tiktok_username: profileForm.tiktokUsername.trim() || null,
+          email: authUser.email ?? null,
+        },
+        { onConflict: 'user_id' },
+      );
+
+    setSavingProfile(false);
+
+    if (error) {
+      toast({ title: 'Не удалось сохранить профиль', description: error.message, variant: 'destructive' });
+      return;
+    }
+
+    await Promise.all([refresh(), refreshProfile()]);
+    toast({ title: 'Профиль сохранён', description: 'Изменения применены' });
+  };
+
+  const handleSignAgencyOffer = async () => {
+    if (!authUser?.id) return;
+
+    if (!agreeAgencyOffer) {
+      toast({ title: 'Подтверждение обязательно', description: 'Поставьте галочку согласия с офертой', variant: 'destructive' });
+      return;
+    }
+
+    setSigningOffer(true);
+    const acceptedAt = new Date().toISOString();
+
+    const { error } = await supabasePublic
+      .from('user_legal_acceptances')
+      .upsert(
+        {
+          user_id: authUser.id,
+          document_type: 'agency_offer',
+          document_version: LEGAL_VERSION,
+          accepted: true,
+          accepted_at: acceptedAt,
+        },
+        { onConflict: 'user_id,document_type,document_version' },
+      );
+
+    setSigningOffer(false);
+
+    if (error) {
+      toast({ title: 'Не удалось подписать оферту', description: error.message, variant: 'destructive' });
+      return;
+    }
+
+    setLegalStatus(prev => ({ ...prev, agencyOfferAcceptedAt: acceptedAt }));
+    setAgreeAgencyOffer(false);
+    toast({ title: 'Оферта подписана', description: 'Статус соглашения обновлён' });
+  };
 
   return (
     <div className="relative min-h-screen">
@@ -244,7 +425,7 @@ const Profile: React.FC = () => {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="glass-card p-1 w-full md:w-auto grid grid-cols-3 md:inline-flex">
+          <TabsList className="glass-card p-1 w-full md:w-auto grid grid-cols-4 md:inline-flex">
             <TabsTrigger value="overview" className="gap-2">
               <TrendingUp className="w-4 h-4" />
               <span className="hidden sm:inline">Обзор</span>
@@ -256,6 +437,10 @@ const Profile: React.FC = () => {
             <TabsTrigger value="achievements" className="gap-2">
               <Award className="w-4 h-4" />
               <span className="hidden sm:inline">Достижения</span>
+            </TabsTrigger>
+            <TabsTrigger value="profile" className="gap-2">
+              <UserCog className="w-4 h-4" />
+              <span className="hidden sm:inline">Профиль</span>
             </TabsTrigger>
           </TabsList>
 
@@ -624,6 +809,186 @@ const Profile: React.FC = () => {
                 </Card>
               ))}
             </div>
+          </TabsContent>
+
+          <TabsContent value="profile" className="space-y-6">
+            {!isOwnProfile ? (
+              <Card className="glass-card border-0">
+                <CardContent className="pt-6 text-muted-foreground text-sm">
+                  Редактирование доступно только владельцу профиля.
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                <Card className="glass-card border-0">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <UserCog className="w-5 h-5 text-primary" />
+                      Настройки профиля
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {!profileLoaded ? (
+                      <div className="text-sm text-muted-foreground">Загрузка данных профиля...</div>
+                    ) : (
+                      <>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="profileDisplayName">Отображаемое имя</Label>
+                            <Input
+                              id="profileDisplayName"
+                              value={profileForm.displayName}
+                              onChange={(event) => setProfileForm(prev => ({ ...prev, displayName: event.target.value }))}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="profileUsername">Username</Label>
+                            <Input
+                              id="profileUsername"
+                              value={profileForm.username}
+                              onChange={(event) => setProfileForm(prev => ({ ...prev, username: event.target.value }))}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="profileBio">О себе</Label>
+                          <Textarea
+                            id="profileBio"
+                            rows={4}
+                            value={profileForm.bio}
+                            onChange={(event) => setProfileForm(prev => ({ ...prev, bio: event.target.value }))}
+                          />
+                        </div>
+
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="profileTelegram">Telegram</Label>
+                            <Input
+                              id="profileTelegram"
+                              value={profileForm.telegram}
+                              onChange={(event) => setProfileForm(prev => ({ ...prev, telegram: event.target.value }))}
+                              placeholder="@username"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="profileTikTok">TikTok username</Label>
+                            <Input
+                              id="profileTikTok"
+                              value={profileForm.tiktokUsername}
+                              onChange={(event) => setProfileForm(prev => ({ ...prev, tiktokUsername: event.target.value }))}
+                              placeholder="@tiktok"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid md:grid-cols-3 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="profileCountry">Страна</Label>
+                            <Input
+                              id="profileCountry"
+                              value={profileForm.country}
+                              onChange={(event) => setProfileForm(prev => ({ ...prev, country: event.target.value }))}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="profileRegion">Регион</Label>
+                            <Input
+                              id="profileRegion"
+                              value={profileForm.region}
+                              onChange={(event) => setProfileForm(prev => ({ ...prev, region: event.target.value }))}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="profileLanguage">Язык</Label>
+                            <Input
+                              id="profileLanguage"
+                              value={profileForm.language}
+                              onChange={(event) => setProfileForm(prev => ({ ...prev, language: event.target.value }))}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end">
+                          <Button onClick={() => void handleProfileSave()} disabled={savingProfile}>
+                            <Save className="w-4 h-4 mr-2" />
+                            {savingProfile ? 'Сохранение...' : 'Сохранить изменения'}
+                          </Button>
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="glass-card border-0">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileSignature className="w-5 h-5 text-primary" />
+                      Договоры и оферта
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="rounded-xl border border-border bg-secondary/30 p-4">
+                      <p className="font-medium">Партнёрская оферта NovaBoost</p>
+                      <p className="text-xs text-muted-foreground mt-1">Версия: {LEGAL_VERSION}</p>
+                      <p className="text-sm mt-2">
+                        Статус:{' '}
+                        {legalStatus.agencyOfferAcceptedAt ? (
+                          <span className="text-success font-medium">
+                            Подписана {new Date(legalStatus.agencyOfferAcceptedAt).toLocaleString('ru-RU')}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">Не подписана</span>
+                        )}
+                      </p>
+                      <div className="mt-3 flex items-center gap-2 text-sm">
+                        <input
+                          id="acceptAgencyOffer"
+                          type="checkbox"
+                          className="w-4 h-4"
+                          checked={agreeAgencyOffer}
+                          onChange={(event) => setAgreeAgencyOffer(event.target.checked)}
+                          disabled={Boolean(legalStatus.agencyOfferAcceptedAt)}
+                        />
+                        <Label htmlFor="acceptAgencyOffer" className="text-sm font-normal">
+                          Подтверждаю, что ознакомился(ась) и согласен(на) с условиями оферты
+                        </Label>
+                      </div>
+                      <div className="mt-4 flex flex-wrap gap-3">
+                        <Link to="/documents/agency-offer" className="text-sm text-primary hover:underline">
+                          Открыть текст оферты
+                        </Link>
+                        <Button
+                          type="button"
+                          onClick={() => void handleSignAgencyOffer()}
+                          disabled={signingOffer || Boolean(legalStatus.agencyOfferAcceptedAt)}
+                        >
+                          <FileSignature className="w-4 h-4 mr-2" />
+                          {legalStatus.agencyOfferAcceptedAt ? 'Уже подписано' : signingOffer ? 'Подписание...' : 'Подписать оферту'}
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-4 text-sm">
+                      <div className="rounded-xl border border-border p-4 bg-secondary/20">
+                        <p className="font-medium">Условия использования</p>
+                        <p className="text-muted-foreground mt-1">
+                          {legalStatus.termsAcceptedAt ? `Приняты: ${new Date(legalStatus.termsAcceptedAt).toLocaleString('ru-RU')}` : 'Статус не подтверждён'}
+                        </p>
+                        <Link to="/documents/terms" className="inline-block mt-2 text-primary hover:underline">Открыть документ</Link>
+                      </div>
+                      <div className="rounded-xl border border-border p-4 bg-secondary/20">
+                        <p className="font-medium">Политика конфиденциальности</p>
+                        <p className="text-muted-foreground mt-1">
+                          {legalStatus.privacyAcceptedAt ? `Принята: ${new Date(legalStatus.privacyAcceptedAt).toLocaleString('ru-RU')}` : 'Статус не подтверждён'}
+                        </p>
+                        <Link to="/documents/privacy" className="inline-block mt-2 text-primary hover:underline">Открыть документ</Link>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
           </TabsContent>
         </Tabs>
       </div>
