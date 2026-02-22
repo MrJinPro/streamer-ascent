@@ -392,6 +392,174 @@ export type Database = {
           },
         ]
       }
+      admin_invites: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          email: string
+          expires_at: string | null
+          id: string
+          invite_link: string | null
+          invite_token: string | null
+          inviter_user_id: string | null
+          metadata: Json
+          referral_code: string | null
+          role_slugs: string[]
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          email: string
+          expires_at?: string | null
+          id?: string
+          invite_link?: string | null
+          invite_token?: string | null
+          inviter_user_id?: string | null
+          metadata?: Json
+          referral_code?: string | null
+          role_slugs?: string[]
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string | null
+          id?: string
+          invite_link?: string | null
+          invite_token?: string | null
+          inviter_user_id?: string | null
+          metadata?: Json
+          referral_code?: string | null
+          role_slugs?: string[]
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_invites_inviter_user_id_fkey"
+            columns: ["inviter_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      agency_join_applications: {
+        Row: {
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          motivation: string | null
+          status: string
+          stream_experience: string | null
+          telegram: string | null
+          tiktok_username: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          full_name: string
+          id?: string
+          motivation?: string | null
+          status?: string
+          stream_experience?: string | null
+          telegram?: string | null
+          tiktok_username: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          motivation?: string | null
+          status?: string
+          stream_experience?: string | null
+          telegram?: string | null
+          tiktok_username?: string
+        }
+        Relationships: []
+      }
+      agency_referral_codes: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          max_uses: number
+          note: string | null
+          used_count: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_uses?: number
+          note?: string | null
+          used_count?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_uses?: number
+          note?: string | null
+          used_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_referral_codes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      agency_referral_usages: {
+        Row: {
+          code_id: string
+          created_at: string
+          email: string
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          code_id: string
+          created_at?: string
+          email: string
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          code_id?: string
+          created_at?: string
+          email?: string
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_referral_usages_code_id_fkey"
+            columns: ["code_id"]
+            isOneToOne: false
+            referencedRelation: "agency_referral_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       api_tokens: {
         Row: {
           created_at: string
@@ -497,6 +665,81 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_message_exclusions: {
+        Row: {
+          created_at: string
+          id: string
+          message_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_message_exclusions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages_internal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_message_exclusions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      chat_message_receipts: {
+        Row: {
+          delivered_at: string
+          id: string
+          message_id: string
+          read_at: string | null
+          recipient_user_id: string
+        }
+        Insert: {
+          delivered_at?: string
+          id?: string
+          message_id: string
+          read_at?: string | null
+          recipient_user_id: string
+        }
+        Update: {
+          delivered_at?: string
+          id?: string
+          message_id?: string
+          read_at?: string | null
+          recipient_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_message_receipts_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages_internal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_message_receipts_recipient_user_id_fkey"
+            columns: ["recipient_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       chat_messages: {
         Row: {
           event_ts: string
@@ -546,6 +789,146 @@ export type Database = {
           },
         ]
       }
+      chat_messages_internal: {
+        Row: {
+          created_at: string
+          edited_at: string | null
+          excluded_user_ids: string[]
+          id: string
+          message_text: string
+          metadata: Json
+          sender_user_id: string
+          thread_id: string
+        }
+        Insert: {
+          created_at?: string
+          edited_at?: string | null
+          excluded_user_ids?: string[]
+          id?: string
+          message_text: string
+          metadata?: Json
+          sender_user_id: string
+          thread_id: string
+        }
+        Update: {
+          created_at?: string
+          edited_at?: string | null
+          excluded_user_ids?: string[]
+          id?: string
+          message_text?: string
+          metadata?: Json
+          sender_user_id?: string
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_internal_sender_user_id_fkey"
+            columns: ["sender_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "chat_messages_internal_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "chat_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_thread_members: {
+        Row: {
+          id: string
+          is_active: boolean
+          joined_at: string
+          last_read_at: string | null
+          member_role: Database["public"]["Enums"]["chat_member_role_t"]
+          thread_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          is_active?: boolean
+          joined_at?: string
+          last_read_at?: string | null
+          member_role?: Database["public"]["Enums"]["chat_member_role_t"]
+          thread_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          is_active?: boolean
+          joined_at?: string
+          last_read_at?: string | null
+          member_role?: Database["public"]["Enums"]["chat_member_role_t"]
+          thread_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_thread_members_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "chat_threads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_thread_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      chat_threads: {
+        Row: {
+          archived: boolean
+          created_at: string
+          created_by: string | null
+          direct_key: string | null
+          id: string
+          kind: Database["public"]["Enums"]["chat_thread_kind_t"]
+          last_message_at: string | null
+          last_message_text: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          archived?: boolean
+          created_at?: string
+          created_by?: string | null
+          direct_key?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["chat_thread_kind_t"]
+          last_message_at?: string | null
+          last_message_text?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          archived?: boolean
+          created_at?: string
+          created_by?: string | null
+          direct_key?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["chat_thread_kind_t"]
+          last_message_at?: string | null
+          last_message_text?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_threads_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       configs: {
         Row: {
           created_at: string
@@ -587,6 +970,55 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "streamers"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      curator_streamer_assignments: {
+        Row: {
+          active: boolean
+          assigned_by: string | null
+          created_at: string
+          curator_user_id: string
+          id: string
+          streamer_user_id: string
+        }
+        Insert: {
+          active?: boolean
+          assigned_by?: string | null
+          created_at?: string
+          curator_user_id: string
+          id?: string
+          streamer_user_id: string
+        }
+        Update: {
+          active?: boolean
+          assigned_by?: string | null
+          created_at?: string
+          curator_user_id?: string
+          id?: string
+          streamer_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curator_streamer_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "curator_streamer_assignments_curator_user_id_fkey"
+            columns: ["curator_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "curator_streamer_assignments_streamer_user_id_fkey"
+            columns: ["streamer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -1276,6 +1708,10 @@ export type Database = {
           is_online: boolean
           language: string | null
           last_seen_at: string | null
+          onboarding_completed: boolean
+          onboarding_completed_at: string | null
+          onboarding_referral_code: string | null
+          onboarding_source: string | null
           region: string | null
           telegram_username: string | null
           tiktok_avatar_url: string | null
@@ -1298,6 +1734,10 @@ export type Database = {
           is_online?: boolean
           language?: string | null
           last_seen_at?: string | null
+          onboarding_completed?: boolean
+          onboarding_completed_at?: string | null
+          onboarding_referral_code?: string | null
+          onboarding_source?: string | null
           region?: string | null
           telegram_username?: string | null
           tiktok_avatar_url?: string | null
@@ -1320,6 +1760,10 @@ export type Database = {
           is_online?: boolean
           language?: string | null
           last_seen_at?: string | null
+          onboarding_completed?: boolean
+          onboarding_completed_at?: string | null
+          onboarding_referral_code?: string | null
+          onboarding_source?: string | null
           region?: string | null
           telegram_username?: string | null
           tiktok_avatar_url?: string | null
@@ -1586,6 +2030,47 @@ export type Database = {
         }
         Relationships: []
       }
+      user_legal_acceptances: {
+        Row: {
+          accepted: boolean
+          accepted_at: string
+          created_at: string
+          document_type: string
+          document_version: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          accepted?: boolean
+          accepted_at?: string
+          created_at?: string
+          document_type: string
+          document_version?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          accepted?: boolean
+          accepted_at?: string
+          created_at?: string
+          document_type?: string
+          document_version?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_legal_acceptances_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           assigned_at: string
@@ -1811,6 +2296,71 @@ export type Database = {
         }[]
       }
       can_access_streamer: { Args: { _streamer_id: string }; Returns: boolean }
+      chat_create_group: {
+        Args: { p_member_ids: string[]; p_title: string }
+        Returns: string
+      }
+      chat_get_or_create_direct_thread: {
+        Args: { p_target_user_id: string }
+        Returns: string
+      }
+      chat_get_or_create_support_thread: { Args: never; Returns: string }
+      chat_get_unread_counts: {
+        Args: never
+        Returns: {
+          thread_id: string
+          unread_count: number
+        }[]
+      }
+      chat_is_support_role: { Args: { p_user_id: string }; Returns: boolean }
+      chat_mark_thread_read: { Args: { p_thread_id: string }; Returns: number }
+      chat_resolve_role: {
+        Args: { p_user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+      chat_send_message: {
+        Args: {
+          p_excluded_user_ids?: string[]
+          p_text: string
+          p_thread_id: string
+        }
+        Returns: {
+          created_at: string
+          edited_at: string | null
+          excluded_user_ids: string[]
+          id: string
+          message_text: string
+          metadata: Json
+          sender_user_id: string
+          thread_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "chat_messages_internal"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      chat_user_can_dm: {
+        Args: { p_sender: string; p_target: string }
+        Returns: boolean
+      }
+      chat_user_is_message_sender: {
+        Args: { p_message_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      chat_user_is_thread_admin: {
+        Args: { p_thread_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      chat_user_is_thread_member: {
+        Args: { p_thread_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      consume_referral_code: {
+        Args: { p_code: string; p_email: string; p_user_id: string }
+        Returns: boolean
+      }
       ensure_profile_access_data: {
         Args: never
         Returns: {
@@ -1833,6 +2383,8 @@ export type Database = {
       }
       has_public_role: { Args: { _user_id: string }; Returns: boolean }
       is_admin: { Args: never; Returns: boolean }
+      referral_code_is_valid: { Args: { p_code: string }; Returns: boolean }
+      user_can_manage_users: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       academy_block_type_t:
@@ -1854,6 +2406,8 @@ export type Database = {
         | "investor"
         | "support"
         | "moderator"
+      chat_member_role_t: "member" | "admin"
+      chat_thread_kind_t: "direct" | "group" | "support"
       device_platform_t:
         | "ios"
         | "android"
@@ -2042,6 +2596,8 @@ export const Constants = {
         "support",
         "moderator",
       ],
+      chat_member_role_t: ["member", "admin"],
+      chat_thread_kind_t: ["direct", "group", "support"],
       device_platform_t: [
         "ios",
         "android",
