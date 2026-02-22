@@ -23,11 +23,12 @@ import Admin from "@/pages/Admin";
 import Ranking from "@/pages/Ranking";
 import Profile from "@/pages/Profile";
 import Auth from "@/pages/Auth";
+import Onboarding from "@/pages/Onboarding";
 
 const queryClient = new QueryClient();
 
 const ProtectedArea = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, onboardingCompleted } = useAuth();
 
   if (loading) {
     return (
@@ -41,6 +42,10 @@ const ProtectedArea = () => {
     return <Navigate to="/" replace />;
   }
 
+  if (!onboardingCompleted) {
+    return <Navigate to="/onboarding" replace />;
+  }
+
   return (
     <AppDataProvider>
       <Outlet />
@@ -49,7 +54,7 @@ const ProtectedArea = () => {
 };
 
 const PublicAuth = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, onboardingCompleted } = useAuth();
 
   if (loading) {
     return (
@@ -60,7 +65,7 @@ const PublicAuth = () => {
   }
 
   if (user) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={onboardingCompleted ? "/dashboard" : "/onboarding"} replace />;
   }
 
   return <Auth />;
@@ -75,6 +80,7 @@ const AppRoutes = () => {
         <Route path="/documents/terms" element={<TermsOfUse />} />
         <Route path="/documents/privacy" element={<PrivacyPolicy />} />
         <Route path="/auth" element={<PublicAuth />} />
+        <Route path="/onboarding" element={<Onboarding />} />
 
         <Route element={<ProtectedArea />}>
           <Route element={<MainLayout />}>

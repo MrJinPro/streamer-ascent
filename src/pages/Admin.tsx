@@ -16,6 +16,19 @@ import UserRoleAssign from '@/components/admin/UserRoleAssign';
 import UserRoleBadges from '@/components/UserRoleBadges';
 import { canAccessAdminSettings, getRoleLabel } from '@/lib/roles';
 import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { toast } from '@/hooks/use-toast';
+import { supabasePublic } from '@/integrations/supabase/publicClient';
 
 type TabId = 'users' | 'events' | 'achievements' | 'tasks' | 'academy' | 'articles' | 'roles' | 'permissions' | 'audit' | 'tiktok_sync' | 'settings';
 
@@ -141,10 +154,101 @@ const roleStyles: Record<string, string> = {
 const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleAssignUser, setRoleAssignUser] = useState<{ id: string; name: string } | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [createLoading, setCreateLoading] = useState(false);
+
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteReferralCode, setInviteReferralCode] = useState('');
+  const [inviteRoleSlugs, setInviteRoleSlugs] = useState('streamer');
+
+  const [createEmail, setCreateEmail] = useState('');
+  const [createPassword, setCreatePassword] = useState('');
+  const [createDisplayName, setCreateDisplayName] = useState('');
+  const [createReferralCode, setCreateReferralCode] = useState('');
+  const [createRoleSlugs, setCreateRoleSlugs] = useState('streamer');
 
   const filtered = searchQuery
     ? users.filter(u => u.name.toLowerCase().includes(searchQuery.toLowerCase()))
     : users;
+
+  const parseRoleSlugs = (value: string) =>
+    value
+      .split(',')
+      .map((slug) => slug.trim().toLowerCase())
+      .filter(Boolean)
+      .filter((slug, idx, arr) => arr.indexOf(slug) === idx);
+
+  const handleInvite = async () => {
+    setInviteLoading(true);
+
+    const { data, error } = await supabasePublic.functions.invoke('admin-invite-user', {
+      body: {
+        email: inviteEmail,
+        referralCode: inviteReferralCode.trim().toUpperCase(),
+        roleSlugs: parseRoleSlugs(inviteRoleSlugs),
+      },
+    });
+
+    setInviteLoading(false);
+
+    if (error || !data?.ok) {
+      toast({
+        title: 'Не удалось отправить invite',
+        description: error?.message ?? data?.error ?? 'Неизвестная ошибка',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setInviteEmail('');
+    setInviteReferralCode('');
+    setInviteRoleSlugs('streamer');
+    setInviteOpen(false);
+
+    toast({
+      title: 'Invite отправлен',
+      description: data.inviteLink ? `Ссылка: ${data.inviteLink}` : 'Проверьте email приглашенного пользователя',
+    });
+  };
+
+  const handleCreate = async () => {
+    setCreateLoading(true);
+
+    const { data, error } = await supabasePublic.functions.invoke('admin-create-user', {
+      body: {
+        email: createEmail,
+        password: createPassword,
+        displayName: createDisplayName,
+        referralCode: createReferralCode.trim().toUpperCase(),
+        roleSlugs: parseRoleSlugs(createRoleSlugs),
+      },
+    });
+
+    setCreateLoading(false);
+
+    if (error || !data?.ok) {
+      toast({
+        title: 'Не удалось создать пользователя',
+        description: error?.message ?? data?.error ?? 'Неизвестная ошибка',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setCreateEmail('');
+    setCreatePassword('');
+    setCreateDisplayName('');
+    setCreateReferralCode('');
+    setCreateRoleSlugs('streamer');
+    setCreateOpen(false);
+
+    toast({
+      title: 'Пользователь создан',
+      description: `User ID: ${data.userId}`,
+    });
+  };
 
   return (
     <>
@@ -159,6 +263,10 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
               onChange={e => setSearchQuery(e.target.value)}
               className="pl-9 pr-4 py-2 rounded-lg bg-secondary border border-border focus:border-primary focus:outline-none w-64"
             />
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setInviteOpen(true)}>Invite User</Button>
+            <Button onClick={() => setCreateOpen(true)}>Create User</Button>
           </div>
         </div>
         <table className="w-full">
@@ -218,6 +326,68 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
           onClose={() => setRoleAssignUser(null)}
         />
       )}
+
+      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Invite User</DialogTitle>
+            <DialogDescription>Отправка приглашения с ролями и реферальным кодом.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor="inviteEmail">Email</Label>
+              <Input id="inviteEmail" type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="inviteRoles">Role slugs (через запятую)</Label>
+              <Input id="inviteRoles" value={inviteRoleSlugs} onChange={(event) => setInviteRoleSlugs(event.target.value)} placeholder="streamer,mentor" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="inviteRef">Referral code</Label>
+              <Input id="inviteRef" value={inviteReferralCode} onChange={(event) => setInviteReferralCode(event.target.value.toUpperCase())} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setInviteOpen(false)} disabled={inviteLoading}>Отмена</Button>
+            <Button onClick={() => void handleInvite()} disabled={inviteLoading || !inviteEmail.trim()}>Отправить invite</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create User</DialogTitle>
+            <DialogDescription>Создание пользователя с паролем, доступ выдаётся после onboarding.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor="createEmail">Email</Label>
+              <Input id="createEmail" type="email" value={createEmail} onChange={(event) => setCreateEmail(event.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="createPassword">Пароль</Label>
+              <Input id="createPassword" type="password" value={createPassword} onChange={(event) => setCreatePassword(event.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="createName">Display name</Label>
+              <Input id="createName" value={createDisplayName} onChange={(event) => setCreateDisplayName(event.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="createRoles">Role slugs (через запятую)</Label>
+              <Input id="createRoles" value={createRoleSlugs} onChange={(event) => setCreateRoleSlugs(event.target.value)} placeholder="streamer" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="createRef">Referral code</Label>
+              <Input id="createRef" value={createReferralCode} onChange={(event) => setCreateReferralCode(event.target.value.toUpperCase())} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={createLoading}>Отмена</Button>
+            <Button onClick={() => void handleCreate()} disabled={createLoading || !createEmail.trim() || createPassword.length < 8}>Создать</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
