@@ -9,6 +9,7 @@ import {
 } from '../_shared/auth.ts';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
+const DEFAULT_ADMIN_REFERRAL_CODE = 'NOVA-2026';
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
@@ -36,7 +37,7 @@ Deno.serve(async (request) => {
   const payload = await request.json().catch(() => null);
   const email = String(payload?.email ?? '').trim().toLowerCase();
   const roleSlugs = normalizeRoleSlugs(payload?.roleSlugs);
-  const referralCode = String(payload?.referralCode ?? '').trim().toUpperCase() || null;
+  const referralCode = String(payload?.referralCode ?? '').trim().toUpperCase() || DEFAULT_ADMIN_REFERRAL_CODE;
   const expiresInHours = Math.min(Math.max(Number(payload?.expiresInHours ?? 72), 1), 168);
 
   if (!EMAIL_REGEX.test(email)) {

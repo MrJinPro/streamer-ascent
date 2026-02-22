@@ -9,6 +9,7 @@ import {
 } from '../_shared/auth.ts';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
+const DEFAULT_ADMIN_REFERRAL_CODE = 'NOVA-2026';
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
@@ -38,7 +39,7 @@ Deno.serve(async (request) => {
   const password = String(payload?.password ?? '');
   const displayName = String(payload?.displayName ?? '').trim();
   const roleSlugs = normalizeRoleSlugs(payload?.roleSlugs);
-  const referralCode = String(payload?.referralCode ?? '').trim().toUpperCase() || null;
+  const referralCode = String(payload?.referralCode ?? '').trim().toUpperCase() || DEFAULT_ADMIN_REFERRAL_CODE;
 
   if (!EMAIL_REGEX.test(email)) {
     return json(400, { error: 'Invalid email format' });

@@ -151,6 +151,17 @@ const roleStyles: Record<string, string> = {
   investor: 'bg-secondary text-secondary-foreground',
 };
 
+const DEFAULT_ADMIN_REFERRAL_CODE = 'NOVA-2026';
+
+const inviteRoleOptions: Array<{ slug: string; label: string }> = [
+  { slug: 'streamer', label: 'Стример' },
+  { slug: 'mentor', label: 'Ментор' },
+  { slug: 'support', label: 'Поддержка' },
+  { slug: 'moderator', label: 'Модератор' },
+  { slug: 'agency_manager', label: 'Менеджер агентства' },
+  { slug: 'analyst', label: 'Аналитик' },
+];
+
 const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleAssignUser, setRoleAssignUser] = useState<{ id: string; name: string } | null>(null);
@@ -160,18 +171,26 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
   const [createLoading, setCreateLoading] = useState(false);
 
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteReferralCode, setInviteReferralCode] = useState('');
-  const [inviteRoleSlugs, setInviteRoleSlugs] = useState('streamer');
+  const [inviteRoleSlugs, setInviteRoleSlugs] = useState<string[]>(['streamer']);
 
   const [createEmail, setCreateEmail] = useState('');
   const [createPassword, setCreatePassword] = useState('');
   const [createDisplayName, setCreateDisplayName] = useState('');
-  const [createReferralCode, setCreateReferralCode] = useState('');
   const [createRoleSlugs, setCreateRoleSlugs] = useState('streamer');
 
   const filtered = searchQuery
     ? users.filter(u => u.name.toLowerCase().includes(searchQuery.toLowerCase()))
     : users;
+
+  const toggleInviteRole = (slug: string) => {
+    setInviteRoleSlugs((prev) => {
+      if (prev.includes(slug)) {
+        if (prev.length === 1) return prev;
+        return prev.filter((item) => item !== slug);
+      }
+      return [...prev, slug];
+    });
+  };
 
   const parseRoleSlugs = (value: string) =>
     value
@@ -186,8 +205,8 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
     const { data, error } = await supabasePublic.functions.invoke('admin-invite-user', {
       body: {
         email: inviteEmail,
-        referralCode: inviteReferralCode.trim().toUpperCase(),
-        roleSlugs: parseRoleSlugs(inviteRoleSlugs),
+        referralCode: DEFAULT_ADMIN_REFERRAL_CODE,
+        roleSlugs: inviteRoleSlugs,
       },
     });
 
@@ -203,8 +222,7 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
     }
 
     setInviteEmail('');
-    setInviteReferralCode('');
-    setInviteRoleSlugs('streamer');
+    setInviteRoleSlugs(['streamer']);
     setInviteOpen(false);
 
     toast({
@@ -221,7 +239,7 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
         email: createEmail,
         password: createPassword,
         displayName: createDisplayName,
-        referralCode: createReferralCode.trim().toUpperCase(),
+        referralCode: DEFAULT_ADMIN_REFERRAL_CODE,
         roleSlugs: parseRoleSlugs(createRoleSlugs),
       },
     });
@@ -240,7 +258,6 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
     setCreateEmail('');
     setCreatePassword('');
     setCreateDisplayName('');
-    setCreateReferralCode('');
     setCreateRoleSlugs('streamer');
     setCreateOpen(false);
 
@@ -265,8 +282,8 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
             />
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => setInviteOpen(true)}>Invite User</Button>
-            <Button onClick={() => setCreateOpen(true)}>Create User</Button>
+            <Button variant="outline" onClick={() => setInviteOpen(true)}>Пригласить пользователя</Button>
+            <Button onClick={() => setCreateOpen(true)}>Создать пользователя</Button>
           </div>
         </div>
         <table className="w-full">
@@ -330,8 +347,8 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Invite User</DialogTitle>
-            <DialogDescription>Отправка приглашения с ролями и реферальным кодом.</DialogDescription>
+            <DialogTitle>Пригласить пользователя</DialogTitle>
+            <DialogDescription>Выберите роли и отправьте инвайт. Реферальный код применяется автоматически: NOVA-2026.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-2">
@@ -339,17 +356,24 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
               <Input id="inviteEmail" type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="inviteRoles">Role slugs (через запятую)</Label>
-              <Input id="inviteRoles" value={inviteRoleSlugs} onChange={(event) => setInviteRoleSlugs(event.target.value)} placeholder="streamer,mentor" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="inviteRef">Referral code</Label>
-              <Input id="inviteRef" value={inviteReferralCode} onChange={(event) => setInviteReferralCode(event.target.value.toUpperCase())} />
+              <Label>Роли</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-md border border-border p-3">
+                {inviteRoleOptions.map((option) => (
+                  <label key={option.slug} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={inviteRoleSlugs.includes(option.slug)}
+                      onChange={() => toggleInviteRole(option.slug)}
+                    />
+                    <span>{option.label}</span>
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setInviteOpen(false)} disabled={inviteLoading}>Отмена</Button>
-            <Button onClick={() => void handleInvite()} disabled={inviteLoading || !inviteEmail.trim()}>Отправить invite</Button>
+            <Button onClick={() => void handleInvite()} disabled={inviteLoading || !inviteEmail.trim()}>Отправить приглашение</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -357,8 +381,8 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create User</DialogTitle>
-            <DialogDescription>Создание пользователя с паролем, доступ выдаётся после onboarding.</DialogDescription>
+            <DialogTitle>Создать пользователя</DialogTitle>
+            <DialogDescription>Создание пользователя с паролем. Реферальный код применяется автоматически: NOVA-2026.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-2">
@@ -376,10 +400,6 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
             <div className="space-y-2">
               <Label htmlFor="createRoles">Role slugs (через запятую)</Label>
               <Input id="createRoles" value={createRoleSlugs} onChange={(event) => setCreateRoleSlugs(event.target.value)} placeholder="streamer" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="createRef">Referral code</Label>
-              <Input id="createRef" value={createReferralCode} onChange={(event) => setCreateReferralCode(event.target.value.toUpperCase())} />
             </div>
           </div>
           <DialogFooter>
