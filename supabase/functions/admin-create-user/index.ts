@@ -59,7 +59,10 @@ Deno.serve(async (request) => {
   });
 
   if (createError || !created.user) {
-    return json(500, { error: createError?.message ?? 'Failed to create user' });
+    const isDuplicate = createError?.message?.toLowerCase().includes('already') ||
+                        createError?.message?.toLowerCase().includes('duplicate') ||
+                        createError?.status === 422;
+    return json(isDuplicate ? 409 : 500, { error: createError?.message ?? 'Failed to create user' });
   }
 
   const createdUserId = created.user.id;
