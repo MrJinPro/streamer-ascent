@@ -228,8 +228,23 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
     setInviteRoleSlugs(['streamer']);
     setInviteOpen(false);
 
+    if (data.inviteMailError) {
+      if (data.inviteLink && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        void navigator.clipboard.writeText(data.inviteLink);
+      }
+
+      toast({
+        title: 'Письмо не отправлено',
+        description: data.inviteLink
+          ? `Причина: ${data.inviteMailError}. Ссылка скопирована в буфер обмена.`
+          : `Причина: ${data.inviteMailError}`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     toast({
-      title: 'Invite отправлен',
+      title: 'Инвайт отправлен',
       description: data.inviteLink ? `Ссылка: ${data.inviteLink}` : 'Проверьте email приглашенного пользователя',
     });
   };
