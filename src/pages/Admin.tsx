@@ -176,7 +176,7 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
   const [createEmail, setCreateEmail] = useState('');
   const [createPassword, setCreatePassword] = useState('');
   const [createDisplayName, setCreateDisplayName] = useState('');
-  const [createRoleSlugs, setCreateRoleSlugs] = useState('streamer');
+  const [createRoleSlugs, setCreateRoleSlugs] = useState<string[]>(['streamer']);
 
   const filtered = searchQuery
     ? users.filter(u => u.name.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -192,12 +192,15 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
     });
   };
 
-  const parseRoleSlugs = (value: string) =>
-    value
-      .split(',')
-      .map((slug) => slug.trim().toLowerCase())
-      .filter(Boolean)
-      .filter((slug, idx, arr) => arr.indexOf(slug) === idx);
+  const toggleCreateRole = (slug: string) => {
+    setCreateRoleSlugs((prev) => {
+      if (prev.includes(slug)) {
+        if (prev.length === 1) return prev;
+        return prev.filter((item) => item !== slug);
+      }
+      return [...prev, slug];
+    });
+  };
 
   const handleInvite = async () => {
     setInviteLoading(true);
@@ -240,7 +243,7 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
         password: createPassword,
         displayName: createDisplayName,
         referralCode: DEFAULT_ADMIN_REFERRAL_CODE,
-        roleSlugs: parseRoleSlugs(createRoleSlugs),
+        roleSlugs: createRoleSlugs,
       },
     });
 
@@ -258,7 +261,7 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
     setCreateEmail('');
     setCreatePassword('');
     setCreateDisplayName('');
-    setCreateRoleSlugs('streamer');
+    setCreateRoleSlugs(['streamer']);
     setCreateOpen(false);
 
     toast({
@@ -394,12 +397,23 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
               <Input id="createPassword" type="password" value={createPassword} onChange={(event) => setCreatePassword(event.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="createName">Display name</Label>
+              <Label htmlFor="createName">Отображаемое имя</Label>
               <Input id="createName" value={createDisplayName} onChange={(event) => setCreateDisplayName(event.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="createRoles">Role slugs (через запятую)</Label>
-              <Input id="createRoles" value={createRoleSlugs} onChange={(event) => setCreateRoleSlugs(event.target.value)} placeholder="streamer" />
+              <Label>Роли</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-md border border-border p-3">
+                {inviteRoleOptions.map((option) => (
+                  <label key={option.slug} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={createRoleSlugs.includes(option.slug)}
+                      onChange={() => toggleCreateRole(option.slug)}
+                    />
+                    <span>{option.label}</span>
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
           <DialogFooter>
