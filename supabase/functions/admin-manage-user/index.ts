@@ -7,7 +7,7 @@ import {
   userCanManageUsers,
 } from '../_shared/auth.ts';
 
-type ActionType = 'get_details' | 'update_profile' | 'reset_password' | 'delete_user';
+type ActionType = 'get_details' | 'update_profile' | 'reset_password' | 'delete_user' | 'send_recovery_invite';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
 
@@ -43,6 +43,7 @@ Deno.serve(async (request) => {
     update_profile: ['users.update'],
     reset_password: ['users.update'],
     delete_user: ['users.delete'],
+    send_recovery_invite: ['users.create', 'users.update'],
   };
 
   if (!(action in requiredPermissionsByAction)) {
@@ -73,26 +74,28 @@ Deno.serve(async (request) => {
         .eq('user_id', userId),
     ]);
 
-    if (authUserError || !authUserData.user) {
+    const authUser = authUserData.user;
+    const authMissing = Boolean(authUserError || !authUser);
+
+    if (authMissing && !profileData) {
       return json(404, { error: authUserError?.message ?? 'User not found' });
     }
-
-    const authUser = authUserData.user;
 
     return json(200, {
       ok: true,
       user: {
-        id: authUser.id,
-        email: authUser.email ?? null,
-        phone: authUser.phone ?? null,
-        createdAt: authUser.created_at ?? null,
-        updatedAt: authUser.updated_at ?? null,
-        lastSignInAt: authUser.last_sign_in_at ?? null,
-        emailConfirmedAt: authUser.email_confirmed_at ?? null,
-        phoneConfirmedAt: authUser.phone_confirmed_at ?? null,
-        bannedUntil: authUser.banned_until ?? null,
-        appMetadata: authUser.app_metadata ?? {},
-        userMetadata: authUser.user_metadata ?? {},
+        id: authUser?.id ?? userId,
+        email: authUser?.email ?? profileData?.email ?? null,
+        phone: authUser?.phone ?? null,
+        createdAt: authUser?.created_at ?? profileData?.created_at ?? null,
+        updatedAt: authUser?.updated_at ?? profileData?.updated_at ?? null,
+        lastSignInAt: authUser?.last_sign_in_at ?? null,
+        emailConfirmedAt: authUser?.email_confirmed_at ?? null,
+        phoneConfirmedAt: authUser?.phone_confirmed_at ?? null,
+        bannedUntil: authUser?.banned_until ?? null,
+        appMetadata: authUser?.app_metadata ?? {},
+        userMetadata: authUser?.user_metadata ?? {},
+        authMissing,
       },
       profile: profileData ?? null,
       roles: roleRows ?? [],
@@ -164,6 +167,11 @@ Deno.serve(async (request) => {
   if (action === 'reset_password') {
     const newPassword = String(payload?.newPassword ?? '');
 
+    const { data: authUserData, error: authLookupError } = await adminClient.auth.admin.getUserById(userId);
+    if (authLookupError || !authUserData.user) {
+      return json(404, { error: 'auth_user_missing' });
+    }
+
     if (newPassword.length < 8) {
       return json(400, { error: 'Password must be at least 8 characters long' });
     }
@@ -187,6 +195,49 @@ Deno.serve(async (request) => {
     });
 
     return json(200, { ok: true });
+  }
+
+  if (action === 'send_recovery_invite') {
+    const [{ data: authUserData }, { data: profileData }] = await Promise.all([
+      adminClient.auth.admin.getUserById(userId),
+      adminClient
+        .from('profiles')
+        .select('email,display_name')
+        .eq('user_id', userId)
+        .maybeSingle(),
+    ]);
+
+    const email = authUserData.user?.email?.toLowerCase() ?? profileData?.email?.toLowerCase() ?? null;
+    if (!email || !EMAIL_REGEX.test(email)) {
+      return json(400, { error: 'valid_email_required' });
+    }
+
+    const appUrl = Deno.env.get('APP_URL') ?? Deno.env.get('SITE_URL') ?? 'http://localhost:5173';
+    const redirectTo = new URL('/auth', appUrl).toString();
+
+    const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
+      redirectTo,
+      data: {
+        source: 'admin-recovery-invite',
+        target_user_id: userId,
+      },
+    });
+
+    if (inviteError) {
+      return json(500, { error: inviteError.message });
+    }
+
+    await adminClient.from('audit_log').insert({
+      actor_user_id: requester.id,
+      action: 'admin.user.send_recovery_invite',
+      entity: 'auth.users',
+      entity_id: userId,
+      after_data: {
+        email,
+      },
+    });
+
+    return json(200, { ok: true, email });
   }
 
   if (action === 'delete_user') {

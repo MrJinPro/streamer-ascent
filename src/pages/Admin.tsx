@@ -188,6 +188,7 @@ type AdminUserDetails = {
     emailConfirmedAt: string | null;
     phoneConfirmedAt: string | null;
     bannedUntil: string | null;
+    authMissing?: boolean;
   };
   profile: {
     display_name: string | null;
@@ -242,6 +243,7 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [detailsSaving, setDetailsSaving] = useState(false);
   const [passwordUpdating, setPasswordUpdating] = useState(false);
+  const [recoveryInviting, setRecoveryInviting] = useState(false);
   const [deletingUser, setDeletingUser] = useState(false);
   const [details, setDetails] = useState<AdminUserDetails | null>(null);
   const [profileForm, setProfileForm] = useState({
@@ -406,10 +408,13 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
     if (error || !data?.ok) {
       const errorText = String(error?.message ?? data?.error ?? '').toLowerCase();
       const isMissingFunction = errorText.includes('404') || errorText.includes('not found') || errorText.includes('failed to fetch');
+      const isMissingAuth = errorText.includes('auth_user_missing');
       toast({
         title: 'Не удалось сменить пароль',
         description: isMissingFunction
           ? 'Edge function admin-manage-user не задеплоена. Выполните деплой Supabase Functions.'
+          : isMissingAuth
+            ? 'У пользователя нет записи в auth.users. Отправьте приглашение восстановления.'
           : error?.message ?? data?.error ?? 'Неизвестная ошибка',
         variant: 'destructive',
       });
@@ -418,6 +423,33 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
 
     setNewPassword('');
     toast({ title: 'Пароль обновлён' });
+  };
+
+  const sendRecoveryInvite = async () => {
+    if (!detailsUser) return;
+
+    setRecoveryInviting(true);
+    const { data, error } = await supabasePublic.functions.invoke('admin-manage-user', {
+      body: {
+        action: 'send_recovery_invite',
+        userId: detailsUser.id,
+      },
+    });
+    setRecoveryInviting(false);
+
+    if (error || !data?.ok) {
+      toast({
+        title: 'Не удалось отправить приглашение',
+        description: error?.message ?? data?.error ?? 'Неизвестная ошибка',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    toast({
+      title: 'Приглашение отправлено',
+      description: `Email: ${data.email}`,
+    });
   };
 
   const deleteUser = async () => {
@@ -714,6 +746,11 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
                 <p>Создан: {details?.user.createdAt ? new Date(details.user.createdAt).toLocaleString('ru-RU') : '—'}</p>
                 <p>Последний вход: {details?.user.lastSignInAt ? new Date(details.user.lastSignInAt).toLocaleString('ru-RU') : '—'}</p>
                 <p>Email подтвержден: {details?.user.emailConfirmedAt ? 'Да' : 'Нет'}</p>
+                {details?.user.authMissing && (
+                  <p className="text-destructive font-medium">
+                    Внимание: пользователь отсутствует в auth.users. Сброс пароля недоступен, используйте приглашение восстановления.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2 rounded-md border border-border p-3">
@@ -729,6 +766,11 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
                     <Lock className="w-4 h-4 mr-1" />
                     Сменить
                   </Button>
+                  {details?.user.authMissing && (
+                    <Button variant="outline" disabled={recoveryInviting} onClick={() => void sendRecoveryInvite()}>
+                      Восстановить доступ
+                    </Button>
+                  )}
                 </div>
               </div>
 
