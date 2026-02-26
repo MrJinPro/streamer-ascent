@@ -24,6 +24,11 @@ import Ranking from "@/pages/Ranking";
 import Profile from "@/pages/Profile";
 import Auth from "@/pages/Auth";
 import Onboarding from "@/pages/Onboarding";
+import ProductMobile from "@/pages/ProductMobile";
+import ProductDesktop from "@/pages/ProductDesktop";
+import ProductAcademy from "@/pages/ProductAcademy";
+import ProductTools from "@/pages/ProductTools";
+import ProductAgency from "@/pages/ProductAgency";
 
 const queryClient = new QueryClient();
 
@@ -76,6 +81,11 @@ const AppRoutes = () => {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Landing />} />
+        <Route path="/products/mobile" element={<ProductMobile />} />
+        <Route path="/products/desktop" element={<ProductDesktop />} />
+        <Route path="/products/academy" element={<ProductAcademy />} />
+        <Route path="/products/tools" element={<ProductTools />} />
+        <Route path="/products/agency" element={<ProductAgency />} />
         <Route path="/documents/agency-offer" element={<AgencyOffer />} />
         <Route path="/documents/terms" element={<TermsOfUse />} />
         <Route path="/documents/privacy" element={<PrivacyPolicy />} />
