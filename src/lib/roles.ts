@@ -30,5 +30,5 @@ export const getRoleLabel = (role?: string | null): string => {
 };
 
 export const canAccessAdminSettings = (role?: string | null, email?: string | null): boolean => {
-  return role === 'owner' || role === 'admin' || isSuperAdminEmail(email);
+  return role === 'owner' || role === 'admin' || role === 'support' || isSuperAdminEmail(email);
 };

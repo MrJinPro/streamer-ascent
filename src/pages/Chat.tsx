@@ -81,6 +81,7 @@ const Chat: React.FC = () => {
   const [groupTitle, setGroupTitle] = useState('');
   const [groupMemberIds, setGroupMemberIds] = useState<string[]>([]);
   const [excludedForMessage, setExcludedForMessage] = useState<string[]>([]);
+  const [profileUserIds, setProfileUserIds] = useState<Set<string>>(new Set());
 
   const currentRole = role ?? 'streamer';
 
@@ -120,6 +121,8 @@ const Chat: React.FC = () => {
   const potentialContacts = useMemo(() => {
     if (!user?.id) return [];
 
+    const isProfileUser = (id: string) => profileUserIds.has(id);
+
     if (currentRole === 'curator') {
       const streamerIds = new Set<string>();
       for (const thread of threads) {
@@ -130,15 +133,35 @@ const Chat: React.FC = () => {
           }
         });
       }
-      return allUsers.filter((u) => streamerIds.has(u.id));
+      return allUsers.filter((u) => streamerIds.has(u.id) && isProfileUser(u.id));
     }
 
     if (currentRole === 'streamer') {
-      return allUsers.filter((u) => u.id !== user.id && (u.role === 'streamer' || u.role === 'curator'));
+      return allUsers.filter((u) => u.id !== user.id && isProfileUser(u.id) && (u.role === 'streamer' || u.role === 'curator'));
     }
 
-    return allUsers.filter((u) => u.id !== user.id);
-  }, [allUsers, currentRole, membersByThread, roleMap, threads, user?.id]);
+    return allUsers.filter((u) => u.id !== user.id && isProfileUser(u.id));
+  }, [allUsers, currentRole, membersByThread, profileUserIds, roleMap, threads, user?.id]);
+
+  useEffect(() => {
+    const loadProfileUserIds = async () => {
+      const candidateIds = Array.from(new Set(allUsers.map((item) => item.id).filter(Boolean)));
+      if (candidateIds.length === 0) {
+        setProfileUserIds(new Set());
+        return;
+      }
+
+      const { data } = await supabasePublic
+        .from('profiles')
+        .select('user_id')
+        .in('user_id', candidateIds);
+
+      const ids = new Set<string>((data ?? []).map((row: any) => row.user_id));
+      setProfileUserIds(ids);
+    };
+
+    void loadProfileUserIds();
+  }, [allUsers]);
 
   const getDisplayName = (userId: string) => {
     const profile = profilesMap[userId];
@@ -325,7 +348,12 @@ const Chat: React.FC = () => {
     });
 
     if (error) {
-      toast({ title: 'Не удалось открыть диалог', description: error.message, variant: 'destructive' });
+      const errorText = String(error.message ?? '').toLowerCase();
+      const description = errorText.includes('target_user_not_found') || errorText.includes('target_profile_not_found')
+        ? 'Пользователь недоступен для чата: профиль не найден.'
+        : error.message;
+
+      toast({ title: 'Не удалось открыть диалог', description, variant: 'destructive' });
       return;
     }
 

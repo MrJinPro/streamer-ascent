@@ -1,0 +1,234 @@
+import {
+  adminClient,
+  corsHeaders,
+  enforceAdminRateLimit,
+  json,
+  resolveRequester,
+  userCanManageUsers,
+} from '../_shared/auth.ts';
+
+type ActionType = 'get_details' | 'update_profile' | 'reset_password' | 'delete_user';
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
+
+const normalizeText = (value: unknown, maxLength = 255) => {
+  const text = String(value ?? '').trim();
+  if (!text) return null;
+  return text.slice(0, maxLength);
+};
+
+Deno.serve(async (request) => {
+  if (request.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  if (request.method !== 'POST') {
+    return json(405, { error: 'Method not allowed' });
+  }
+
+  const requesterResult = await resolveRequester(request);
+  if (requesterResult.error) return requesterResult.error;
+  const requester = requesterResult.user;
+
+  const payload = await request.json().catch(() => null);
+  const action = String(payload?.action ?? '').trim() as ActionType;
+  const userId = String(payload?.userId ?? '').trim();
+
+  if (!action || !userId) {
+    return json(400, { error: 'Invalid payload' });
+  }
+
+  const requiredPermissionsByAction: Record<ActionType, string[]> = {
+    get_details: ['users.read'],
+    update_profile: ['users.update'],
+    reset_password: ['users.update'],
+    delete_user: ['users.delete'],
+  };
+
+  const authz = await userCanManageUsers(requester.id, requiredPermissionsByAction[action]);
+  if (!authz.allowed) {
+    return json(403, { error: 'Insufficient permissions' });
+  }
+
+  const rateLimit = await enforceAdminRateLimit(requester.id, `admin.user.${action}`, 40);
+  if (!rateLimit.ok) {
+    return json(429, { error: rateLimit.error });
+  }
+
+  if (action === 'get_details') {
+    const [{ data: authUserData, error: authUserError }, { data: profileData }, { data: roleRows }] = await Promise.all([
+      adminClient.auth.admin.getUserById(userId),
+      adminClient
+        .from('profiles')
+        .select('user_id,email,display_name,username,country,language,telegram_username,created_at,updated_at,is_online,onboarding_completed,onboarding_completed_at,onboarding_referral_code,onboarding_source')
+        .eq('user_id', userId)
+        .maybeSingle(),
+      adminClient
+        .from('user_roles')
+        .select('role,role_id,roles:role_id(id,name,slug,visibility,tier)')
+        .eq('user_id', userId),
+    ]);
+
+    if (authUserError || !authUserData.user) {
+      return json(404, { error: authUserError?.message ?? 'User not found' });
+    }
+
+    const authUser = authUserData.user;
+
+    return json(200, {
+      ok: true,
+      user: {
+        id: authUser.id,
+        email: authUser.email ?? null,
+        phone: authUser.phone ?? null,
+        createdAt: authUser.created_at ?? null,
+        updatedAt: authUser.updated_at ?? null,
+        lastSignInAt: authUser.last_sign_in_at ?? null,
+        emailConfirmedAt: authUser.email_confirmed_at ?? null,
+        phoneConfirmedAt: authUser.phone_confirmed_at ?? null,
+        bannedUntil: authUser.banned_until ?? null,
+        appMetadata: authUser.app_metadata ?? {},
+        userMetadata: authUser.user_metadata ?? {},
+      },
+      profile: profileData ?? null,
+      roles: roleRows ?? [],
+    });
+  }
+
+  if (action === 'update_profile') {
+    const displayName = normalizeText(payload?.displayName, 120);
+    const username = normalizeText(payload?.username, 64)?.toLowerCase() ?? null;
+    const country = normalizeText(payload?.country, 120);
+    const language = normalizeText(payload?.language, 16);
+    const telegramUsername = normalizeText(payload?.telegramUsername, 120);
+    const email = normalizeText(payload?.email, 255)?.toLowerCase() ?? null;
+
+    if (email && !EMAIL_REGEX.test(email)) {
+      return json(400, { error: 'Invalid email format' });
+    }
+
+    const profilePayload = {
+      user_id: userId,
+      email,
+      display_name: displayName,
+      username,
+      country,
+      language,
+      telegram_username: telegramUsername,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error: profileError } = await adminClient
+      .from('profiles')
+      .upsert(profilePayload, { onConflict: 'user_id' });
+
+    if (profileError) {
+      return json(500, { error: profileError.message });
+    }
+
+    if (email) {
+      const { error: authUpdateError } = await adminClient.auth.admin.updateUserById(userId, {
+        email,
+        user_metadata: {
+          display_name: displayName,
+        },
+      });
+
+      if (authUpdateError) {
+        return json(500, { error: authUpdateError.message });
+      }
+    }
+
+    await adminClient.from('audit_log').insert({
+      actor_user_id: requester.id,
+      action: 'admin.user.update_profile',
+      entity: 'profiles',
+      entity_id: userId,
+      after_data: {
+        displayName,
+        username,
+        country,
+        language,
+        telegramUsername,
+        email,
+      },
+    });
+
+    return json(200, { ok: true });
+  }
+
+  if (action === 'reset_password') {
+    const newPassword = String(payload?.newPassword ?? '');
+
+    if (newPassword.length < 8) {
+      return json(400, { error: 'Password must be at least 8 characters long' });
+    }
+
+    const { error: resetError } = await adminClient.auth.admin.updateUserById(userId, {
+      password: newPassword,
+    });
+
+    if (resetError) {
+      return json(500, { error: resetError.message });
+    }
+
+    await adminClient.from('audit_log').insert({
+      actor_user_id: requester.id,
+      action: 'admin.user.reset_password',
+      entity: 'auth.users',
+      entity_id: userId,
+      after_data: {
+        changed: true,
+      },
+    });
+
+    return json(200, { ok: true });
+  }
+
+  if (action === 'delete_user') {
+    const hardDelete = Boolean(payload?.hardDelete);
+
+    if (requester.id === userId) {
+      return json(400, { error: 'You cannot delete yourself' });
+    }
+
+    const { data: authUserData } = await adminClient.auth.admin.getUserById(userId);
+    if (!authUserData.user) {
+      return json(404, { error: 'User not found' });
+    }
+
+    const [
+      removeRoles,
+      removeProfile,
+      removeInvites,
+    ] = await Promise.all([
+      adminClient.from('user_roles').delete().eq('user_id', userId),
+      adminClient.from('profiles').delete().eq('user_id', userId),
+      adminClient.from('admin_invites').delete().eq('email', authUserData.user.email ?? ''),
+    ]);
+
+    if (removeRoles.error || removeProfile.error || removeInvites.error) {
+      return json(500, { error: removeRoles.error?.message ?? removeProfile.error?.message ?? removeInvites.error?.message ?? 'Failed to delete linked rows' });
+    }
+
+    const { error: deleteError } = await adminClient.auth.admin.deleteUser(userId, hardDelete);
+
+    if (deleteError) {
+      return json(500, { error: deleteError.message });
+    }
+
+    await adminClient.from('audit_log').insert({
+      actor_user_id: requester.id,
+      action: 'admin.user.delete',
+      entity: 'auth.users',
+      entity_id: userId,
+      after_data: {
+        hardDelete,
+      },
+    });
+
+    return json(200, { ok: true });
+  }
+
+  return json(400, { error: 'Unknown action' });
+});

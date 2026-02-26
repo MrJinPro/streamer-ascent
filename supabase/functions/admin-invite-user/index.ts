@@ -24,7 +24,7 @@ Deno.serve(async (request) => {
   if (requesterResult.error) return requesterResult.error;
   const requester = requesterResult.user;
 
-  const authz = await userCanManageUsers(requester.id);
+  const authz = await userCanManageUsers(requester.id, ['users.create']);
   if (!authz.allowed) {
     return json(403, { error: 'Insufficient permissions' });
   }

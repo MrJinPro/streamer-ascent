@@ -75,6 +75,43 @@ const rolePriority: Record<string, number> = {
   streamer: 10,
 };
 
+const mapRoleToLegacy = (role: string | null | undefined): string => {
+  const normalized = String(role ?? '').trim().toLowerCase();
+
+  switch (normalized) {
+    case 'system_owner':
+      return 'owner';
+    case 'owner':
+      return 'owner';
+    case 'architect':
+    case 'admin':
+      return 'admin';
+    case 'engineer':
+    case 'developer':
+      return 'developer';
+    case 'head_mentor':
+    case 'senior_curator':
+      return 'senior_curator';
+    case 'mentor':
+    case 'curator':
+      return 'curator';
+    case 'agency_manager':
+    case 'manager':
+      return 'manager';
+    case 'moderator':
+      return 'moderator';
+    case 'support':
+      return 'support';
+    case 'investor_viewer':
+    case 'investor_pro':
+    case 'board':
+    case 'investor':
+      return 'investor';
+    default:
+      return 'streamer';
+  }
+};
+
 const defaultStats = {
   diamondsTotal: 0,
   diamonds30Days: 0,
@@ -251,7 +288,7 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .from('profiles')
         .select('user_id,display_name,username,avatar_url,created_at,is_online')
         .order('created_at', { ascending: true }),
-      supabasePublic.from('user_roles').select('user_id,role'),
+      supabasePublic.from('user_roles').select('user_id,role,role_id,roles:role_id(slug)'),
       supabasePublic
         .from('users' as any)
         .select('id,supabase_uid,username,tiktok_username,email,role,created_at,last_ws_at')
@@ -277,7 +314,8 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     const roleByUserId = (roleRows ?? []).reduce<Record<string, string>>((acc, row: any) => {
       const currentRole = acc[row.user_id];
-      const nextRole = row.role as string;
+      const roleSlug = row?.roles?.slug as string | undefined;
+      const nextRole = mapRoleToLegacy(roleSlug ?? row.role);
 
       if (!currentRole || (rolePriority[nextRole] ?? 99) < (rolePriority[currentRole] ?? 99)) {
         acc[row.user_id] = nextRole;

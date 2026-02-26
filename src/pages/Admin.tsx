@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAppData } from '@/contexts/AppDataContext';
 import type { User, StreamEvent } from '@/types/app-data';
-import { Users, Activity, Settings, Shield, Search, MoreVertical, Trophy, ListTodo, GraduationCap, BookOpen, Key, ScrollText, RefreshCw, UserPlus } from 'lucide-react';
+import { Users, Activity, Settings, Shield, Search, Trophy, ListTodo, GraduationCap, BookOpen, Key, ScrollText, RefreshCw, UserPlus, Eye, Lock, Trash2, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AdminAchievements from '@/components/admin/AdminAchievements';
 import AdminTasks from '@/components/admin/AdminTasks';
@@ -42,7 +42,7 @@ const Admin: React.FC = () => {
     return (
       <div className="rounded-xl glass border border-border p-6">
         <h3 className="font-semibold mb-2">Доступ ограничен</h3>
-        <p className="text-muted-foreground text-sm">Этот раздел доступен только владельцу/администратору агентства.</p>
+        <p className="text-muted-foreground text-sm">Этот раздел доступен только владельцу, администратору или службе поддержки.</p>
       </div>
     );
   }
@@ -165,10 +165,40 @@ const inviteRoleOptions: Array<{ slug: string; label: string }> = [
 type AdminDirectoryUser = {
   id: string;
   email: string | null;
+  phone: string | null;
   name: string;
   avatar_url: string | null;
   created_at: string;
+  updated_at: string | null;
+  last_sign_in_at: string | null;
+  email_confirmed_at: string | null;
+  banned_until: string | null;
   is_online: boolean;
+  source?: string[];
+};
+
+type AdminUserDetails = {
+  user: {
+    id: string;
+    email: string | null;
+    phone: string | null;
+    createdAt: string | null;
+    updatedAt: string | null;
+    lastSignInAt: string | null;
+    emailConfirmedAt: string | null;
+    phoneConfirmedAt: string | null;
+    bannedUntil: string | null;
+  };
+  profile: {
+    display_name: string | null;
+    username: string | null;
+    country: string | null;
+    language: string | null;
+    telegram_username: string | null;
+    onboarding_completed: boolean | null;
+    onboarding_source: string | null;
+  } | null;
+  roles: Array<{ role: string | null; roles?: { slug?: string; name?: string } }>;
 };
 
 const toUserFromDirectory = (row: AdminDirectoryUser): User => ({
@@ -204,8 +234,26 @@ const toUserFromDirectory = (row: AdminDirectoryUser): User => ({
 
 const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [directoryRows, setDirectoryRows] = useState<AdminDirectoryUser[]>([]);
   const [directoryUsers, setDirectoryUsers] = useState<User[]>([]);
   const [roleAssignUser, setRoleAssignUser] = useState<{ id: string; name: string } | null>(null);
+  const [detailsUser, setDetailsUser] = useState<User | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsSaving, setDetailsSaving] = useState(false);
+  const [passwordUpdating, setPasswordUpdating] = useState(false);
+  const [deletingUser, setDeletingUser] = useState(false);
+  const [details, setDetails] = useState<AdminUserDetails | null>(null);
+  const [profileForm, setProfileForm] = useState({
+    displayName: '',
+    username: '',
+    country: '',
+    language: '',
+    telegramUsername: '',
+    email: '',
+  });
+  const [newPassword, setNewPassword] = useState('');
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [inviteOpen, setInviteOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [inviteLoading, setInviteLoading] = useState(false);
@@ -219,22 +267,28 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
   const [createDisplayName, setCreateDisplayName] = useState('');
   const [createRoleSlugs, setCreateRoleSlugs] = useState<string[]>(['streamer']);
 
-  useEffect(() => {
-    const loadDirectoryUsers = async () => {
-      const { data, error } = await supabasePublic.functions.invoke('admin-list-users', {
-        body: {},
-      });
+  const loadDirectoryUsers = useCallback(async () => {
+    const { data, error } = await supabasePublic.functions.invoke('admin-list-users', {
+      body: {},
+    });
 
-      if (error || !data?.ok || !Array.isArray(data?.users)) {
-        return;
-      }
+    if (error || !data?.ok || !Array.isArray(data?.users)) {
+      return;
+    }
 
-      const mapped = (data.users as AdminDirectoryUser[]).map(toUserFromDirectory);
-      setDirectoryUsers(mapped);
-    };
-
-    void loadDirectoryUsers();
+    const rows = data.users as AdminDirectoryUser[];
+    setDirectoryRows(rows);
+    setDirectoryUsers(rows.map(toUserFromDirectory));
   }, []);
+
+  useEffect(() => {
+    void loadDirectoryUsers();
+  }, [loadDirectoryUsers]);
+
+  const directoryById = useMemo(
+    () => new Map(directoryRows.map((row) => [row.id, row])),
+    [directoryRows],
+  );
 
   const mergedUsers = useMemo(() => {
     const map = new Map<string, User>();
@@ -253,9 +307,143 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
   const filtered = searchQuery
     ? mergedUsers.filter((u) => {
         const needle = searchQuery.toLowerCase();
-        return u.name.toLowerCase().includes(needle) || u.id.toLowerCase().includes(needle);
+        const email = directoryById.get(u.id)?.email?.toLowerCase() ?? '';
+        return u.name.toLowerCase().includes(needle) || u.id.toLowerCase().includes(needle) || email.includes(needle);
       })
     : mergedUsers;
+
+  const openDetails = async (selectedUser: User) => {
+    setDetailsUser(selectedUser);
+    setDetailsOpen(true);
+    setDetailsLoading(true);
+
+    const { data, error } = await supabasePublic.functions.invoke('admin-manage-user', {
+      body: {
+        action: 'get_details',
+        userId: selectedUser.id,
+      },
+    });
+
+    setDetailsLoading(false);
+
+    if (error || !data?.ok) {
+      toast({
+        title: 'Не удалось загрузить данные пользователя',
+        description: error?.message ?? data?.error ?? 'Неизвестная ошибка',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const payload = data as AdminUserDetails & { ok: boolean };
+    setDetails(payload);
+    setProfileForm({
+      displayName: payload.profile?.display_name ?? '',
+      username: payload.profile?.username ?? '',
+      country: payload.profile?.country ?? '',
+      language: payload.profile?.language ?? '',
+      telegramUsername: payload.profile?.telegram_username ?? '',
+      email: payload.user?.email ?? '',
+    });
+  };
+
+  const saveProfile = async () => {
+    if (!detailsUser) return;
+
+    setDetailsSaving(true);
+    const { data, error } = await supabasePublic.functions.invoke('admin-manage-user', {
+      body: {
+        action: 'update_profile',
+        userId: detailsUser.id,
+        displayName: profileForm.displayName,
+        username: profileForm.username,
+        country: profileForm.country,
+        language: profileForm.language,
+        telegramUsername: profileForm.telegramUsername,
+        email: profileForm.email,
+      },
+    });
+    setDetailsSaving(false);
+
+    if (error || !data?.ok) {
+      toast({
+        title: 'Не удалось сохранить профиль',
+        description: error?.message ?? data?.error ?? 'Неизвестная ошибка',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    toast({ title: 'Профиль обновлён' });
+    await Promise.all([loadDirectoryUsers(), openDetails(detailsUser)]);
+  };
+
+  const resetPassword = async () => {
+    if (!detailsUser) return;
+    if (newPassword.length < 8) {
+      toast({ title: 'Пароль слишком короткий', description: 'Минимум 8 символов', variant: 'destructive' });
+      return;
+    }
+
+    setPasswordUpdating(true);
+    const { data, error } = await supabasePublic.functions.invoke('admin-manage-user', {
+      body: {
+        action: 'reset_password',
+        userId: detailsUser.id,
+        newPassword,
+      },
+    });
+    setPasswordUpdating(false);
+
+    if (error || !data?.ok) {
+      toast({
+        title: 'Не удалось сменить пароль',
+        description: error?.message ?? data?.error ?? 'Неизвестная ошибка',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setNewPassword('');
+    toast({ title: 'Пароль обновлён' });
+  };
+
+  const deleteUser = async () => {
+    if (!detailsUser) return;
+
+    if (deleteConfirmText !== detailsUser.id) {
+      toast({
+        title: 'Подтверждение не совпадает',
+        description: 'Введите точный User ID для удаления',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setDeletingUser(true);
+    const { data, error } = await supabasePublic.functions.invoke('admin-manage-user', {
+      body: {
+        action: 'delete_user',
+        userId: detailsUser.id,
+      },
+    });
+    setDeletingUser(false);
+
+    if (error || !data?.ok) {
+      toast({
+        title: 'Не удалось удалить пользователя',
+        description: error?.message ?? data?.error ?? 'Неизвестная ошибка',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    toast({ title: 'Пользователь удалён' });
+    setDetailsOpen(false);
+    setDetailsUser(null);
+    setDeleteConfirmText('');
+    await loadDirectoryUsers();
+  };
 
   const toggleInviteRole = (slug: string) => {
     setInviteRoleSlugs((prev) => {
@@ -353,6 +541,7 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
     setCreateDisplayName('');
     setCreateRoleSlugs(['streamer']);
     setCreateOpen(false);
+    await loadDirectoryUsers();
 
     toast({
       title: 'Пользователь создан',
@@ -383,10 +572,10 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
           <thead className="bg-secondary/50">
             <tr>
               <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Пользователь</th>
+              <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Email</th>
               <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Осн. роль</th>
               <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Все роли</th>
-              <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Уровень</th>
-              <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Streak</th>
+              <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Вход</th>
               <th className="text-right px-4 py-3 text-sm font-medium text-muted-foreground">Действия</th>
             </tr>
           </thead>
@@ -405,6 +594,10 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
                   </div>
                 </td>
                 <td className="px-4 py-3">
+                  <div className="text-sm">{directoryById.get(user.id)?.email ?? '—'}</div>
+                  <div className="text-xs text-muted-foreground">{user.id.slice(0, 8)}...</div>
+                </td>
+                <td className="px-4 py-3">
                   <span className={cn("px-2 py-1 text-xs font-medium rounded-full", roleStyles[user.role] ?? 'bg-secondary text-secondary-foreground')}>
                     {getRoleLabel(user.role)}
                   </span>
@@ -412,16 +605,30 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
                 <td className="px-4 py-3">
                   <UserRoleBadges userId={user.id} showInternal />
                 </td>
-                <td className="px-4 py-3"><span className="font-medium">{user.level}</span></td>
-                <td className="px-4 py-3"><span className="flex items-center gap-1">🔥 {user.streakDays}</span></td>
+                <td className="px-4 py-3">
+                  <span className="text-sm">
+                    {directoryById.get(user.id)?.last_sign_in_at
+                      ? new Date(directoryById.get(user.id)!.last_sign_in_at!).toLocaleString('ru-RU')
+                      : 'Нет'}
+                  </span>
+                </td>
                 <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => setRoleAssignUser({ id: user.id, name: user.name })}
-                    className="p-2 rounded-lg hover:bg-secondary transition-colors"
-                    title="Назначить роли"
-                  >
-                    <UserPlus className="w-4 h-4 text-muted-foreground" />
-                  </button>
+                  <div className="flex items-center justify-end gap-1">
+                    <button
+                      onClick={() => void openDetails(user)}
+                      className="p-2 rounded-lg hover:bg-secondary transition-colors"
+                      title="Карточка пользователя"
+                    >
+                      <Eye className="w-4 h-4 text-muted-foreground" />
+                    </button>
+                    <button
+                      onClick={() => setRoleAssignUser({ id: user.id, name: user.name })}
+                      className="p-2 rounded-lg hover:bg-secondary transition-colors"
+                      title="Назначить роли"
+                    >
+                      <UserPlus className="w-4 h-4 text-muted-foreground" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -436,6 +643,93 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
           onClose={() => setRoleAssignUser(null)}
         />
       )}
+
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Карточка пользователя</DialogTitle>
+            <DialogDescription>
+              Полное управление аккаунтом: данные профиля, пароль и удаление.
+            </DialogDescription>
+          </DialogHeader>
+
+          {detailsLoading ? (
+            <div className="text-sm text-muted-foreground py-6">Загрузка...</div>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Email</Label>
+                  <Input value={profileForm.email} onChange={(e) => setProfileForm((prev) => ({ ...prev, email: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Отображаемое имя</Label>
+                  <Input value={profileForm.displayName} onChange={(e) => setProfileForm((prev) => ({ ...prev, displayName: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Username</Label>
+                  <Input value={profileForm.username} onChange={(e) => setProfileForm((prev) => ({ ...prev, username: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Telegram</Label>
+                  <Input value={profileForm.telegramUsername} onChange={(e) => setProfileForm((prev) => ({ ...prev, telegramUsername: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Страна</Label>
+                  <Input value={profileForm.country} onChange={(e) => setProfileForm((prev) => ({ ...prev, country: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Язык</Label>
+                  <Input value={profileForm.language} onChange={(e) => setProfileForm((prev) => ({ ...prev, language: e.target.value }))} />
+                </div>
+              </div>
+
+              <div className="text-xs text-muted-foreground space-y-1 rounded-md border border-border p-3">
+                <p>ID: {details?.user.id ?? detailsUser?.id ?? '—'}</p>
+                <p>Создан: {details?.user.createdAt ? new Date(details.user.createdAt).toLocaleString('ru-RU') : '—'}</p>
+                <p>Последний вход: {details?.user.lastSignInAt ? new Date(details.user.lastSignInAt).toLocaleString('ru-RU') : '—'}</p>
+                <p>Email подтвержден: {details?.user.emailConfirmedAt ? 'Да' : 'Нет'}</p>
+              </div>
+
+              <div className="space-y-2 rounded-md border border-border p-3">
+                <Label>Смена пароля</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="password"
+                    placeholder="Новый пароль (мин. 8 символов)"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                  />
+                  <Button variant="outline" disabled={passwordUpdating} onClick={() => void resetPassword()}>
+                    <Lock className="w-4 h-4 mr-1" />
+                    Сменить
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2 rounded-md border border-destructive/40 p-3">
+                <Label>Удаление пользователя</Label>
+                <p className="text-xs text-muted-foreground">Введите User ID для подтверждения удаления.</p>
+                <div className="flex gap-2">
+                  <Input value={deleteConfirmText} onChange={(e) => setDeleteConfirmText(e.target.value)} placeholder={detailsUser?.id ?? 'User ID'} />
+                  <Button variant="destructive" disabled={deletingUser} onClick={() => void deleteUser()}>
+                    <Trash2 className="w-4 h-4 mr-1" />
+                    Удалить
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDetailsOpen(false)}>Закрыть</Button>
+            <Button disabled={detailsSaving || detailsLoading} onClick={() => void saveProfile()}>
+              <Save className="w-4 h-4 mr-1" />
+              Сохранить профиль
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
         <DialogContent>

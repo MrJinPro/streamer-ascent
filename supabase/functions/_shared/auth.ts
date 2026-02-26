@@ -43,24 +43,36 @@ export const resolveRequester = async (request: Request) => {
   return { user: data.user };
 };
 
-export const userCanManageUsers = async (userId: string) => {
-  const [{ data: permissionData, error: permissionError }, { data: tierData, error: tierError }] = await Promise.all([
-    adminClient.rpc('has_permission', {
-      _user_id: userId,
-      _permission_key: 'users.create',
-    }),
+export const userCanManageUsers = async (userId: string, requiredPermissions: string[] = ['users.create']) => {
+  const [permissionResults, tierResult] = await Promise.all([
+    Promise.all(
+      requiredPermissions.map((permissionKey) =>
+        adminClient.rpc('has_permission', {
+          _user_id: userId,
+          _permission_key: permissionKey,
+        }),
+      ),
+    ),
     adminClient.rpc('get_user_tier', {
       _user_id: userId,
     }),
   ]);
 
-  if (permissionError || tierError) {
-    return { allowed: false, error: permissionError?.message ?? tierError?.message ?? 'Permission check failed' };
+  const tierError = tierResult.error;
+  if (tierError) {
+    return { allowed: false, error: tierError.message ?? 'Tier check failed' };
   }
 
-  const tier = String(tierData ?? 'tier_0');
+  const firstPermissionError = permissionResults.find((result) => result.error)?.error;
+  if (firstPermissionError) {
+    return { allowed: false, error: firstPermissionError.message ?? 'Permission check failed' };
+  }
+
+  const hasRequiredPermission = permissionResults.some((result) => Boolean(result.data));
+  const tier = String(tierResult.data ?? 'tier_0');
   const hasTierAccess = tier === 'tier_3' || tier === 'tier_4';
-  return { allowed: Boolean(permissionData) || hasTierAccess, tier };
+
+  return { allowed: hasRequiredPermission || hasTierAccess, tier };
 };
 
 export const enforceAdminRateLimit = async (userId: string, action: string, perMinute = 8) => {

@@ -10,9 +10,14 @@ import {
 type AdminUserRow = {
   id: string;
   email: string | null;
+  phone: string | null;
   name: string;
   avatar_url: string | null;
   created_at: string;
+  updated_at: string | null;
+  last_sign_in_at: string | null;
+  email_confirmed_at: string | null;
+  banned_until: string | null;
   is_online: boolean;
   source: string[];
 };
@@ -32,7 +37,7 @@ Deno.serve(async (request) => {
   if (requesterResult.error) return requesterResult.error;
   const requester = requesterResult.user;
 
-  const authz = await userCanManageUsers(requester.id);
+  const authz = await userCanManageUsers(requester.id, ['users.read']);
   if (!authz.allowed) {
     return json(403, { error: 'Insufficient permissions' });
   }
@@ -72,12 +77,17 @@ Deno.serve(async (request) => {
     registry.set(item.id, {
       id: item.id,
       email,
+      phone: item.phone ?? null,
       name,
       avatar_url:
         (item.user_metadata?.avatar_url as string | undefined) ??
         (item.user_metadata?.picture as string | undefined) ??
         null,
       created_at: createdAt,
+      updated_at: item.updated_at ?? null,
+      last_sign_in_at: item.last_sign_in_at ?? null,
+      email_confirmed_at: item.email_confirmed_at ?? null,
+      banned_until: item.banned_until ?? null,
       is_online: false,
       source: ['auth.users'],
     });
@@ -89,9 +99,14 @@ Deno.serve(async (request) => {
       registry.set(profile.user_id, {
         id: profile.user_id,
         email: profile.email,
+        phone: null,
         name: profile.display_name ?? profile.username ?? profile.email?.split('@')[0] ?? 'Пользователь',
         avatar_url: profile.avatar_url,
         created_at: profile.created_at,
+        updated_at: null,
+        last_sign_in_at: null,
+        email_confirmed_at: null,
+        banned_until: null,
         is_online: profile.is_online ?? false,
         source: ['public.profiles'],
       });
@@ -115,9 +130,14 @@ Deno.serve(async (request) => {
       registry.set(id, {
         id,
         email: userRow.email,
+        phone: null,
         name: fallbackName,
         avatar_url: null,
         created_at: userRow.created_at ?? new Date().toISOString(),
+        updated_at: null,
+        last_sign_in_at: null,
+        email_confirmed_at: null,
+        banned_until: null,
         is_online: Boolean(userRow.last_ws_at),
         source: ['public.users'],
       });

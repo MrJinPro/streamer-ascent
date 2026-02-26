@@ -11,6 +11,53 @@ type ActionType = 'assign' | 'remove';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
 
+const toLegacyAppRole = (slug: string):
+  | 'owner'
+  | 'admin'
+  | 'developer'
+  | 'senior_curator'
+  | 'manager'
+  | 'curator'
+  | 'moderator'
+  | 'support'
+  | 'investor'
+  | 'streamer' => {
+  const normalized = slug.trim().toLowerCase();
+
+  switch (normalized) {
+    case 'system_owner':
+      return 'owner';
+    case 'owner':
+      return 'owner';
+    case 'architect':
+    case 'admin':
+      return 'admin';
+    case 'engineer':
+    case 'developer':
+      return 'developer';
+    case 'head_mentor':
+    case 'senior_curator':
+      return 'senior_curator';
+    case 'mentor':
+    case 'curator':
+      return 'curator';
+    case 'agency_manager':
+    case 'manager':
+      return 'manager';
+    case 'moderator':
+      return 'moderator';
+    case 'support':
+      return 'support';
+    case 'investor_viewer':
+    case 'investor_pro':
+    case 'board':
+    case 'investor':
+      return 'investor';
+    default:
+      return 'streamer';
+  }
+};
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -24,7 +71,7 @@ Deno.serve(async (request) => {
   if (requesterResult.error) return requesterResult.error;
   const requester = requesterResult.user;
 
-  const authz = await userCanManageUsers(requester.id);
+  const authz = await userCanManageUsers(requester.id, ['users.update', 'users.create', 'users.delete']);
   if (!authz.allowed) {
     return json(403, { error: 'Insufficient permissions' });
   }
@@ -78,6 +125,8 @@ Deno.serve(async (request) => {
     return json(200, { ok: true, action: 'removed' });
   }
 
+  const legacyRole = toLegacyAppRole(roleRow.slug);
+
   const { data: profileRow } = await adminClient
     .from('profiles')
     .select('user_id')
@@ -115,7 +164,7 @@ Deno.serve(async (request) => {
 
   const { data: existingLink, error: existingError } = await adminClient
     .from('user_roles')
-    .select('id')
+    .select('id,role')
     .eq('user_id', userId)
     .eq('role_id', roleId)
     .maybeSingle();
@@ -128,12 +177,21 @@ Deno.serve(async (request) => {
     const { error: assignError } = await adminClient.from('user_roles').insert({
       user_id: userId,
       role_id: roleId,
-      role: 'streamer',
+      role: legacyRole,
       assigned_by: requester.id,
     });
 
     if (assignError) {
       return json(500, { error: assignError.message });
+    }
+  } else if (existingLink.role !== legacyRole) {
+    const { error: updateRoleError } = await adminClient
+      .from('user_roles')
+      .update({ role: legacyRole, assigned_by: requester.id })
+      .eq('id', existingLink.id);
+
+    if (updateRoleError) {
+      return json(500, { error: updateRoleError.message });
     }
   }
 
