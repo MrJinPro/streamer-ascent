@@ -495,39 +495,68 @@ export type Database = {
       }
       agency_join_applications: {
         Row: {
+          age: number
+          approved_at: string | null
+          approved_by: string | null
+          assigned_referral_code: string | null
           created_at: string
           email: string
           full_name: string
+          heard_about: Database["public"]["Enums"]["agency_referral_source_t"]
           id: string
+          inviter_referral_code: string
           motivation: string | null
           status: string
           stream_experience: string | null
-          telegram: string | null
+          telegram: string
           tiktok_username: string
+          username: string
         }
         Insert: {
+          age: number
+          approved_at?: string | null
+          approved_by?: string | null
+          assigned_referral_code?: string | null
           created_at?: string
           email: string
           full_name: string
+          heard_about: Database["public"]["Enums"]["agency_referral_source_t"]
           id?: string
+          inviter_referral_code: string
           motivation?: string | null
           status?: string
           stream_experience?: string | null
-          telegram?: string | null
+          telegram: string
           tiktok_username: string
+          username: string
         }
         Update: {
+          age?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          assigned_referral_code?: string | null
           created_at?: string
           email?: string
           full_name?: string
+          heard_about?: Database["public"]["Enums"]["agency_referral_source_t"]
           id?: string
+          inviter_referral_code?: string
           motivation?: string | null
           status?: string
           stream_experience?: string | null
-          telegram?: string | null
+          telegram?: string
           tiktok_username?: string
+          username?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "agency_join_applications_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       agency_referral_codes: {
         Row: {
@@ -3446,6 +3475,12 @@ export type Database = {
       user_can_manage_users: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
+      agency_referral_source_t:
+        | "friend_streamer"
+        | "curator_manager"
+        | "social_media"
+        | "tiktok"
+        | "other"
       academy_block_type_t:
         | "video"
         | "text"

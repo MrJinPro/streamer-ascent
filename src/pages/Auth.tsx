@@ -76,6 +76,12 @@ const Auth: React.FC = () => {
       return;
     }
 
+    const inviterReferralCode = applicationInviterCode.trim().toUpperCase();
+    if (!inviterReferralCode) {
+      toast({ title: 'Укажите реферальный код', description: 'Введите код пригласившего', variant: 'destructive' });
+      return;
+    }
+
     const age = Number(applicationAge);
     if (Number.isNaN(age) || age < 16 || age > 99) {
       toast({ title: 'Некорректный возраст', description: 'Возраст должен быть от 16 до 99', variant: 'destructive' });
@@ -84,7 +90,7 @@ const Auth: React.FC = () => {
 
     setIsLoading(true);
 
-    const { error } = await supabasePublic.from('agency_join_applications').insert({
+    const primaryPayload = {
       full_name: applicationName,
       username: applicationUsername,
       tiktok_username: applicationTiktok,
@@ -92,14 +98,46 @@ const Auth: React.FC = () => {
       telegram: applicationTelegram,
       age,
       heard_about: applicationSource,
-      inviter_referral_code: applicationInviterCode.trim().toUpperCase(),
-    });
+      inviter_referral_code: inviterReferralCode,
+    };
+
+    let { error } = await supabasePublic.from('agency_join_applications').insert(primaryPayload);
+
+    const schemaMismatch =
+      !!error &&
+      /PGRST20\d|42703|column .* does not exist|schema cache|Could not find the .* column/i.test(
+        `${error.code ?? ''} ${error.message ?? ''} ${error.details ?? ''}`,
+      );
+
+    if (schemaMismatch) {
+      const fallbackPayload = {
+        full_name: applicationName,
+        tiktok_username: applicationTiktok,
+        email: applicationEmail,
+        telegram: applicationTelegram,
+        stream_experience: `username:${applicationUsername};age:${age};source:${applicationSource}`,
+        motivation: `inviter_code:${inviterReferralCode}`,
+      };
+
+      const fallbackResult = await supabasePublic.from('agency_join_applications').insert(fallbackPayload);
+      error = fallbackResult.error;
+    }
 
     setIsLoading(false);
 
     if (error) {
+      console.error('Agency application submit error', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+      });
       trackEvent('agency_application_failed', { reason: error.message });
-      toast({ title: 'Ошибка отправки заявки', description: error.message, variant: 'destructive' });
+      toast({
+        title: 'Ошибка отправки заявки',
+        description: error.message || 'Не удалось отправить заявку. Попробуйте снова через минуту.',
+        variant: 'destructive',
+      });
       return;
     }
 
