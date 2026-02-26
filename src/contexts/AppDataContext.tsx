@@ -150,6 +150,54 @@ const createFallbackUserFromAuth = (authUser: NonNullable<ReturnType<typeof useA
   },
 });
 
+const createUserFromMobileRow = (
+  row: {
+    id: string;
+    supabase_uid?: string | null;
+    username?: string | null;
+    tiktok_username?: string | null;
+    email?: string | null;
+    role?: string | null;
+    created_at?: string | null;
+    last_ws_at?: string | null;
+  },
+  roleFromUserRoles?: string | null,
+  rank?: number,
+): User => {
+  const userId = row.supabase_uid ?? row.id;
+  const displayName = row.username ?? row.tiktok_username ?? row.email?.split('@')[0] ?? 'Пользователь';
+  const fallbackDate = row.created_at ?? new Date().toISOString();
+
+  return {
+    id: userId,
+    name: displayName,
+    avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`,
+    role: (roleFromUserRoles ?? row.role ?? 'streamer') as User['role'],
+    level: 1,
+    xp: 0,
+    xpToNextLevel: 1000,
+    streakDays: 0,
+    joinedDate: fallbackDate,
+    totalHours: 0,
+    completedTasks: 0,
+    achievements: 0,
+    isOnline: Boolean(row.last_ws_at),
+    stats: {
+      ...defaultStats,
+      rank: rank ?? 0,
+    },
+  };
+};
+
+const isSchemaMismatchError = (error: { code?: string; message?: string; details?: string } | null | undefined) => {
+  if (!error) {
+    return false;
+  }
+
+  const text = `${error.code ?? ''} ${error.message ?? ''} ${error.details ?? ''}`;
+  return /PGRST20\d|42703|column .* does not exist|schema cache|Could not find the .* column/i.test(text);
+};
+
 const applyUserStats = (user: User, stats?: UserAppStats): User => {
   if (!stats) {
     return user;
@@ -197,13 +245,17 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const hydrate = useCallback(async () => {
     setLoading(true);
 
-    const [{ data, error }, { data: profiles }, { data: roleRows }] = await Promise.all([
+    const [{ data, error }, { data: profiles }, { data: roleRows }, { data: mobileUsers, error: mobileUsersError }] = await Promise.all([
       supabasePublic.from('app_content').select('key,payload').in('key', appKeys),
       supabasePublic
         .from('profiles')
         .select('user_id,display_name,username,avatar_url,created_at,is_online')
         .order('created_at', { ascending: true }),
       supabasePublic.from('user_roles').select('user_id,role'),
+      supabasePublic
+        .from('users' as any)
+        .select('id,supabase_uid,username,tiktok_username,email,role,created_at,last_ws_at')
+        .order('created_at', { ascending: true }),
     ]);
 
     if (error) {
@@ -234,9 +286,39 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return acc;
     }, {});
 
-    const mappedUsers = (profiles ?? []).map((profile: any, index: number) =>
+    let mappedMobileUsers: User[] = [];
+
+    if (mobileUsersError && isSchemaMismatchError(mobileUsersError)) {
+      const mobileUsersFallback = await supabasePublic
+        .from('users' as any)
+        .select('id,username,tiktok_username,email,role,created_at')
+        .order('created_at', { ascending: true });
+
+      if (!mobileUsersFallback.error) {
+        mappedMobileUsers = (mobileUsersFallback.data ?? []).map((row: any, index: number) =>
+          createUserFromMobileRow(row, roleByUserId[row.id], index + 1),
+        );
+      }
+    } else if (!mobileUsersError) {
+      mappedMobileUsers = ((mobileUsers as any[]) ?? []).map((row: any, index: number) => {
+        const userId = row.supabase_uid ?? row.id;
+        return createUserFromMobileRow(row, roleByUserId[userId], index + 1);
+      });
+    }
+
+    const profileUsers = (profiles ?? []).map((profile: any, index: number) =>
       createUserFromProfile(profile, roleByUserId[profile.user_id], index + 1),
     );
+
+    const mergedUsersById = new Map<string, User>();
+    profileUsers.forEach((item) => mergedUsersById.set(item.id, item));
+    mappedMobileUsers.forEach((item) => {
+      if (!mergedUsersById.has(item.id)) {
+        mergedUsersById.set(item.id, item);
+      }
+    });
+
+    const mappedUsers = Array.from(mergedUsersById.values());
 
     if (mappedUsers.length > 0) {
       setDbUsers(mappedUsers);

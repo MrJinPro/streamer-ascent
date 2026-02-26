@@ -40,6 +40,26 @@ const sourceLabel: Record<string, string> = {
   other: 'Другое',
 };
 
+const isSchemaMismatchError = (error: { code?: string; message?: string; details?: string } | null) => {
+  if (!error) return false;
+
+  const errorText = `${error.code ?? ''} ${error.message ?? ''} ${error.details ?? ''}`;
+  return /PGRST20\d|42703|column .* does not exist|schema cache|Could not find the .* column/i.test(errorText);
+};
+
+const parseMetaValue = (raw: string | null | undefined, key: string) => {
+  if (!raw) return null;
+
+  const pair = raw
+    .split(';')
+    .map((item) => item.trim())
+    .find((item) => item.startsWith(`${key}:`));
+
+  if (!pair) return null;
+  const [, value] = pair.split(':', 2);
+  return value?.trim() || null;
+};
+
 const AdminReferralSettings: React.FC = () => {
   const [applications, setApplications] = useState<Application[]>([]);
   const [codes, setCodes] = useState<ReferralCode[]>([]);
@@ -71,7 +91,47 @@ const AdminReferralSettings: React.FC = () => {
       supabasePublic.from('referral_reward_settings').select('rewards_enabled').eq('id', 1).maybeSingle(),
     ]);
 
-    if (!applicationsRes.error) setApplications((applicationsRes.data ?? []) as Application[]);
+    if (!applicationsRes.error) {
+      setApplications((applicationsRes.data ?? []) as Application[]);
+    } else if (isSchemaMismatchError(applicationsRes.error)) {
+      const legacyRes = await supabasePublic
+        .from('agency_join_applications')
+        .select('id,full_name,tiktok_username,email,telegram,stream_experience,motivation,status,created_at')
+        .order('created_at', { ascending: false });
+
+      if (!legacyRes.error) {
+        const legacyMapped: Application[] = (legacyRes.data ?? []).map((item) => {
+          const username = parseMetaValue(item.stream_experience, 'username') ?? item.email.split('@')[0] ?? 'unknown';
+          const parsedAge = Number(parseMetaValue(item.stream_experience, 'age'));
+          const heardAbout = parseMetaValue(item.stream_experience, 'source') ?? 'other';
+          const inviterCode = parseMetaValue(item.motivation, 'inviter_code') ?? 'NO-CODE';
+
+          return {
+            id: item.id,
+            full_name: item.full_name,
+            username,
+            tiktok_username: item.tiktok_username,
+            email: item.email,
+            telegram: item.telegram ?? '@unknown',
+            age: Number.isFinite(parsedAge) ? parsedAge : 18,
+            heard_about: heardAbout,
+            inviter_referral_code: inviterCode,
+            assigned_referral_code: null,
+            status: (item.status as Application['status']) ?? 'pending',
+            created_at: item.created_at,
+          };
+        });
+
+        setApplications(legacyMapped);
+      } else {
+        console.error('Failed to load legacy agency applications', legacyRes.error);
+        toast({ title: 'Ошибка загрузки заявок', description: legacyRes.error.message, variant: 'destructive' });
+      }
+    } else {
+      console.error('Failed to load agency applications', applicationsRes.error);
+      toast({ title: 'Ошибка загрузки заявок', description: applicationsRes.error.message, variant: 'destructive' });
+    }
+
     if (!codesRes.error) setCodes((codesRes.data ?? []) as ReferralCode[]);
     if (!rewardsRes.error) setRewardsEnabled(Boolean(rewardsRes.data?.rewards_enabled));
 
