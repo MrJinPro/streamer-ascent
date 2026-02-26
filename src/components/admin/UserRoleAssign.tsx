@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabasePublic } from '@/integrations/supabase/publicClient';
-import { UserPlus, X, Search } from 'lucide-react';
+import { UserPlus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 
 interface Role {
@@ -11,11 +10,6 @@ interface Role {
   slug: string;
   visibility: 'public' | 'internal';
   tier: string;
-}
-
-interface UserRoleRow {
-  role_id: string;
-  user_id: string;
 }
 
 interface UserRoleAssignProps {
@@ -28,6 +22,7 @@ const UserRoleAssign: React.FC<UserRoleAssignProps> = ({ userId, userName, onClo
   const [roles, setRoles] = useState<Role[]>([]);
   const [userRoles, setUserRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [updatingRoleId, setUpdatingRoleId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetch = async () => {
@@ -43,40 +38,31 @@ const UserRoleAssign: React.FC<UserRoleAssignProps> = ({ userId, userName, onClo
   }, [userId]);
 
   const toggleRole = async (roleId: string) => {
+    setUpdatingRoleId(roleId);
     const has = userRoles.includes(roleId);
-    if (has) {
-      const { error } = await (supabasePublic as any)
-        .from('user_roles')
-        .delete()
-        .eq('user_id', userId)
-        .eq('role_id', roleId);
-      if (error) { toast.error(error.message); return; }
-      setUserRoles(prev => prev.filter(r => r !== roleId));
-      // Audit log
-      await (supabasePublic as any).from('audit_log').insert({
-        actor_user_id: userId,
-        action: 'role.removed',
-        entity: 'user_roles',
-        entity_id: userId,
-        after_data: { role_id: roleId },
-      });
-      toast.success('Роль убрана');
-    } else {
-      const { error } = await (supabasePublic as any)
-        .from('user_roles')
-        .insert({ user_id: userId, role_id: roleId, role: 'streamer' });
-      if (error) { toast.error(error.message); return; }
-      setUserRoles(prev => [...prev, roleId]);
-      // Audit log
-      await (supabasePublic as any).from('audit_log').insert({
-        actor_user_id: userId,
-        action: 'role.assigned',
-        entity: 'user_roles',
-        entity_id: userId,
-        after_data: { role_id: roleId },
-      });
-      toast.success('Роль назначена');
+    const { data, error } = await supabasePublic.functions.invoke('admin-manage-user-role', {
+      body: {
+        userId,
+        roleId,
+        action: has ? 'remove' : 'assign',
+      },
+    });
+
+    setUpdatingRoleId(null);
+
+    if (error || !data?.ok) {
+      toast.error(error?.message ?? data?.error ?? 'Не удалось обновить роли пользователя');
+      return;
     }
+
+    if (has) {
+      setUserRoles((prev) => prev.filter((item) => item !== roleId));
+      toast.success('Роль убрана');
+      return;
+    }
+
+    setUserRoles((prev) => (prev.includes(roleId) ? prev : [...prev, roleId]));
+    toast.success('Роль назначена');
   };
 
   if (loading) return null;
@@ -101,6 +87,7 @@ const UserRoleAssign: React.FC<UserRoleAssignProps> = ({ userId, userName, onClo
               <button
                 key={role.id}
                 onClick={() => toggleRole(role.id)}
+                disabled={updatingRoleId === role.id}
                 className={cn(
                   "w-full flex items-center justify-between p-3 rounded-lg border transition-all text-left",
                   isAssigned

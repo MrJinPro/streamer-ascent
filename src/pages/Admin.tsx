@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useAppData } from '@/contexts/AppDataContext';
 import type { User, StreamEvent } from '@/types/app-data';
 import { Users, Activity, Settings, Shield, Search, MoreVertical, Trophy, ListTodo, GraduationCap, BookOpen, Key, ScrollText, RefreshCw, UserPlus } from 'lucide-react';
@@ -162,8 +162,49 @@ const inviteRoleOptions: Array<{ slug: string; label: string }> = [
   { slug: 'analyst', label: 'Аналитик' },
 ];
 
+type AdminDirectoryUser = {
+  id: string;
+  email: string | null;
+  name: string;
+  avatar_url: string | null;
+  created_at: string;
+  is_online: boolean;
+};
+
+const toUserFromDirectory = (row: AdminDirectoryUser): User => ({
+  id: row.id,
+  name: row.name,
+  avatar: row.avatar_url ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${row.id}`,
+  role: 'streamer',
+  level: 1,
+  xp: 0,
+  xpToNextLevel: 1000,
+  streakDays: 0,
+  joinedDate: row.created_at,
+  totalHours: 0,
+  completedTasks: 0,
+  achievements: 0,
+  isOnline: row.is_online,
+  stats: {
+    diamondsTotal: 0,
+    diamonds30Days: 0,
+    diamondsToday: 0,
+    currentLevel: 1,
+    maxLevel: 50,
+    checkpoint1: false,
+    checkpoint2: false,
+    checkpoint3: false,
+    checkpoint1Claimed: null,
+    checkpoint2Claimed: null,
+    checkpoint3Claimed: null,
+    monthlyDiamonds: 0,
+    rank: 0,
+  },
+});
+
 const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [directoryUsers, setDirectoryUsers] = useState<User[]>([]);
   const [roleAssignUser, setRoleAssignUser] = useState<{ id: string; name: string } | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -178,9 +219,43 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
   const [createDisplayName, setCreateDisplayName] = useState('');
   const [createRoleSlugs, setCreateRoleSlugs] = useState<string[]>(['streamer']);
 
+  useEffect(() => {
+    const loadDirectoryUsers = async () => {
+      const { data, error } = await supabasePublic.functions.invoke('admin-list-users', {
+        body: {},
+      });
+
+      if (error || !data?.ok || !Array.isArray(data?.users)) {
+        return;
+      }
+
+      const mapped = (data.users as AdminDirectoryUser[]).map(toUserFromDirectory);
+      setDirectoryUsers(mapped);
+    };
+
+    void loadDirectoryUsers();
+  }, []);
+
+  const mergedUsers = useMemo(() => {
+    const map = new Map<string, User>();
+
+    users.forEach((item) => map.set(item.id, item));
+
+    directoryUsers.forEach((item) => {
+      if (!map.has(item.id)) {
+        map.set(item.id, item);
+      }
+    });
+
+    return Array.from(map.values());
+  }, [directoryUsers, users]);
+
   const filtered = searchQuery
-    ? users.filter(u => u.name.toLowerCase().includes(searchQuery.toLowerCase()))
-    : users;
+    ? mergedUsers.filter((u) => {
+        const needle = searchQuery.toLowerCase();
+        return u.name.toLowerCase().includes(needle) || u.id.toLowerCase().includes(needle);
+      })
+    : mergedUsers;
 
   const toggleInviteRole = (slug: string) => {
     setInviteRoleSlugs((prev) => {
