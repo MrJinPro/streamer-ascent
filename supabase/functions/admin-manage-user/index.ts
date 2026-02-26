@@ -45,6 +45,10 @@ Deno.serve(async (request) => {
     delete_user: ['users.delete'],
   };
 
+  if (!(action in requiredPermissionsByAction)) {
+    return json(400, { error: 'Unknown action' });
+  }
+
   const authz = await userCanManageUsers(requester.id, requiredPermissionsByAction[action]);
   if (!authz.allowed) {
     return json(403, { error: 'Insufficient permissions' });

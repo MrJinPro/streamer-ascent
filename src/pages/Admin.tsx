@@ -327,9 +327,13 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
     setDetailsLoading(false);
 
     if (error || !data?.ok) {
+      const errorText = String(error?.message ?? data?.error ?? '').toLowerCase();
+      const isMissingFunction = errorText.includes('404') || errorText.includes('not found') || errorText.includes('failed to fetch');
       toast({
         title: 'Не удалось загрузить данные пользователя',
-        description: error?.message ?? data?.error ?? 'Неизвестная ошибка',
+        description: isMissingFunction
+          ? 'Edge function admin-manage-user не задеплоена. Выполните деплой Supabase Functions.'
+          : error?.message ?? data?.error ?? 'Неизвестная ошибка',
         variant: 'destructive',
       });
       return;
@@ -366,9 +370,13 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
     setDetailsSaving(false);
 
     if (error || !data?.ok) {
+      const errorText = String(error?.message ?? data?.error ?? '').toLowerCase();
+      const isMissingFunction = errorText.includes('404') || errorText.includes('not found') || errorText.includes('failed to fetch');
       toast({
         title: 'Не удалось сохранить профиль',
-        description: error?.message ?? data?.error ?? 'Неизвестная ошибка',
+        description: isMissingFunction
+          ? 'Edge function admin-manage-user не задеплоена. Выполните деплой Supabase Functions.'
+          : error?.message ?? data?.error ?? 'Неизвестная ошибка',
         variant: 'destructive',
       });
       return;
@@ -396,9 +404,13 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
     setPasswordUpdating(false);
 
     if (error || !data?.ok) {
+      const errorText = String(error?.message ?? data?.error ?? '').toLowerCase();
+      const isMissingFunction = errorText.includes('404') || errorText.includes('not found') || errorText.includes('failed to fetch');
       toast({
         title: 'Не удалось сменить пароль',
-        description: error?.message ?? data?.error ?? 'Неизвестная ошибка',
+        description: isMissingFunction
+          ? 'Edge function admin-manage-user не задеплоена. Выполните деплой Supabase Functions.'
+          : error?.message ?? data?.error ?? 'Неизвестная ошибка',
         variant: 'destructive',
       });
       return;
@@ -430,9 +442,13 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
     setDeletingUser(false);
 
     if (error || !data?.ok) {
+      const errorText = String(error?.message ?? data?.error ?? '').toLowerCase();
+      const isMissingFunction = errorText.includes('404') || errorText.includes('not found') || errorText.includes('failed to fetch');
       toast({
         title: 'Не удалось удалить пользователя',
-        description: error?.message ?? data?.error ?? 'Неизвестная ошибка',
+        description: isMissingFunction
+          ? 'Edge function admin-manage-user не задеплоена. Выполните деплой Supabase Functions.'
+          : error?.message ?? data?.error ?? 'Неизвестная ошибка',
         variant: 'destructive',
       });
       return;
@@ -553,15 +569,20 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
     <>
       <div className="rounded-xl glass border border-border overflow-hidden">
         <div className="p-4 border-b border-border flex items-center justify-between">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Поиск пользователей..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="pl-9 pr-4 py-2 rounded-lg bg-secondary border border-border focus:border-primary focus:outline-none w-64"
-            />
+          <div className="space-y-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Поиск пользователей..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="pl-9 pr-4 py-2 rounded-lg bg-secondary border border-border focus:border-primary focus:outline-none w-64"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Нажмите <span className="font-medium text-foreground">Управление</span>, чтобы открыть карточку пользователя (в т.ч. смена пароля и удаление).
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => setInviteOpen(true)}>Пригласить пользователя</Button>
@@ -613,21 +634,25 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <button
+                  <div className="flex items-center justify-end gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
                       onClick={() => void openDetails(user)}
-                      className="p-2 rounded-lg hover:bg-secondary transition-colors"
-                      title="Карточка пользователя"
+                      title="Управление пользователем"
                     >
-                      <Eye className="w-4 h-4 text-muted-foreground" />
-                    </button>
-                    <button
+                      <Eye className="w-4 h-4 mr-1" />
+                      Управление
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
                       onClick={() => setRoleAssignUser({ id: user.id, name: user.name })}
-                      className="p-2 rounded-lg hover:bg-secondary transition-colors"
                       title="Назначить роли"
                     >
-                      <UserPlus className="w-4 h-4 text-muted-foreground" />
-                    </button>
+                      <UserPlus className="w-4 h-4 mr-1" />
+                      Роли
+                    </Button>
                   </div>
                 </td>
               </tr>
