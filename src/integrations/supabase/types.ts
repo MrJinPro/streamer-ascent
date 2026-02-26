@@ -392,6 +392,51 @@ export type Database = {
           },
         ]
       }
+      admin_actions: {
+        Row: {
+          action: string
+          actor_user_id: string | null
+          after: Json | null
+          before: Json | null
+          created_at: string
+          id: string
+          target_user_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_user_id?: string | null
+          after?: Json | null
+          before?: Json | null
+          created_at: string
+          id: string
+          target_user_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string | null
+          after?: Json | null
+          before?: Json | null
+          created_at?: string
+          id?: string
+          target_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_actions_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_actions_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_invites: {
         Row: {
           accepted_at: string | null
@@ -1088,6 +1133,148 @@ export type Database = {
           },
         ]
       }
+      donor_stats: {
+        Row: {
+          donor_username: string
+          id: string
+          last_30d_anchor: string | null
+          last_30d_coins: number
+          last_7d_anchor: string | null
+          last_7d_coins: number
+          streamer_id: string
+          today_coins: number
+          today_date: string | null
+          total_coins: number
+          total_gifts: number
+          updated_at: string
+          yesterday_coins: number
+          yesterday_date: string | null
+        }
+        Insert: {
+          donor_username: string
+          id: string
+          last_30d_anchor?: string | null
+          last_30d_coins: number
+          last_7d_anchor?: string | null
+          last_7d_coins: number
+          streamer_id: string
+          today_coins: number
+          today_date?: string | null
+          total_coins: number
+          total_gifts: number
+          updated_at: string
+          yesterday_coins: number
+          yesterday_date?: string | null
+        }
+        Update: {
+          donor_username?: string
+          id?: string
+          last_30d_anchor?: string | null
+          last_30d_coins?: number
+          last_7d_anchor?: string | null
+          last_7d_coins?: number
+          streamer_id?: string
+          today_coins?: number
+          today_date?: string | null
+          total_coins?: number
+          total_gifts?: number
+          updated_at?: string
+          yesterday_coins?: number
+          yesterday_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "donor_stats_streamer_id_fkey"
+            columns: ["streamer_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      donor_stats_tt: {
+        Row: {
+          donor_username: string
+          id: string
+          last_30d_anchor: string | null
+          last_30d_coins: number
+          last_7d_anchor: string | null
+          last_7d_coins: number
+          streamer_tiktok_username: string
+          today_coins: number
+          today_date: string | null
+          total_coins: number
+          total_gifts: number
+          updated_at: string
+          yesterday_coins: number
+          yesterday_date: string | null
+        }
+        Insert: {
+          donor_username: string
+          id: string
+          last_30d_anchor?: string | null
+          last_30d_coins: number
+          last_7d_anchor?: string | null
+          last_7d_coins: number
+          streamer_tiktok_username: string
+          today_coins: number
+          today_date?: string | null
+          total_coins: number
+          total_gifts: number
+          updated_at: string
+          yesterday_coins: number
+          yesterday_date?: string | null
+        }
+        Update: {
+          donor_username?: string
+          id?: string
+          last_30d_anchor?: string | null
+          last_30d_coins?: number
+          last_7d_anchor?: string | null
+          last_7d_coins?: number
+          streamer_tiktok_username?: string
+          today_coins?: number
+          today_date?: string | null
+          total_coins?: number
+          total_gifts?: number
+          updated_at?: string
+          yesterday_coins?: number
+          yesterday_date?: string | null
+        }
+        Relationships: []
+      }
+      events: {
+        Row: {
+          created_at: string
+          id: string
+          payload: Json | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at: string
+          id: string
+          payload?: Json | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          payload?: Json | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events_raw: {
         Row: {
           event_ts: string
@@ -1158,33 +1345,57 @@ export type Database = {
       }
       gift_events: {
         Row: {
+          created_at: string | null
+          day: string | null
           diamonds_total: number | null
+          donor_username: string | null
           event_ts: string
           gift_catalog_id: string | null
+          gift_coins: number | null
+          gift_count: number | null
+          gift_id: string | null
+          gift_name: string | null
           id: string
           live_session_id: string | null
           quantity: number
           streamer_account_id: string
+          streamer_id: string | null
           viewer_identity_id: string
         }
         Insert: {
+          created_at?: string | null
+          day?: string | null
           diamonds_total?: number | null
+          donor_username?: string | null
           event_ts: string
           gift_catalog_id?: string | null
+          gift_coins?: number | null
+          gift_count?: number | null
+          gift_id?: string | null
+          gift_name?: string | null
           id?: string
           live_session_id?: string | null
           quantity?: number
           streamer_account_id: string
+          streamer_id?: string | null
           viewer_identity_id: string
         }
         Update: {
+          created_at?: string | null
+          day?: string | null
           diamonds_total?: number | null
+          donor_username?: string | null
           event_ts?: string
           gift_catalog_id?: string | null
+          gift_coins?: number | null
+          gift_count?: number | null
+          gift_id?: string | null
+          gift_name?: string | null
           id?: string
           live_session_id?: string | null
           quantity?: number
           streamer_account_id?: string
+          streamer_id?: string | null
           viewer_identity_id?: string
         }
         Relationships: [
@@ -1210,6 +1421,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "gift_events_streamer_id_fkey"
+            columns: ["streamer_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "gift_events_viewer_identity_id_fkey"
             columns: ["viewer_identity_id"]
             isOneToOne: false
@@ -1217,6 +1435,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      gift_events_tt: {
+        Row: {
+          created_at: string
+          day: string
+          donor_username: string
+          gift_coins: number
+          gift_count: number
+          gift_id: string | null
+          gift_name: string | null
+          id: string
+          streamer_tiktok_username: string
+        }
+        Insert: {
+          created_at: string
+          day: string
+          donor_username: string
+          gift_coins: number
+          gift_count: number
+          gift_id?: string | null
+          gift_name?: string | null
+          id: string
+          streamer_tiktok_username: string
+        }
+        Update: {
+          created_at?: string
+          day?: string
+          donor_username?: string
+          gift_coins?: number
+          gift_count?: number
+          gift_id?: string | null
+          gift_name?: string | null
+          id?: string
+          streamer_tiktok_username?: string
+        }
+        Relationships: []
       }
       gift_rollup_daily: {
         Row: {
@@ -1407,6 +1661,50 @@ export type Database = {
           },
         ]
       }
+      license_keys: {
+        Row: {
+          devices_bound: number | null
+          expires_at: string | null
+          id: string
+          issued_at: string
+          key: string
+          max_devices: number | null
+          plan: string | null
+          status: Database["public"]["Enums"]["licensestatus"]
+          user_id: string | null
+        }
+        Insert: {
+          devices_bound?: number | null
+          expires_at?: string | null
+          id: string
+          issued_at: string
+          key: string
+          max_devices?: number | null
+          plan?: string | null
+          status: Database["public"]["Enums"]["licensestatus"]
+          user_id?: string | null
+        }
+        Update: {
+          devices_bound?: number | null
+          expires_at?: string | null
+          id?: string
+          issued_at?: string
+          key?: string
+          max_devices?: number | null
+          plan?: string | null
+          status?: Database["public"]["Enums"]["licensestatus"]
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "license_keys_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       licenses: {
         Row: {
           created_at: string
@@ -1566,6 +1864,135 @@ export type Database = {
           },
         ]
       }
+      notification_reads: {
+        Row: {
+          id: string
+          notification_id: string
+          read_at: string
+          user_id: string
+        }
+        Insert: {
+          id: string
+          notification_id: string
+          read_at: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          notification_id?: string
+          read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_reads_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_reads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_targets: {
+        Row: {
+          created_at: string
+          id: string
+          notification_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at: string
+          id: string
+          notification_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notification_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_targets_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_targets_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          audience: Database["public"]["Enums"]["notificationaudience"]
+          audience_value: string | null
+          body: string
+          created_at: string
+          created_by_user_id: string | null
+          dedupe_key: string | null
+          ends_at: string | null
+          id: string
+          in_app_enabled: boolean | null
+          level: Database["public"]["Enums"]["notificationlevel"]
+          link: string | null
+          push_enabled: boolean | null
+          starts_at: string | null
+          targeting: Json | null
+          title: string
+          type: Database["public"]["Enums"]["notificationtype"] | null
+        }
+        Insert: {
+          audience: Database["public"]["Enums"]["notificationaudience"]
+          audience_value?: string | null
+          body: string
+          created_at: string
+          created_by_user_id?: string | null
+          dedupe_key?: string | null
+          ends_at?: string | null
+          id: string
+          in_app_enabled?: boolean | null
+          level: Database["public"]["Enums"]["notificationlevel"]
+          link?: string | null
+          push_enabled?: boolean | null
+          starts_at?: string | null
+          targeting?: Json | null
+          title: string
+          type?: Database["public"]["Enums"]["notificationtype"] | null
+        }
+        Update: {
+          audience?: Database["public"]["Enums"]["notificationaudience"]
+          audience_value?: string | null
+          body?: string
+          created_at?: string
+          created_by_user_id?: string | null
+          dedupe_key?: string | null
+          ends_at?: string | null
+          id?: string
+          in_app_enabled?: boolean | null
+          level?: Database["public"]["Enums"]["notificationlevel"]
+          link?: string | null
+          push_enabled?: boolean | null
+          starts_at?: string | null
+          targeting?: Json | null
+          title?: string
+          type?: Database["public"]["Enums"]["notificationtype"] | null
+        }
+        Relationships: []
+      }
       organization_members: {
         Row: {
           created_at: string
@@ -1634,6 +2061,50 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      password_reset_tokens: {
+        Row: {
+          attempts: number
+          code_hash: string
+          created_at: string
+          expires_at: string
+          id: string
+          request_ip: string | null
+          used_at: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          attempts: number
+          code_hash: string
+          created_at: string
+          expires_at: string
+          id: string
+          request_ip?: string | null
+          used_at?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          request_ip?: string | null
+          used_at?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "password_reset_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1778,6 +2249,47 @@ export type Database = {
         }
         Relationships: []
       }
+      push_device_tokens: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          last_seen_at: string | null
+          platform: Database["public"]["Enums"]["pushplatform"]
+          token: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at: string
+          enabled: boolean
+          id: string
+          last_seen_at?: string | null
+          platform: Database["public"]["Enums"]["pushplatform"]
+          token: string
+          updated_at: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_seen_at?: string | null
+          platform?: Database["public"]["Enums"]["pushplatform"]
+          token?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_device_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       role_permissions: {
         Row: {
           permission_id: string
@@ -1843,6 +2355,132 @@ export type Database = {
           visibility?: Database["public"]["Enums"]["role_visibility"]
         }
         Relationships: []
+      }
+      sound_files: {
+        Row: {
+          bytes: number
+          created_at: string
+          duration_ms: number | null
+          filename: string
+          id: string
+          kind: Database["public"]["Enums"]["soundtype"]
+          url: string
+          user_id: string
+        }
+        Insert: {
+          bytes: number
+          created_at: string
+          duration_ms?: number | null
+          filename: string
+          id: string
+          kind: Database["public"]["Enums"]["soundtype"]
+          url: string
+          user_id: string
+        }
+        Update: {
+          bytes?: number
+          created_at?: string
+          duration_ms?: number | null
+          filename?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["soundtype"]
+          url?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sound_files_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      store_purchases: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          id: string
+          platform: Database["public"]["Enums"]["storeplatform"]
+          product_id: string
+          purchase_token: string | null
+          raw: Json | null
+          status: Database["public"]["Enums"]["storepurchasestatus"]
+          transaction_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at: string
+          expires_at?: string | null
+          id: string
+          platform: Database["public"]["Enums"]["storeplatform"]
+          product_id: string
+          purchase_token?: string | null
+          raw?: Json | null
+          status: Database["public"]["Enums"]["storepurchasestatus"]
+          transaction_id?: string | null
+          updated_at: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          platform?: Database["public"]["Enums"]["storeplatform"]
+          product_id?: string
+          purchase_token?: string | null
+          raw?: Json | null
+          status?: Database["public"]["Enums"]["storepurchasestatus"]
+          transaction_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_purchases_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stream_sessions: {
+        Row: {
+          ended_at: string | null
+          id: string
+          started_at: string
+          status: string | null
+          tiktok_username: string
+          user_id: string
+        }
+        Insert: {
+          ended_at?: string | null
+          id: string
+          started_at: string
+          status?: string | null
+          tiktok_username: string
+          user_id: string
+        }
+        Update: {
+          ended_at?: string | null
+          id?: string
+          started_at?: string
+          status?: string | null
+          tiktok_username?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stream_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       streamer_accounts: {
         Row: {
@@ -1925,6 +2563,110 @@ export type Database = {
           },
         ]
       }
+      streamer_stats: {
+        Row: {
+          id: string
+          last_30d_anchor: string | null
+          last_30d_coins: number
+          last_7d_anchor: string | null
+          last_7d_coins: number
+          streamer_id: string
+          today_coins: number
+          today_date: string | null
+          total_coins: number
+          total_gifts: number
+          updated_at: string
+          yesterday_coins: number
+          yesterday_date: string | null
+        }
+        Insert: {
+          id: string
+          last_30d_anchor?: string | null
+          last_30d_coins: number
+          last_7d_anchor?: string | null
+          last_7d_coins: number
+          streamer_id: string
+          today_coins: number
+          today_date?: string | null
+          total_coins: number
+          total_gifts: number
+          updated_at: string
+          yesterday_coins: number
+          yesterday_date?: string | null
+        }
+        Update: {
+          id?: string
+          last_30d_anchor?: string | null
+          last_30d_coins?: number
+          last_7d_anchor?: string | null
+          last_7d_coins?: number
+          streamer_id?: string
+          today_coins?: number
+          today_date?: string | null
+          total_coins?: number
+          total_gifts?: number
+          updated_at?: string
+          yesterday_coins?: number
+          yesterday_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "streamer_stats_streamer_id_fkey"
+            columns: ["streamer_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      streamer_stats_tt: {
+        Row: {
+          id: string
+          last_30d_anchor: string | null
+          last_30d_coins: number
+          last_7d_anchor: string | null
+          last_7d_coins: number
+          streamer_tiktok_username: string
+          today_coins: number
+          today_date: string | null
+          total_coins: number
+          total_gifts: number
+          updated_at: string
+          yesterday_coins: number
+          yesterday_date: string | null
+        }
+        Insert: {
+          id: string
+          last_30d_anchor?: string | null
+          last_30d_coins: number
+          last_7d_anchor?: string | null
+          last_7d_coins: number
+          streamer_tiktok_username: string
+          today_coins: number
+          today_date?: string | null
+          total_coins: number
+          total_gifts: number
+          updated_at: string
+          yesterday_coins: number
+          yesterday_date?: string | null
+        }
+        Update: {
+          id?: string
+          last_30d_anchor?: string | null
+          last_30d_coins?: number
+          last_7d_anchor?: string | null
+          last_7d_coins?: number
+          streamer_tiktok_username?: string
+          today_coins?: number
+          today_date?: string | null
+          total_coins?: number
+          total_gifts?: number
+          updated_at?: string
+          yesterday_coins?: number
+          yesterday_date?: string | null
+        }
+        Relationships: []
+      }
       streamers: {
         Row: {
           created_at: string
@@ -1967,6 +2709,36 @@ export type Database = {
           },
         ]
       }
+      tiktok_profile_cache: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          fetched_at: string | null
+          id: string
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at: string
+          display_name?: string | null
+          fetched_at?: string | null
+          id: string
+          updated_at: string
+          username: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          fetched_at?: string | null
+          id?: string
+          updated_at?: string
+          username?: string
+        }
+        Relationships: []
+      }
       tiktok_sync_logs: {
         Row: {
           error: string | null
@@ -1993,6 +2765,62 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      triggers: {
+        Row: {
+          action: Database["public"]["Enums"]["triggeraction"]
+          action_params: Json | null
+          combo_count: number | null
+          condition_key: string | null
+          condition_value: string | null
+          created_at: string
+          enabled: boolean | null
+          event_type: string
+          executed_count: number | null
+          id: string
+          priority: number | null
+          trigger_name: string | null
+          user_id: string
+        }
+        Insert: {
+          action: Database["public"]["Enums"]["triggeraction"]
+          action_params?: Json | null
+          combo_count?: number | null
+          condition_key?: string | null
+          condition_value?: string | null
+          created_at: string
+          enabled?: boolean | null
+          event_type: string
+          executed_count?: number | null
+          id: string
+          priority?: number | null
+          trigger_name?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: Database["public"]["Enums"]["triggeraction"]
+          action_params?: Json | null
+          combo_count?: number | null
+          condition_key?: string | null
+          condition_value?: string | null
+          created_at?: string
+          enabled?: boolean | null
+          event_type?: string
+          executed_count?: number | null
+          id?: string
+          priority?: number | null
+          trigger_name?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "triggers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       updates: {
         Row: {
@@ -2109,6 +2937,201 @@ export type Database = {
           },
         ]
       }
+      user_sessions: {
+        Row: {
+          created_at: string
+          id: string
+          ip: string | null
+          platform: string | null
+          region: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at: string
+          id: string
+          ip?: string | null
+          platform?: string | null
+          region?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ip?: string | null
+          platform?: string | null
+          region?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_settings: {
+        Row: {
+          auto_connect_live: boolean
+          chat_tts_min_diamonds: number
+          chat_tts_mode: string
+          chat_tts_prefixes: string
+          gift_sounds_enabled: boolean | null
+          gifts_volume: number | null
+          id: string
+          silence_enabled: boolean
+          silence_minutes: number
+          tts_enabled: boolean | null
+          tts_volume: number | null
+          user_id: string
+          voice_id: string | null
+        }
+        Insert: {
+          auto_connect_live?: boolean
+          chat_tts_min_diamonds?: number
+          chat_tts_mode?: string
+          chat_tts_prefixes?: string
+          gift_sounds_enabled?: boolean | null
+          gifts_volume?: number | null
+          id: string
+          silence_enabled?: boolean
+          silence_minutes?: number
+          tts_enabled?: boolean | null
+          tts_volume?: number | null
+          user_id: string
+          voice_id?: string | null
+        }
+        Update: {
+          auto_connect_live?: boolean
+          chat_tts_min_diamonds?: number
+          chat_tts_mode?: string
+          chat_tts_prefixes?: string
+          gift_sounds_enabled?: boolean | null
+          gifts_volume?: number | null
+          id?: string
+          silence_enabled?: boolean
+          silence_minutes?: number
+          tts_enabled?: boolean | null
+          tts_volume?: number | null
+          user_id?: string
+          voice_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_settings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_tiktok_accounts: {
+        Row: {
+          created_at: string
+          id: string
+          last_used_at: string | null
+          user_id: string
+          username: string
+        }
+        Insert: {
+          created_at: string
+          id: string
+          last_used_at?: string | null
+          user_id: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_used_at?: string | null
+          user_id?: string
+          username?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_tiktok_accounts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          avatar_filename: string | null
+          banned_at: string | null
+          banned_reason: string | null
+          created_at: string
+          email: string | null
+          id: string
+          is_banned: boolean
+          last_client_os: string | null
+          last_client_platform: string | null
+          last_device: string | null
+          last_login_at: string | null
+          last_login_ip: string | null
+          last_user_agent: string | null
+          last_ws_at: string | null
+          password_hash: string
+          region: string | null
+          role: string
+          supabase_uid: string | null
+          tiktok_username: string | null
+          username: string
+        }
+        Insert: {
+          avatar_filename?: string | null
+          banned_at?: string | null
+          banned_reason?: string | null
+          created_at: string
+          email?: string | null
+          id: string
+          is_banned?: boolean
+          last_client_os?: string | null
+          last_client_platform?: string | null
+          last_device?: string | null
+          last_login_at?: string | null
+          last_login_ip?: string | null
+          last_user_agent?: string | null
+          last_ws_at?: string | null
+          password_hash: string
+          region?: string | null
+          role?: string
+          supabase_uid?: string | null
+          tiktok_username?: string | null
+          username: string
+        }
+        Update: {
+          avatar_filename?: string | null
+          banned_at?: string | null
+          banned_reason?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_banned?: boolean
+          last_client_os?: string | null
+          last_client_platform?: string | null
+          last_device?: string | null
+          last_login_at?: string | null
+          last_login_ip?: string | null
+          last_user_agent?: string | null
+          last_ws_at?: string | null
+          password_hash?: string
+          region?: string | null
+          role?: string
+          supabase_uid?: string | null
+          tiktok_username?: string | null
+          username?: string
+        }
+        Relationships: []
+      }
       viewer_rollup_daily: {
         Row: {
           day: string
@@ -2201,6 +3224,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      web_purchases: {
+        Row: {
+          amount: number | null
+          created_at: string
+          currency: string | null
+          email: string | null
+          id: string
+          license_key: string | null
+          order_id: string
+          plan: string | null
+          ttl_days: number | null
+        }
+        Insert: {
+          amount?: number | null
+          created_at: string
+          currency?: string | null
+          email?: string | null
+          id: string
+          license_key?: string | null
+          order_id: string
+          plan?: string | null
+          ttl_days?: number | null
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string
+          currency?: string | null
+          email?: string | null
+          id?: string
+          license_key?: string | null
+          order_id?: string
+          plan?: string | null
+          ttl_days?: number | null
+        }
+        Relationships: []
       }
     }
     Views: {
@@ -2426,9 +3485,13 @@ export type Database = {
         | "unknown"
       identity_kind_t: "unknown" | "viewer" | "streamer"
       license_status_t: "active" | "expired" | "banned" | "revoked"
+      licensestatus: "active" | "inactive" | "revoked"
       link_type_t: "owner" | "managed" | "member"
       live_status_t: "active" | "ended"
       member_status_t: "active" | "invited" | "removed"
+      notificationaudience: "all" | "users" | "plan" | "missing_email"
+      notificationlevel: "info" | "warning" | "promo"
+      notificationtype: "system" | "product" | "marketing"
       org_role_t:
         | "owner"
         | "admin"
@@ -2440,13 +3503,18 @@ export type Database = {
       org_type_t: "agency" | "streamer_team" | "solo"
       platform_t: "tiktok"
       product_t: "mobile" | "desktop" | "tools" | "overlays"
+      pushplatform: "android" | "ios" | "web"
       role_visibility: "public" | "internal"
+      soundtype: "uploaded" | "tts"
+      storeplatform: "android" | "ios"
+      storepurchasestatus: "active" | "expired" | "canceled" | "unknown"
       streamer_member_role_t:
         | "streamer_owner"
         | "agency_manager"
         | "editor"
         | "viewer_analyst"
       tiktok_sync_status: "pending" | "running" | "success" | "failed"
+      triggeraction: "play_sound" | "tts"
       update_channel_t: "stable" | "beta"
     }
     CompositeTypes: {
@@ -2618,9 +3686,13 @@ export const Constants = {
       ],
       identity_kind_t: ["unknown", "viewer", "streamer"],
       license_status_t: ["active", "expired", "banned", "revoked"],
+      licensestatus: ["active", "inactive", "revoked"],
       link_type_t: ["owner", "managed", "member"],
       live_status_t: ["active", "ended"],
       member_status_t: ["active", "invited", "removed"],
+      notificationaudience: ["all", "users", "plan", "missing_email"],
+      notificationlevel: ["info", "warning", "promo"],
+      notificationtype: ["system", "product", "marketing"],
       org_role_t: [
         "owner",
         "admin",
@@ -2633,7 +3705,11 @@ export const Constants = {
       org_type_t: ["agency", "streamer_team", "solo"],
       platform_t: ["tiktok"],
       product_t: ["mobile", "desktop", "tools", "overlays"],
+      pushplatform: ["android", "ios", "web"],
       role_visibility: ["public", "internal"],
+      soundtype: ["uploaded", "tts"],
+      storeplatform: ["android", "ios"],
+      storepurchasestatus: ["active", "expired", "canceled", "unknown"],
       streamer_member_role_t: [
         "streamer_owner",
         "agency_manager",
@@ -2641,6 +3717,7 @@ export const Constants = {
         "viewer_analyst",
       ],
       tiktok_sync_status: ["pending", "running", "success", "failed"],
+      triggeraction: ["play_sound", "tts"],
       update_channel_t: ["stable", "beta"],
     },
   },
