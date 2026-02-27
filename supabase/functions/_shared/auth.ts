@@ -1,3 +1,4 @@
+/// <reference path="../esm-shims.d.ts" />
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 
 export const corsHeaders: Record<string, string> = {
@@ -63,12 +64,12 @@ export const userCanManageUsers = async (userId: string, requiredPermissions: st
     return { allowed: false, error: tierError.message ?? 'Tier check failed' };
   }
 
-  const firstPermissionError = permissionResults.find((result) => result.error)?.error;
+  const firstPermissionError = permissionResults.find((result: any) => result.error)?.error;
   if (firstPermissionError) {
     return { allowed: false, error: firstPermissionError.message ?? 'Permission check failed' };
   }
 
-  const hasRequiredPermission = permissionResults.some((result) => Boolean(result.data));
+  const hasRequiredPermission = permissionResults.some((result: any) => Boolean(result.data));
   const tier = String(tierResult.data ?? 'tier_0');
   const hasTierAccess = tier === 'tier_3' || tier === 'tier_4';
 

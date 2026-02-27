@@ -139,7 +139,7 @@ Deno.serve(async (request: Request) => {
   if (invitedRoles.length > 0) {
     const { data: roleRows } = await adminClient.from('roles').select('id, slug').in('slug', invitedRoles);
 
-    const roleIds = (roleRows ?? []).map((row) => row.id);
+    const roleIds = (roleRows ?? []).map((row: { id: string }) => row.id);
 
     if (roleIds.length > 0) {
       const { data: existingRows } = await adminClient
@@ -148,12 +148,12 @@ Deno.serve(async (request: Request) => {
         .eq('user_id', requester.id)
         .in('role_id', roleIds);
 
-      const existingRoleIds = new Set((existingRows ?? []).map((row) => row.role_id));
-      const missing = roleIds.filter((roleId) => !existingRoleIds.has(roleId));
+      const existingRoleIds = new Set((existingRows ?? []).map((row: { role_id: string | null }) => row.role_id));
+      const missing = roleIds.filter((roleId: string) => !existingRoleIds.has(roleId));
 
       if (missing.length > 0) {
         await adminClient.from('user_roles').insert(
-          missing.map((roleId) => ({
+          missing.map((roleId: string) => ({
             user_id: requester.id,
             role: 'streamer',
             role_id: roleId,

@@ -235,6 +235,11 @@ const toUserFromDirectory = (row: AdminDirectoryUser): User => ({
 
 const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [activityFilter, setActivityFilter] = useState<'all' | 'online' | 'offline'>('all');
+  const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'auth' | 'public'>('all');
+  const [sortBy, setSortBy] = useState<'name_asc' | 'joined_desc' | 'last_sign_in_desc'>('joined_desc');
+  const [directoryLoading, setDirectoryLoading] = useState(false);
   const [directoryRows, setDirectoryRows] = useState<AdminDirectoryUser[]>([]);
   const [directoryUsers, setDirectoryUsers] = useState<User[]>([]);
   const [roleAssignUser, setRoleAssignUser] = useState<{ id: string; name: string } | null>(null);
@@ -270,17 +275,20 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
   const [createRoleSlugs, setCreateRoleSlugs] = useState<string[]>(['streamer']);
 
   const loadDirectoryUsers = useCallback(async () => {
+    setDirectoryLoading(true);
     const { data, error } = await supabasePublic.functions.invoke('admin-list-users', {
       body: {},
     });
 
     if (error || !data?.ok || !Array.isArray(data?.users)) {
+      setDirectoryLoading(false);
       return;
     }
 
     const rows = data.users as AdminDirectoryUser[];
     setDirectoryRows(rows);
     setDirectoryUsers(rows.map(toUserFromDirectory));
+    setDirectoryLoading(false);
   }, []);
 
   useEffect(() => {
@@ -306,13 +314,49 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
     return Array.from(map.values());
   }, [directoryUsers, users]);
 
-  const filtered = searchQuery
-    ? mergedUsers.filter((u) => {
-        const needle = searchQuery.toLowerCase();
-        const email = directoryById.get(u.id)?.email?.toLowerCase() ?? '';
-        return u.name.toLowerCase().includes(needle) || u.id.toLowerCase().includes(needle) || email.includes(needle);
-      })
-    : mergedUsers;
+  const roleOptions = useMemo(() => {
+    const set = new Set<string>();
+    mergedUsers.forEach((item) => set.add(item.role));
+    return Array.from(set).sort((a, b) => getRoleLabel(a).localeCompare(getRoleLabel(b), 'ru'));
+  }, [mergedUsers]);
+
+  const filtered = useMemo(() => {
+    const needle = searchQuery.trim().toLowerCase();
+
+    const result = mergedUsers.filter((u) => {
+      const row = directoryById.get(u.id);
+      const email = row?.email?.toLowerCase() ?? '';
+      const source = row?.source ?? [];
+
+      if (needle && !(u.name.toLowerCase().includes(needle) || u.id.toLowerCase().includes(needle) || email.includes(needle))) {
+        return false;
+      }
+
+      if (activityFilter === 'online' && !u.isOnline) return false;
+      if (activityFilter === 'offline' && u.isOnline) return false;
+
+      if (roleFilter !== 'all' && u.role !== roleFilter) return false;
+
+      if (sourceFilter === 'auth' && !source.includes('auth.users')) return false;
+      if (sourceFilter === 'public' && !source.includes('public.users')) return false;
+
+      return true;
+    });
+
+    if (sortBy === 'name_asc') {
+      result.sort((left, right) => left.name.localeCompare(right.name, 'ru'));
+    } else if (sortBy === 'last_sign_in_desc') {
+      result.sort((left, right) => {
+        const leftTs = Date.parse(directoryById.get(left.id)?.last_sign_in_at ?? '') || 0;
+        const rightTs = Date.parse(directoryById.get(right.id)?.last_sign_in_at ?? '') || 0;
+        return rightTs - leftTs;
+      });
+    } else {
+      result.sort((left, right) => Date.parse(right.joinedDate) - Date.parse(left.joinedDate));
+    }
+
+    return result;
+  }, [activityFilter, directoryById, mergedUsers, roleFilter, searchQuery, sortBy, sourceFilter]);
 
   const openDetails = async (selectedUser: User) => {
     setDetailsUser(selectedUser);
@@ -612,14 +656,62 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
                 className="pl-9 pr-4 py-2 rounded-lg bg-secondary border border-border focus:border-primary focus:outline-none w-64"
               />
             </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={activityFilter}
+                onChange={(event) => setActivityFilter(event.target.value as 'all' | 'online' | 'offline')}
+                className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm"
+              >
+                <option value="all">Активность: все</option>
+                <option value="online">Только онлайн</option>
+                <option value="offline">Только оффлайн</option>
+              </select>
+
+              <select
+                value={roleFilter}
+                onChange={(event) => setRoleFilter(event.target.value)}
+                className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm"
+              >
+                <option value="all">Роль: все</option>
+                {roleOptions.map((role) => (
+                  <option key={role} value={role}>{getRoleLabel(role)}</option>
+                ))}
+              </select>
+
+              <select
+                value={sourceFilter}
+                onChange={(event) => setSourceFilter(event.target.value as 'all' | 'auth' | 'public')}
+                className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm"
+              >
+                <option value="all">Источник: все</option>
+                <option value="auth">Есть в auth.users</option>
+                <option value="public">Есть в public.users</option>
+              </select>
+
+              <select
+                value={sortBy}
+                onChange={(event) => setSortBy(event.target.value as 'name_asc' | 'joined_desc' | 'last_sign_in_desc')}
+                className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm"
+              >
+                <option value="joined_desc">Сначала новые</option>
+                <option value="last_sign_in_desc">Последний вход</option>
+                <option value="name_asc">По имени (А-Я)</option>
+              </select>
+            </div>
             <p className="text-xs text-muted-foreground">
               Нажмите <span className="font-medium text-foreground">Управление</span>, чтобы открыть карточку пользователя (в т.ч. смена пароля и удаление).
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => void loadDirectoryUsers()} disabled={directoryLoading}>
+              {directoryLoading ? 'Обновление...' : 'Обновить'}
+            </Button>
             <Button variant="outline" onClick={() => setInviteOpen(true)}>Пригласить пользователя</Button>
             <Button onClick={() => setCreateOpen(true)}>Создать пользователя</Button>
           </div>
+        </div>
+        <div className="px-4 py-2 border-b border-border text-xs text-muted-foreground">
+          Показано {filtered.length} из {mergedUsers.length}
         </div>
         <table className="w-full">
           <thead className="bg-secondary/50">
