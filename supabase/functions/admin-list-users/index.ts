@@ -13,7 +13,7 @@ type AdminUserRow = {
   phone: string | null;
   name: string;
   avatar_url: string | null;
-  created_at: string;
+  created_at: string | null;
   updated_at: string | null;
   last_sign_in_at: string | null;
   email_confirmed_at: string | null;
@@ -23,6 +23,28 @@ type AdminUserRow = {
 };
 
 const mergeSource = (value: string[], source: string) => (value.includes(source) ? value : [...value, source]);
+
+const loadMobileUsers = async () => {
+  const selectVariants = [
+    'id,supabase_uid,email,username,created_at,last_login_at,last_sign_in_at,last_ws_at',
+    'id,supabase_uid,email,username,created_at,last_login_at,last_ws_at',
+    'id,supabase_uid,email,username,created_at,last_ws_at',
+  ];
+
+  for (const select of selectVariants) {
+    const result = await adminClient
+      .schema('mobile')
+      .from('users')
+      .select(select)
+      .order('created_at', { ascending: false });
+
+    if (!result.error) {
+      return result.data ?? [];
+    }
+  }
+
+  return [];
+};
 
 Deno.serve(async (request: Request) => {
   if (request.method === 'OPTIONS') {
@@ -47,7 +69,7 @@ Deno.serve(async (request: Request) => {
     return json(429, { error: rateLimit.error });
   }
 
-  const [authUsersRes, profilesRes, usersRes] = await Promise.all([
+  const [authUsersRes, profilesRes, usersRes, mobileUsers] = await Promise.all([
     adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 }),
     adminClient
       .from('profiles')
@@ -57,6 +79,7 @@ Deno.serve(async (request: Request) => {
       .from('users')
       .select('id,supabase_uid,email,username,tiktok_username,created_at,last_ws_at')
       .order('created_at', { ascending: false }),
+    loadMobileUsers(),
   ]);
 
   if (authUsersRes.error) {
@@ -66,7 +89,7 @@ Deno.serve(async (request: Request) => {
   const registry = new Map<string, AdminUserRow>();
 
   for (const item of authUsersRes.data?.users ?? []) {
-    const createdAt = item.created_at ?? new Date().toISOString();
+    const createdAt = item.created_at ?? null;
     const email = item.email?.toLowerCase() ?? null;
     const name =
       String(item.user_metadata?.display_name ?? '').trim() ||
@@ -133,9 +156,9 @@ Deno.serve(async (request: Request) => {
         phone: null,
         name: fallbackName,
         avatar_url: null,
-        created_at: userRow.created_at ?? new Date().toISOString(),
+        created_at: userRow.created_at ?? null,
         updated_at: null,
-        last_sign_in_at: null,
+        last_sign_in_at: userRow.last_ws_at ?? null,
         email_confirmed_at: null,
         banned_until: null,
         is_online: Boolean(userRow.last_ws_at),
@@ -146,14 +169,49 @@ Deno.serve(async (request: Request) => {
 
     existing.email = existing.email ?? userRow.email;
     existing.name = existing.name || fallbackName;
-    existing.created_at = existing.created_at || userRow.created_at || new Date().toISOString();
+    existing.created_at = existing.created_at ?? userRow.created_at ?? null;
+    existing.last_sign_in_at = existing.last_sign_in_at ?? userRow.last_ws_at ?? null;
     existing.is_online = existing.is_online || Boolean(userRow.last_ws_at);
     existing.source = mergeSource(existing.source, 'public.users');
   }
 
-  const users = Array.from(registry.values()).sort((left, right) =>
-    right.created_at.localeCompare(left.created_at),
-  );
+  for (const mobileUser of mobileUsers ?? []) {
+    const id = mobileUser.supabase_uid ?? mobileUser.id;
+    const existing = registry.get(id);
+    const fallbackName = mobileUser.username ?? mobileUser.email?.split('@')[0] ?? 'Пользователь';
+    const mobileLastSignIn = mobileUser.last_sign_in_at ?? mobileUser.last_login_at ?? mobileUser.last_ws_at ?? null;
+
+    if (!existing) {
+      registry.set(id, {
+        id,
+        email: mobileUser.email ?? null,
+        phone: null,
+        name: fallbackName,
+        avatar_url: null,
+        created_at: mobileUser.created_at ?? null,
+        updated_at: null,
+        last_sign_in_at: mobileLastSignIn,
+        email_confirmed_at: null,
+        banned_until: null,
+        is_online: Boolean(mobileUser.last_ws_at),
+        source: ['mobile.users'],
+      });
+      continue;
+    }
+
+    existing.email = existing.email ?? mobileUser.email ?? null;
+    existing.name = existing.name || fallbackName;
+    existing.created_at = existing.created_at ?? mobileUser.created_at ?? null;
+    existing.last_sign_in_at = existing.last_sign_in_at ?? mobileLastSignIn;
+    existing.is_online = existing.is_online || Boolean(mobileUser.last_ws_at);
+    existing.source = mergeSource(existing.source, 'mobile.users');
+  }
+
+  const users = Array.from(registry.values()).sort((left, right) => {
+    const leftTs = Date.parse(left.created_at ?? '') || 0;
+    const rightTs = Date.parse(right.created_at ?? '') || 0;
+    return rightTs - leftTs;
+  });
 
   return json(200, { ok: true, users });
 });

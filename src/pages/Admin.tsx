@@ -168,13 +168,27 @@ type AdminDirectoryUser = {
   phone: string | null;
   name: string;
   avatar_url: string | null;
-  created_at: string;
+  created_at: string | null;
   updated_at: string | null;
   last_sign_in_at: string | null;
   email_confirmed_at: string | null;
   banned_until: string | null;
   is_online: boolean;
   source?: string[];
+};
+
+const formatDateRu = (value?: string | null) => {
+  if (!value) return '—';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '—';
+  return parsed.toLocaleDateString('ru-RU');
+};
+
+const formatDateTimeRu = (value?: string | null) => {
+  if (!value) return 'Нет';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'Нет';
+  return parsed.toLocaleString('ru-RU');
 };
 
 type AdminUserDetails = {
@@ -211,7 +225,7 @@ const toUserFromDirectory = (row: AdminDirectoryUser): User => ({
   xp: 0,
   xpToNextLevel: 1000,
   streakDays: 0,
-  joinedDate: row.created_at,
+  joinedDate: row.created_at ?? '',
   totalHours: 0,
   completedTasks: 0,
   achievements: 0,
@@ -733,7 +747,7 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
                     <div>
                       <p className="font-medium">{user.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        Присоединился {new Date(user.joinedDate).toLocaleDateString('ru-RU')}
+                        Присоединился {formatDateRu(directoryById.get(user.id)?.created_at ?? user.joinedDate)}
                       </p>
                     </div>
                   </div>
@@ -752,9 +766,7 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
                 </td>
                 <td className="px-4 py-3">
                   <span className="text-sm">
-                    {directoryById.get(user.id)?.last_sign_in_at
-                      ? new Date(directoryById.get(user.id)!.last_sign_in_at!).toLocaleString('ru-RU')
-                      : 'Нет'}
+                    {formatDateTimeRu(directoryById.get(user.id)?.last_sign_in_at)}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right">
