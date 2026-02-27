@@ -11,7 +11,7 @@ import {
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
 const DEFAULT_ADMIN_REFERRAL_CODE = 'NOVA-2026';
 
-Deno.serve(async (request) => {
+Deno.serve(async (request: Request) => {
   if (request.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }

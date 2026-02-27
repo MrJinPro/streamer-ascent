@@ -58,7 +58,7 @@ const toLegacyAppRole = (slug: string):
   }
 };
 
-Deno.serve(async (request) => {
+Deno.serve(async (request: Request) => {
   if (request.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }

@@ -17,7 +17,7 @@ const normalizeText = (value: unknown, maxLength = 255) => {
   return text.slice(0, maxLength);
 };
 
-Deno.serve(async (request) => {
+Deno.serve(async (request: Request) => {
   if (request.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
