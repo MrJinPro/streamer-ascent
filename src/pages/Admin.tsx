@@ -191,6 +191,19 @@ const formatDateTimeRu = (value?: string | null) => {
   return parsed.toLocaleString('ru-RU');
 };
 
+const formatSourceLabels = (source?: string[]) => {
+  const values = new Set<string>();
+
+  (source ?? []).forEach((item) => {
+    if (item === 'auth.users') values.add('auth');
+    if (item === 'public.users' || item === 'public.profiles') values.add('public');
+    if (item === 'mobile.users') values.add('mobile');
+  });
+
+  if (values.size === 0) return '—';
+  return Array.from(values).join(', ');
+};
+
 type AdminUserDetails = {
   user: {
     id: string;
@@ -732,6 +745,7 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
             <tr>
               <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Пользователь</th>
               <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Email</th>
+              <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Источник</th>
               <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Осн. роль</th>
               <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Все роли</th>
               <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Вход</th>
@@ -755,6 +769,11 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
                 <td className="px-4 py-3">
                   <div className="text-sm">{directoryById.get(user.id)?.email ?? '—'}</div>
                   <div className="text-xs text-muted-foreground">{user.id.slice(0, 8)}...</div>
+                </td>
+                <td className="px-4 py-3">
+                  <span className="text-sm text-muted-foreground">
+                    {formatSourceLabels(directoryById.get(user.id)?.source)}
+                  </span>
                 </td>
                 <td className="px-4 py-3">
                   <span className={cn("px-2 py-1 text-xs font-medium rounded-full", roleStyles[user.role] ?? 'bg-secondary text-secondary-foreground')}>
