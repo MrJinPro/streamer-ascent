@@ -18,6 +18,7 @@ import Tasks from "@/pages/Tasks";
 import Learning from "@/pages/Learning";
 import Articles from "@/pages/Articles";
 import Chat from "@/pages/Chat";
+import Notifications from "@/pages/Notifications";
 import AICoach from "@/pages/AICoach";
 import Admin from "@/pages/Admin";
 import Ranking from "@/pages/Ranking";
@@ -128,6 +129,7 @@ const AppRoutes = () => {
             <Route path="/learning" element={<Learning />} />
             <Route path="/articles" element={<Articles />} />
             <Route path="/chat" element={<Chat />} />
+            <Route path="/notifications" element={<Notifications />} />
             <Route path="/ai-coach" element={<AICoach />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/ranking" element={<Ranking />} />

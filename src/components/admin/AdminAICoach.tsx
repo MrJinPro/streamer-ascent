@@ -41,6 +41,27 @@ type LogRow = {
   created_at: string;
 };
 
+type SettingRow = {
+  key: string;
+  value_json: unknown;
+  description: string | null;
+  updated_at?: string;
+};
+
+const managedSettings: Array<{ key: string; label: string; description: string }> = [
+  { key: 'promising.min_streams_30d', label: 'Эфиров за 30 дней (мин)', description: 'Порог для признания стримера перспективным.' },
+  { key: 'promising.min_coins_30d', label: 'Монет за 30 дней (мин)', description: 'Если достигнут, стример считается перспективным.' },
+  { key: 'promising.min_completed_tasks', label: 'Завершённых задач (мин)', description: 'Минимум выполненных задач в текущем месяце.' },
+  { key: 'promising.min_completion_ratio', label: 'Доля выполнения задач (мин)', description: 'Например 0.35 = 35%.' },
+  { key: 'alerts.min_streamer_coins', label: 'Порог доната для стримера', description: 'Минимум монет от донатера конкретному стримеру.' },
+  { key: 'alerts.min_global_coins', label: 'Порог доната глобально', description: 'Минимум монет от донатера по всей базе.' },
+  { key: 'alerts.min_support_days', label: 'Дней поддержки (мин)', description: 'Минимум дней активности донатера.' },
+  { key: 'alerts.max_per_5m', label: 'Лимит алертов за 5 мин', description: 'Антиспам по короткому окну.' },
+  { key: 'alerts.max_per_30m', label: 'Лимит алертов за 30 мин', description: 'Антиспам по среднему окну.' },
+  { key: 'alerts.max_per_stream', label: 'Лимит алертов за эфир', description: 'Максимум live-сигналов в одном эфире.' },
+  { key: 'alerts.same_donor_cooldown_hours', label: 'Кулдаун по донатеру (ч)', description: 'Повторный сигнал по тому же донатеру.' },
+];
+
 const modeTitles: Record<string, string> = {
   progress_report: 'Анализ прогресса',
   live_plan: 'План эфира',
@@ -85,6 +106,8 @@ const AdminAICoach: React.FC = () => {
   const [modes, setModes] = useState<AiMode[]>([]);
   const [keys, setKeys] = useState<ApiKeyRow[]>([]);
   const [logs, setLogs] = useState<LogRow[]>([]);
+  const [settingsMap, setSettingsMap] = useState<Record<string, string>>({});
+  const [savingSettings, setSavingSettings] = useState(false);
 
   const [newKeyAlias, setNewKeyAlias] = useState('');
   const [newKeyProvider, setNewKeyProvider] = useState('openai');
@@ -100,10 +123,11 @@ const AdminAICoach: React.FC = () => {
     setLoading(true);
     setSetupWarning(null);
 
-    const [modesRes, keysRes, logsRes] = await Promise.all([
+    const [modesRes, keysRes, logsRes, settingsRes] = await Promise.all([
       supabasePublic.functions.invoke('admin-ai-coach', { body: { action: 'get_modes' } }),
       supabasePublic.functions.invoke('admin-ai-coach', { body: { action: 'list_keys' } }),
       supabasePublic.functions.invoke('admin-ai-coach', { body: { action: 'list_logs', limit: 60 } }),
+      supabasePublic.functions.invoke('admin-ai-coach', { body: { action: 'get_settings' } }),
     ]);
 
     if (!modesRes.error && modesRes.data?.ok) {
@@ -124,6 +148,26 @@ const AdminAICoach: React.FC = () => {
       setLogs(logsRes.data.logs as LogRow[]);
       if (logsRes.data.setupRequired) {
         setSetupWarning(String(logsRes.data.setupMessage ?? 'AI Coach schema is not ready yet.'));
+      }
+    }
+
+    if (!settingsRes.error && settingsRes.data?.ok) {
+      const rows = (settingsRes.data.settings ?? []) as SettingRow[];
+      const nextMap = rows.reduce<Record<string, string>>((acc, row) => {
+        if (typeof row.value_json === 'number' || typeof row.value_json === 'boolean') {
+          acc[row.key] = String(row.value_json);
+        } else if (typeof row.value_json === 'string') {
+          acc[row.key] = row.value_json;
+        } else {
+          acc[row.key] = '';
+        }
+        return acc;
+      }, {});
+
+      setSettingsMap(nextMap);
+
+      if (settingsRes.data.setupRequired) {
+        setSetupWarning(String(settingsRes.data.setupMessage ?? 'AI Coach schema is not ready yet.'));
       }
     }
 
@@ -229,6 +273,37 @@ const AdminAICoach: React.FC = () => {
     setRunningTest(false);
   };
 
+  const saveSettings = async () => {
+    setSavingSettings(true);
+
+    const payload = managedSettings.map((entry) => {
+      const raw = String(settingsMap[entry.key] ?? '').trim();
+      const numeric = Number(raw);
+      return {
+        key: entry.key,
+        value_json: Number.isFinite(numeric) && raw !== '' ? numeric : raw,
+        description: entry.description,
+      };
+    });
+
+    const { data, error } = await supabasePublic.functions.invoke('admin-ai-coach', {
+      body: {
+        action: 'save_settings',
+        settings: payload,
+      },
+    });
+
+    if (error || !data?.ok) {
+      toast({ title: 'Не удалось сохранить настройки', description: error?.message ?? data?.error, variant: 'destructive' });
+      setSavingSettings(false);
+      return;
+    }
+
+    toast({ title: 'Настройки AI сохранены', description: 'Новые пороги anti-spam и перспективности применены.' });
+    setSavingSettings(false);
+    await loadAll();
+  };
+
   if (loading) {
     return <div className="rounded-xl glass border border-border p-6 text-sm text-muted-foreground">Загрузка AI Coach настроек...</div>;
   }
@@ -254,6 +329,41 @@ const AdminAICoach: React.FC = () => {
         <p><span className="font-semibold">key_alias</span> — фиксирует режим на конкретный ключ; если пусто, используется автопул активных ключей провайдера.</p>
         <p><span className="font-semibold">temperature</span> — креативность: 0.2 строже, 0.7 креативнее.</p>
         <p><span className="font-semibold">max_tokens</span> — максимальная длина ответа.</p>
+      </div>
+
+      <div className="space-y-3">
+        <h3 className="font-semibold flex items-center gap-2"><Bot className="w-4 h-4" /> Автоматизация и anti-spam</h3>
+        <div className="rounded-xl border border-border p-4 space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Здесь настраиваются пороги перспективности и лимиты live-уведомлений. Изменения применяются без новой миграции.
+          </p>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {managedSettings.map((setting) => (
+              <div key={setting.key} className="space-y-1">
+                <label className="text-sm font-medium">{setting.label}</label>
+                <input
+                  value={settingsMap[setting.key] ?? ''}
+                  onChange={(event) => setSettingsMap((prev) => ({ ...prev, [setting.key]: event.target.value }))}
+                  className="w-full px-3 py-2 rounded-md bg-background border border-border text-sm"
+                  placeholder={setting.key}
+                />
+                <p className="text-xs text-muted-foreground">{setting.description}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              onClick={() => void saveSettings()}
+              disabled={savingSettings}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm disabled:opacity-60"
+            >
+              <Save className="w-4 h-4" />
+              Сохранить пороги
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="space-y-4">

@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   User,
   Checkpoint,
@@ -15,6 +15,7 @@ import type {
 import { supabasePublic } from '@/integrations/supabase/publicClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { getSeasonKey, getTaskPeriod, getTaskPeriodKey } from '@/lib/progressionEconomy';
+import { toast } from '@/hooks/use-toast';
 
 export type AppContentKey =
   | 'checkpoints'
@@ -297,6 +298,10 @@ const toRows = (data: Partial<PersistedContentShape>) =>
 
 export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
+  const autoAdviceToastSeenRef = useRef<Set<string>>(new Set());
+  const liveAlertToastSeenRef = useRef<Set<string>>(new Set());
+  const lastAutoAdviceToastAtRef = useRef<number>(0);
+  const lastLiveAlertToastAtRef = useRef<number>(0);
   const [loading, setLoading] = useState(true);
   const [dbData, setDbData] = useState<Partial<PersistedContentShape>>({});
   const [dbUsers, setDbUsers] = useState<User[]>([]);
@@ -542,6 +547,191 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     void run();
   }, [dbData.achievements, dbData.userStats, dbUsers, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+
+    let isActive = true;
+
+    const processAutoAdvice = async () => {
+      if (!isActive) {
+        return;
+      }
+
+      try {
+        const { data: claimedRows, error: claimError } = await (supabasePublic as any).rpc('ai_claim_pending_auto_advice', {
+          p_user_id: user.id,
+        });
+
+        if (claimError) {
+          return;
+        }
+
+        const claimed = (claimedRows ?? [])[0] as
+          | { advice_id: string; mode_id: string; prompt_text: string }
+          | undefined;
+
+        if (claimed?.advice_id && claimed.prompt_text) {
+          const selectedMode = claimed.mode_id === 'universal_chat' ? null : claimed.mode_id;
+          const { data: generationData, error: generationError } = await supabasePublic.functions.invoke('ai-coach-chat', {
+            body: {
+              message: claimed.prompt_text,
+              modeId: selectedMode,
+              language: 'ru',
+            },
+          });
+
+          const generatedAnswer = String(generationData?.answer ?? '').trim();
+
+          await (supabasePublic as any).rpc('ai_complete_auto_advice', {
+            p_advice_id: claimed.advice_id,
+            p_advice_text: !generationError && generationData?.ok ? generatedAnswer : null,
+            p_failed: Boolean(generationError || !generationData?.ok || !generatedAnswer),
+            p_error: generationError?.message ?? generationData?.error ?? null,
+          });
+        }
+
+        const { data: claimedLiveRows, error: claimLiveError } = await (supabasePublic as any).rpc('ai_claim_pending_live_alert', {
+          p_user_id: user.id,
+        });
+
+        if (!claimLiveError) {
+          const claimedLive = (claimedLiveRows ?? [])[0] as
+            | { alert_id: string; prompt_text: string }
+            | undefined;
+
+          if (claimedLive?.alert_id && claimedLive.prompt_text) {
+            const { data: liveGenerationData, error: liveGenerationError } = await supabasePublic.functions.invoke('ai-coach-chat', {
+              body: {
+                message: claimedLive.prompt_text,
+                modeId: 'live_review',
+                language: 'ru',
+              },
+            });
+
+            const generatedLiveAnswer = String(liveGenerationData?.answer ?? '').trim();
+
+            await (supabasePublic as any).rpc('ai_complete_live_alert', {
+              p_alert_id: claimedLive.alert_id,
+              p_alert_text: !liveGenerationError && liveGenerationData?.ok ? generatedLiveAnswer : null,
+              p_failed: Boolean(liveGenerationError || !liveGenerationData?.ok || !generatedLiveAnswer),
+              p_error: liveGenerationError?.message ?? liveGenerationData?.error ?? null,
+            });
+          }
+        }
+
+        const { data: unreadRows, error: unreadError } = await (supabasePublic as any).rpc('ai_list_auto_advices', {
+          p_user_id: user.id,
+          p_only_unread: true,
+          p_limit: 1,
+        });
+
+        if (unreadError) {
+          return;
+        }
+
+        const latestUnread = (unreadRows ?? [])[0] as { id?: string } | undefined;
+        const nowTs = Date.now();
+        if (
+          latestUnread?.id
+          && !autoAdviceToastSeenRef.current.has(latestUnread.id)
+          && nowTs - lastAutoAdviceToastAtRef.current > 90000
+        ) {
+          autoAdviceToastSeenRef.current.add(latestUnread.id);
+          lastAutoAdviceToastAtRef.current = nowTs;
+          toast({
+            title: 'Новый совет от AI Coach',
+            description: 'Разбор завершённого эфира уже готов в разделе AI Наставник.',
+          });
+        }
+
+        const { data: unreadLiveRows, error: unreadLiveError } = await (supabasePublic as any).rpc('ai_list_live_alerts', {
+          p_user_id: user.id,
+          p_only_unread: true,
+          p_limit: 1,
+        });
+
+        if (!unreadLiveError) {
+          const latestLive = (unreadLiveRows ?? [])[0] as { id?: string; donor_username?: string } | undefined;
+          const nowLiveTs = Date.now();
+          if (
+            latestLive?.id
+            && !liveAlertToastSeenRef.current.has(latestLive.id)
+            && nowLiveTs - lastLiveAlertToastAtRef.current > 90000
+          ) {
+            liveAlertToastSeenRef.current.add(latestLive.id);
+            lastLiveAlertToastAtRef.current = nowLiveTs;
+            toast({
+              title: 'Новый live-сигнал от AI Coach',
+              description: latestLive.donor_username
+                ? `Во время эфира обнаружен ценный зритель: ${latestLive.donor_username}.`
+                : 'Во время эфира обнаружен важный сигнал для стримера.',
+            });
+          }
+        }
+      } catch {
+        return;
+      }
+    };
+
+    void processAutoAdvice();
+
+    const intervalId = window.setInterval(() => {
+      void processAutoAdvice();
+    }, 60000);
+
+    const streamChannel = supabasePublic
+      .channel(`auto-advice-stream-end-${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'stream_sessions', filter: `user_id=eq.${user.id}` },
+        () => {
+          void processAutoAdvice();
+        },
+      )
+      .subscribe();
+
+    const adviceChannel = supabasePublic
+      .channel(`auto-advice-generated-${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'ai_coach_auto_advices', filter: `user_id=eq.${user.id}` },
+        () => {
+          void processAutoAdvice();
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'ai_coach_auto_advices', filter: `user_id=eq.${user.id}` },
+        () => {
+          void processAutoAdvice();
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'ai_coach_live_alerts', filter: `user_id=eq.${user.id}` },
+        () => {
+          void processAutoAdvice();
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'ai_coach_live_alerts', filter: `user_id=eq.${user.id}` },
+        () => {
+          void processAutoAdvice();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      isActive = false;
+      window.clearInterval(intervalId);
+      void supabasePublic.removeChannel(streamChannel);
+      void supabasePublic.removeChannel(adviceChannel);
+    };
+  }, [user?.id]);
 
   const value = useMemo<AppDataContextValue>(() => {
     const mergedAll = { ...defaultContent, ...dbData } as PersistedContentShape;

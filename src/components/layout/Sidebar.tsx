@@ -8,6 +8,7 @@ import {
   GraduationCap, 
   BookOpen, 
   MessageSquare, 
+  Bell,
   Sparkles, 
   Settings,
   Moon,
@@ -45,6 +46,7 @@ const mainNavItems: NavItem[] = [
   { icon: GraduationCap, label: 'Обучение', href: '/learning' },
   { icon: BookOpen, label: 'Статьи', href: '/articles' },
   { icon: MessageSquare, label: 'Чат', href: '/chat' },
+  { icon: Bell, label: 'Уведомления', href: '/notifications' },
   { icon: Sparkles, label: 'AI Наставник', href: '/ai-coach', isNew: true },
   { icon: Trophy, label: 'Рейтинг', href: '/ranking' },
 ];
@@ -76,6 +78,8 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ onNavigate }) => {
     tasks.filter((task) => task.status !== 'completed' && !task.completed).length,
   );
   const [chatUnreadTotal, setChatUnreadTotal] = React.useState(0);
+  const [notificationsUnreadTotal, setNotificationsUnreadTotal] = React.useState(0);
+  const [aiCoachUnreadTotal, setAiCoachUnreadTotal] = React.useState(0);
   const xpPercent = (currentUser.xp / currentUser.xpToNextLevel) * 100;
   const effectiveRole = role ?? currentUser.role;
   const authDisplayName =
@@ -160,6 +164,42 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ onNavigate }) => {
     setChatUnreadTotal(total);
   }, [user?.id]);
 
+  const loadAiCoachUnreadTotal = React.useCallback(async () => {
+    if (!user?.id) {
+      setAiCoachUnreadTotal(0);
+      return;
+    }
+
+    const { data, error } = await (supabasePublic as any).rpc('ai_list_auto_advices', {
+      p_user_id: user.id,
+      p_only_unread: true,
+      p_limit: 100,
+    });
+
+    if (error) {
+      return;
+    }
+
+    setAiCoachUnreadTotal((data ?? []).length);
+  }, [user?.id]);
+
+  const loadNotificationsUnreadTotal = React.useCallback(async () => {
+    if (!user?.id) {
+      setNotificationsUnreadTotal(0);
+      return;
+    }
+
+    const { data, error } = await (supabasePublic as any).rpc('ai_notifications_unread_count', {
+      p_user_id: user.id,
+    });
+
+    if (error) {
+      return;
+    }
+
+    setNotificationsUnreadTotal(Number(data ?? 0));
+  }, [user?.id]);
+
   React.useEffect(() => {
     setPendingTasksCount(getPendingTasksCountFromItems(tasks));
   }, [getPendingTasksCountFromItems, tasks]);
@@ -171,6 +211,14 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ onNavigate }) => {
   React.useEffect(() => {
     void loadChatUnreadTotal();
   }, [loadChatUnreadTotal]);
+
+  React.useEffect(() => {
+    void loadAiCoachUnreadTotal();
+  }, [loadAiCoachUnreadTotal]);
+
+  React.useEffect(() => {
+    void loadNotificationsUnreadTotal();
+  }, [loadNotificationsUnreadTotal]);
 
   React.useEffect(() => {
     if (!user?.id) {
@@ -211,11 +259,42 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ onNavigate }) => {
       })
       .subscribe();
 
+    const aiCoachChannel = supabasePublic
+      .channel(`sidebar-ai-coach-badges-${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'ai_coach_auto_advices', filter: `user_id=eq.${user.id}` },
+        () => {
+          void loadAiCoachUnreadTotal();
+        },
+      )
+      .subscribe();
+
+    const notificationsChannel = supabasePublic
+      .channel(`sidebar-notifications-badges-${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'ai_coach_auto_advices', filter: `user_id=eq.${user.id}` },
+        () => {
+          void loadNotificationsUnreadTotal();
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'ai_coach_live_alerts', filter: `user_id=eq.${user.id}` },
+        () => {
+          void loadNotificationsUnreadTotal();
+        },
+      )
+      .subscribe();
+
     return () => {
       void supabasePublic.removeChannel(tasksChannel);
       void supabasePublic.removeChannel(chatChannel);
+      void supabasePublic.removeChannel(aiCoachChannel);
+      void supabasePublic.removeChannel(notificationsChannel);
     };
-  }, [loadChatUnreadTotal, loadPendingTasksCount, user?.id]);
+  }, [loadAiCoachUnreadTotal, loadChatUnreadTotal, loadNotificationsUnreadTotal, loadPendingTasksCount, user?.id]);
 
   const getItemBadge = React.useCallback(
     (item: NavItem) => {
@@ -227,9 +306,17 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ onNavigate }) => {
         return chatUnreadTotal > 0 ? chatUnreadTotal : undefined;
       }
 
+      if (item.href === '/ai-coach') {
+        return aiCoachUnreadTotal > 0 ? aiCoachUnreadTotal : undefined;
+      }
+
+      if (item.href === '/notifications') {
+        return notificationsUnreadTotal > 0 ? notificationsUnreadTotal : undefined;
+      }
+
       return item.badge;
     },
-    [chatUnreadTotal, pendingTasksCount],
+    [aiCoachUnreadTotal, chatUnreadTotal, notificationsUnreadTotal, pendingTasksCount],
   );
 
   return (

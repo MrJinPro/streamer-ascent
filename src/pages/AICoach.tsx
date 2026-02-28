@@ -28,6 +28,16 @@ interface AIMessage {
   }>;
 }
 
+interface AutoAdviceItem {
+  id: string;
+  mode_id: ModeId | string;
+  advice_text: string | null;
+  status: 'pending' | 'processing' | 'generated' | 'failed';
+  is_read: boolean;
+  generated_at: string | null;
+  created_at: string;
+}
+
 type ModeConfig = {
   id: ModeId;
   title: string;
@@ -59,6 +69,8 @@ const AICoach: React.FC = () => {
   const [enabledModes, setEnabledModes] = useState<Set<string>>(new Set(modeTabs.map((item) => item.id)));
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [autoAdvices, setAutoAdvices] = useState<AutoAdviceItem[]>([]);
+  const [loadingAutoAdvices, setLoadingAutoAdvices] = useState(false);
   const [messages, setMessages] = useState<AIMessage[]>([
     {
       id: '1',
@@ -95,6 +107,44 @@ const AICoach: React.FC = () => {
 
     void loadModes();
   }, [activeMode]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadAutoAdvices = async () => {
+      setLoadingAutoAdvices(true);
+      const { data, error } = await (supabasePublic as any).rpc('ai_list_auto_advices', {
+        p_only_unread: false,
+        p_limit: 10,
+      });
+
+      if (!isActive) {
+        return;
+      }
+
+      if (error) {
+        setLoadingAutoAdvices(false);
+        return;
+      }
+
+      setAutoAdvices((data ?? []) as AutoAdviceItem[]);
+      setLoadingAutoAdvices(false);
+    };
+
+    void loadAutoAdvices();
+
+    const channel = supabasePublic
+      .channel('ai-coach-auto-advices-ui')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ai_coach_auto_advices' }, () => {
+        void loadAutoAdvices();
+      })
+      .subscribe();
+
+    return () => {
+      isActive = false;
+      void supabasePublic.removeChannel(channel);
+    };
+  }, []);
 
   const handleSend = async () => {
     if (!message.trim() || sending) return;
@@ -182,6 +232,19 @@ const AICoach: React.FC = () => {
     setMessage(prompt);
   };
 
+  const markAdviceAsRead = async (adviceId: string) => {
+    const { error } = await (supabasePublic as any).rpc('ai_mark_auto_advice_read', {
+      p_advice_id: adviceId,
+    });
+
+    if (error) {
+      toast({ title: 'Не удалось обновить совет', description: error.message, variant: 'destructive' });
+      return;
+    }
+
+    setAutoAdvices((prev) => prev.map((item) => (item.id === adviceId ? { ...item, is_read: true } : item)));
+  };
+
   return (
     <div className="h-[calc(100vh-6rem)] flex flex-col animate-fade-in">
       {/* Header */}
@@ -234,6 +297,45 @@ const AICoach: React.FC = () => {
             {action.label}
           </button>
         ))}
+      </div>
+
+      <div className="mb-4 rounded-xl border border-border bg-secondary/40 p-4">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div>
+            <h2 className="text-sm font-semibold">Советы после завершения эфира</h2>
+            <p className="text-xs text-muted-foreground">AI Coach генерирует их автоматически после окончания трансляции.</p>
+          </div>
+        </div>
+
+        <div className="space-y-3 max-h-52 overflow-y-auto pr-1">
+          {loadingAutoAdvices ? (
+            <p className="text-xs text-muted-foreground">Загружаю советы…</p>
+          ) : autoAdvices.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Пока нет автосоветов. Они появятся после завершения следующего эфира.</p>
+          ) : (
+            autoAdvices.map((item) => (
+              <div key={item.id} className="rounded-lg border border-border bg-background/70 p-3">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <p className="text-xs text-primary">{modeLabels[item.mode_id as ModeId] ?? 'Разбор эфира'}</p>
+                  <div className="flex items-center gap-2">
+                    {!item.is_read && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary">Новое</span>
+                    )}
+                    {!item.is_read && (
+                      <button
+                        onClick={() => void markAdviceAsRead(item.id)}
+                        className="text-[10px] px-2 py-0.5 rounded-full border border-border hover:bg-secondary transition-colors"
+                      >
+                        Отметить прочитанным
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <p className="text-xs whitespace-pre-line text-foreground/90">{item.advice_text ?? 'Совет обрабатывается…'}</p>
+              </div>
+            ))
+          )}
+        </div>
       </div>
 
       {/* Chat Area */}

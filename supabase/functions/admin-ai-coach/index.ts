@@ -11,6 +11,8 @@ import {
 type Action =
   | 'get_modes'
   | 'save_mode'
+  | 'get_settings'
+  | 'save_settings'
   | 'list_keys'
   | 'save_key'
   | 'delete_key'
@@ -22,6 +24,10 @@ type Payload = {
   mode?: Record<string, unknown>;
   key?: Record<string, unknown>;
   keyId?: string;
+  settings?: Array<{ key?: string; value_json?: unknown; description?: string | null }>;
+  settingKey?: string;
+  settingValue?: unknown;
+  settingDescription?: string | null;
   limit?: number;
   message?: string;
   modeId?: string;
@@ -113,6 +119,62 @@ Deno.serve(async (request: Request) => {
     };
 
     const { error } = await adminClient.from('ai_modes').upsert(upsertPayload, { onConflict: 'id' });
+    if (error) {
+      if (isSchemaCacheError(error)) {
+        return setupRequiredResponse();
+      }
+      return json(500, { error: error.message });
+    }
+
+    return json(200, { ok: true });
+  }
+
+  if (action === 'get_settings') {
+    const { data, error } = await adminClient
+      .from('ai_coach_settings')
+      .select('key,value_json,description,updated_at')
+      .order('key', { ascending: true });
+
+    if (error) {
+      if (isSchemaCacheError(error)) {
+        return setupRequiredResponse({ settings: [] });
+      }
+      return json(500, { error: error.message });
+    }
+
+    return json(200, { ok: true, settings: data ?? [] });
+  }
+
+  if (action === 'save_settings') {
+    const incoming = Array.isArray(payload.settings) ? payload.settings : [];
+    const fallbackKey = String(payload.settingKey ?? '').trim();
+
+    const normalized = (
+      incoming.length > 0
+        ? incoming
+        : fallbackKey
+          ? [{ key: fallbackKey, value_json: payload.settingValue, description: payload.settingDescription ?? null }]
+          : []
+    )
+      .map((item) => ({
+        key: String(item.key ?? '').trim(),
+        value_json: item.value_json,
+        description: item.description ?? null,
+      }))
+      .filter((item) => item.key.length > 0);
+
+    if (normalized.length === 0) {
+      return json(400, { error: 'settings are required' });
+    }
+
+    const rows = normalized.map((item) => ({
+      key: item.key,
+      value_json: item.value_json,
+      description: item.description,
+      updated_by: requester.id,
+    }));
+
+    const { error } = await adminClient.from('ai_coach_settings').upsert(rows, { onConflict: 'key' });
     if (error) {
       if (isSchemaCacheError(error)) {
         return setupRequiredResponse();
