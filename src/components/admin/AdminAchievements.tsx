@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { Achievement } from '@/types/app-data';
 import { Plus, Pencil, Trash2, Trophy, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -179,15 +179,30 @@ const formatTracking = (achievement: Achievement): string => {
 };
 
 const AdminAchievements: React.FC = () => {
-  const { achievements: items, updateContent } = useAppData();
+  const { achievements: items, updateContent, allUsers } = useAppData();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<FormData>(emptyForm);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [manualUserId, setManualUserId] = useState('');
+  const [manualUserSearch, setManualUserSearch] = useState('');
   const [manualAchievementId, setManualAchievementId] = useState('');
   const [manualNote, setManualNote] = useState('');
   const [manualGranting, setManualGranting] = useState(false);
+
+  const manualUserCandidates = useMemo(() => {
+    const needle = manualUserSearch.trim().toLowerCase();
+    if (!needle) {
+      return allUsers.slice(0, 12);
+    }
+
+    return allUsers
+      .filter((user) =>
+        user.name.toLowerCase().includes(needle) ||
+        user.id.toLowerCase().includes(needle),
+      )
+      .slice(0, 20);
+  }, [allUsers, manualUserSearch]);
 
   const openCreate = () => {
     setEditId(null);
@@ -387,8 +402,32 @@ const AdminAchievements: React.FC = () => {
         </p>
         <div className="grid md:grid-cols-3 gap-3">
           <div>
-            <Label>User ID</Label>
-            <Input value={manualUserId} onChange={(e) => setManualUserId(e.target.value)} placeholder="UUID пользователя" />
+            <Label>Пользователь</Label>
+            <Input
+              value={manualUserSearch}
+              onChange={(e) => setManualUserSearch(e.target.value)}
+              placeholder="Поиск по имени или ID"
+            />
+            <div className="mt-2 max-h-36 overflow-auto rounded-md border border-border">
+              {manualUserCandidates.map((candidate) => (
+                <button
+                  key={candidate.id}
+                  type="button"
+                  onClick={() => {
+                    setManualUserId(candidate.id);
+                    setManualUserSearch(candidate.name);
+                  }}
+                  className="w-full text-left px-2 py-1.5 text-sm hover:bg-secondary/60"
+                >
+                  {candidate.name}
+                  <span className="ml-2 text-xs text-muted-foreground">{candidate.id.slice(0, 8)}...</span>
+                </button>
+              ))}
+              {manualUserCandidates.length === 0 && (
+                <p className="px-2 py-1.5 text-xs text-muted-foreground">Ничего не найдено</p>
+              )}
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">Выбранный ID: {manualUserId ? `${manualUserId.slice(0, 8)}...` : '—'}</p>
           </div>
           <div>
             <Label>Достижение</Label>
