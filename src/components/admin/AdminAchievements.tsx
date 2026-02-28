@@ -179,7 +179,7 @@ const formatTracking = (achievement: Achievement): string => {
 };
 
 const AdminAchievements: React.FC = () => {
-  const { achievements: items, updateContent, allUsers } = useAppData();
+  const { achievements: items, updateContent, allUsers, refresh } = useAppData();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<FormData>(emptyForm);
@@ -322,6 +322,8 @@ const AdminAchievements: React.FC = () => {
       toast({ title: 'Не удалось выдать достижение', description: error.message, variant: 'destructive' });
       return;
     }
+
+    await refresh();
 
     toast({ title: 'Достижение выдано вручную' });
     setManualUserId('');

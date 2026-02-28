@@ -177,8 +177,22 @@ const Profile: React.FC = () => {
     { name: 'Достижения', value: user.achievements * 5 }
   ];
 
-  // User achievements (mock - take first few from allAchievements)
-  const userAchievements = allAchievements.filter(a => a.unlocked).slice(0, 6);
+  const userAchievements = useMemo(
+    () =>
+      allAchievements
+        .filter((item) => item.unlocked)
+        .sort((left, right) => {
+          const leftTime = left.unlockedAt ? new Date(left.unlockedAt).getTime() : 0;
+          const rightTime = right.unlockedAt ? new Date(right.unlockedAt).getTime() : 0;
+
+          if (leftTime !== rightTime) {
+            return rightTime - leftTime;
+          }
+
+          return left.title.localeCompare(right.title, 'ru');
+        }),
+    [allAchievements],
+  );
   const pinnedAchievements = userAchievements.filter((item) => pinnedAchievementIds.includes(item.id));
 
   useEffect(() => {
