@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAppData } from '@/contexts/AppDataContext';
 import type { User, StreamEvent } from '@/types/app-data';
-import { Users, Activity, Settings, Shield, Search, Trophy, ListTodo, GraduationCap, BookOpen, Key, ScrollText, RefreshCw, UserPlus, Eye, Lock, Trash2, Save } from 'lucide-react';
+import { Users, Activity, Settings, Shield, Search, Trophy, ListTodo, GraduationCap, BookOpen, Key, ScrollText, RefreshCw, UserPlus, Eye, Lock, Trash2, Save, Bot } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AdminAchievements from '@/components/admin/AdminAchievements';
 import AdminTasks from '@/components/admin/AdminTasks';
@@ -12,6 +12,7 @@ import AdminRoles from '@/components/admin/AdminRoles';
 import AdminPermissions from '@/components/admin/AdminPermissions';
 import AdminAuditLog from '@/components/admin/AdminAuditLog';
 import AdminTikTokSyncLogs from '@/components/admin/AdminTikTokSyncLogs';
+import AdminAICoach from '@/components/admin/AdminAICoach';
 import UserRoleAssign from '@/components/admin/UserRoleAssign';
 import UserRoleBadges from '@/components/UserRoleBadges';
 import { canAccessAdminSettings, getRoleLabel } from '@/lib/roles';
@@ -30,7 +31,7 @@ import {
 import { toast } from '@/hooks/use-toast';
 import { supabasePublic } from '@/integrations/supabase/publicClient';
 
-type TabId = 'users' | 'events' | 'achievements' | 'tasks' | 'academy' | 'articles' | 'roles' | 'permissions' | 'audit' | 'tiktok_sync' | 'settings';
+type TabId = 'users' | 'events' | 'achievements' | 'tasks' | 'academy' | 'articles' | 'roles' | 'permissions' | 'audit' | 'tiktok_sync' | 'ai_coach' | 'settings';
 
 const Admin: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabId>('users');
@@ -58,6 +59,7 @@ const Admin: React.FC = () => {
     { id: 'permissions', label: 'Разрешения', icon: Key },
     { id: 'audit', label: 'Аудит', icon: ScrollText },
     { id: 'tiktok_sync', label: 'TikTok Sync', icon: RefreshCw },
+    { id: 'ai_coach', label: 'AI Coach', icon: Bot },
     { id: 'settings', label: 'Настройки', icon: Settings },
   ];
 
@@ -125,6 +127,7 @@ const Admin: React.FC = () => {
       {activeTab === 'permissions' && <AdminPermissions />}
       {activeTab === 'audit' && <AdminAuditLog />}
       {activeTab === 'tiktok_sync' && <AdminTikTokSyncLogs />}
+      {activeTab === 'ai_coach' && <AdminAICoach />}
       {activeTab === 'settings' && <AdminReferralSettings />}
     </div>
   );

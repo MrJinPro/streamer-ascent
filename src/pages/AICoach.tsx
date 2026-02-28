@@ -1,65 +1,165 @@
-import React, { useState } from 'react';
-import { Bot, Send, Sparkles, Lightbulb, TrendingUp, MessageSquare } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Bot, Send, Sparkles, Lightbulb, TrendingUp, MessageSquare, CalendarCheck2, Mic2, ClipboardList, ScrollText, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { supabasePublic } from '@/integrations/supabase/publicClient';
+import { toast } from '@/hooks/use-toast';
+
+type ModeId =
+  | 'progress_report'
+  | 'live_plan'
+  | 'live_review'
+  | 'daily_missions'
+  | 'content_factory'
+  | 'tiktok_qa'
+  | 'universal_chat';
 
 interface AIMessage {
   id: string;
   content: string;
   isAI: boolean;
   timestamp: Date;
+  modeId?: ModeId;
+  logId?: string | null;
+  sources?: Array<{
+    id: string;
+    title: string;
+    sourceUrl?: string | null;
+  }>;
 }
 
+type ModeConfig = {
+  id: ModeId;
+  title: string;
+  icon: React.ElementType;
+};
+
+const modeTabs: ModeConfig[] = [
+  { id: 'progress_report', title: 'Анализ', icon: TrendingUp },
+  { id: 'live_plan', title: 'План эфира', icon: Mic2 },
+  { id: 'live_review', title: 'Разбор', icon: ClipboardList },
+  { id: 'daily_missions', title: 'Миссии', icon: CalendarCheck2 },
+  { id: 'content_factory', title: 'Контент', icon: Lightbulb },
+  { id: 'tiktok_qa', title: 'TikTok правила', icon: ScrollText },
+  { id: 'universal_chat', title: 'Диалог', icon: MessageSquare },
+];
+
+const modeLabels: Record<ModeId, string> = {
+  progress_report: 'progress_report',
+  live_plan: 'live_plan',
+  live_review: 'live_review',
+  daily_missions: 'daily_missions',
+  content_factory: 'content_factory',
+  tiktok_qa: 'tiktok_qa',
+  universal_chat: 'universal_chat',
+};
+
 const AICoach: React.FC = () => {
+  const [activeMode, setActiveMode] = useState<ModeId>('universal_chat');
+  const [enabledModes, setEnabledModes] = useState<Set<string>>(new Set(modeTabs.map((item) => item.id)));
   const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
   const [messages, setMessages] = useState<AIMessage[]>([
     {
       id: '1',
-      content: 'Привет! Я твой AI-наставник в NovaBoost. 🚀\n\nЯ помогу тебе:\n• Анализировать твой прогресс\n• Давать персональные советы\n• Отвечать на вопросы о стриминге\n• Подсказывать следующие шаги\n\nО чём хочешь поговорить?',
+      content:
+        'AI Coach в боевом режиме. Выбери вкладку режима или используй «Диалог» для автоподбора через Router.\n\nОтветы формируются с учётом данных профиля и настроек режима из админки.',
       isAI: true,
       timestamp: new Date(),
     },
   ]);
 
-  const quickActions = [
-    { icon: TrendingUp, label: 'Анализ прогресса', prompt: 'Проанализируй мой прогресс за последнюю неделю' },
-    { icon: Lightbulb, label: 'Советы на сегодня', prompt: 'Дай мне советы на сегодняшний стрим' },
-    { icon: MessageSquare, label: 'Работа с чатом', prompt: 'Как лучше взаимодействовать с чатом?' },
-    { icon: Sparkles, label: 'Идеи контента', prompt: 'Предложи идеи для нового контента' },
-  ];
+  const quickActions = useMemo(
+    () => [
+      { icon: TrendingUp, label: 'Отчёт 7 дней', prompt: 'Сделай анализ прогресса за 7 дней и дай план на неделю' },
+      { icon: Mic2, label: 'Сценарий эфира', prompt: 'Собери сценарий эфира на 90 минут с пиками активности' },
+      { icon: CalendarCheck2, label: 'Миссии на сегодня', prompt: 'Составь миссии на сегодня в формате 3+2+1' },
+      { icon: Sparkles, label: 'Идеи контента', prompt: 'Дай 10 идей контента с хуками для TikTok Live' },
+    ],
+    [],
+  );
 
-  const handleSend = () => {
-    if (!message.trim()) return;
+  useEffect(() => {
+    const loadModes = async () => {
+      const { data, error } = await (supabasePublic as any).rpc('ai_modes_public');
+      if (error) return;
 
+      const ids = new Set<string>((data ?? []).map((item: any) => String(item.id)));
+      if (ids.size > 0) {
+        setEnabledModes(ids);
+        if (!ids.has(activeMode)) {
+          setActiveMode('universal_chat');
+        }
+      }
+    };
+
+    void loadModes();
+  }, [activeMode]);
+
+  const handleSend = async () => {
+    if (!message.trim() || sending) return;
+
+    const input = message.trim();
     const userMessage: AIMessage = {
       id: Date.now().toString(),
-      content: message,
+      content: input,
       isAI: false,
       timestamp: new Date(),
     };
 
     setMessages(prev => [...prev, userMessage]);
     setMessage('');
+    setSending(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse: AIMessage = {
-        id: (Date.now() + 1).toString(),
-        content: getAIResponse(message),
-        isAI: true,
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, aiResponse]);
-    }, 1000);
+    const selectedMode = activeMode === 'universal_chat' ? null : activeMode;
+
+    const { data, error } = await supabasePublic.functions.invoke('ai-coach-chat', {
+      body: {
+        message: input,
+        modeId: selectedMode,
+        language: 'ru',
+      },
+    });
+
+    if (error || !data?.ok) {
+      toast({
+        title: 'AI Coach недоступен',
+        description: error?.message ?? data?.error ?? 'Не удалось получить ответ',
+        variant: 'destructive',
+      });
+      setSending(false);
+      return;
+    }
+
+    const aiResponse: AIMessage = {
+      id: (Date.now() + 1).toString(),
+      content: String(data.answer ?? 'Пустой ответ'),
+      isAI: true,
+      timestamp: new Date(),
+      modeId: data.modeId as ModeId,
+      logId: data.logId ?? null,
+      sources: (data.sources ?? []).map((item: any) => ({
+        id: String(item.id),
+        title: String(item.title ?? 'Источник'),
+        sourceUrl: item.sourceUrl ? String(item.sourceUrl) : null,
+      })),
+    };
+
+    setMessages(prev => [...prev, aiResponse]);
+    setSending(false);
   };
 
-  const getAIResponse = (input: string): string => {
-    const responses = [
-      'Отличный вопрос! Судя по твоему прогрессу, ты на правильном пути. Рекомендую сосредоточиться на увеличении времени стримов до 3-4 часов — это оптимально для роста аудитории.',
-      'Я вижу, что у тебя streak уже 7 дней — это здорово! 🔥 Продолжай в том же духе. Для следующего уровня тебе нужно ещё 550 XP — это примерно 2-3 выполненных задания.',
-      'Хороший вопрос! Для работы с чатом советую: отвечать на первые сообщения новых зрителей, создавать интерактивные моменты каждые 15-20 минут, использовать ник зрителя при ответе.',
-      'Интересная идея! Попробуй формат "вопрос-ответ" в начале стрима — это отлично вовлекает аудиторию и создаёт контакт с чатом.',
-    ];
-    return responses[Math.floor(Math.random() * responses.length)];
+  const sendFeedback = async (logId: string, value: 1 | -1) => {
+    const { error } = await (supabasePublic as any).rpc('ai_save_feedback', {
+      p_log_id: logId,
+      p_feedback: value,
+    });
+
+    if (error) {
+      toast({ title: 'Не удалось сохранить feedback', description: error.message, variant: 'destructive' });
+      return;
+    }
+
+    toast({ title: 'Feedback сохранён', description: value > 0 ? 'Спасибо за оценку 👍' : 'Принято, улучшим ответ 👌' });
   };
 
   const handleQuickAction = (prompt: string) => {
@@ -75,12 +175,35 @@ const AICoach: React.FC = () => {
         </div>
         <div>
           <h1 className="text-2xl font-display font-bold">AI Coach</h1>
-          <p className="text-muted-foreground">Твой персональный наставник</p>
+          <p className="text-muted-foreground">Центральное интеллектуальное ядро NovaBoost Tools</p>
         </div>
         <div className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-full bg-success/20 text-success text-sm">
           <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
           Онлайн
         </div>
+      </div>
+
+      {/* Mode Tabs */}
+      <div className="flex gap-2 mb-4 flex-wrap">
+        {modeTabs.map((tab) => {
+          const isActive = activeMode === tab.id;
+          const isDisabled = !enabledModes.has(tab.id);
+          return (
+            <button
+              key={tab.id}
+              onClick={() => !isDisabled && setActiveMode(tab.id)}
+              disabled={isDisabled}
+              className={cn(
+                'flex items-center gap-2 px-4 py-2 rounded-full border transition-all text-sm',
+                isActive ? 'bg-primary text-primary-foreground border-primary' : 'bg-secondary border-border',
+                isDisabled && 'opacity-50 cursor-not-allowed',
+              )}
+            >
+              <tab.icon className="w-4 h-4" />
+              {tab.title}
+            </button>
+          );
+        })}
       </div>
 
       {/* Quick Actions */}
@@ -121,6 +244,40 @@ const AICoach: React.FC = () => {
                   : "bg-primary text-primary-foreground rounded-tr-sm"
               )}>
                 <p className="text-sm whitespace-pre-line">{msg.content}</p>
+                {msg.isAI && msg.modeId && (
+                  <p className="text-[11px] mt-2 text-primary">Режим: {modeLabels[msg.modeId]}</p>
+                )}
+
+                {msg.isAI && msg.sources && msg.sources.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-border/60 space-y-1">
+                    <p className="text-[11px] text-muted-foreground">Источники:</p>
+                    {msg.sources.slice(0, 3).map((src) => (
+                      <p key={src.id} className="text-[11px] text-muted-foreground truncate">
+                        • {src.title}
+                      </p>
+                    ))}
+                  </div>
+                )}
+
+                {msg.isAI && msg.logId && (
+                  <div className="mt-2 pt-2 border-t border-border/60 flex items-center gap-2">
+                    <button
+                      onClick={() => void sendFeedback(msg.logId!, 1)}
+                      className="p-1 rounded hover:bg-success/20 text-success"
+                      title="Полезно"
+                    >
+                      <ThumbsUp className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => void sendFeedback(msg.logId!, -1)}
+                      className="p-1 rounded hover:bg-destructive/20 text-destructive"
+                      title="Не полезно"
+                    >
+                      <ThumbsDown className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
                 <p className={cn(
                   "text-[10px] mt-2",
                   msg.isAI ? "text-muted-foreground" : "text-primary-foreground/70"
@@ -139,19 +296,20 @@ const AICoach: React.FC = () => {
               type="text"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+              onKeyDown={(e) => e.key === 'Enter' && void handleSend()}
               placeholder="Спроси что-нибудь..."
               className="flex-1 px-4 py-3 rounded-xl bg-secondary border border-border focus:border-primary focus:outline-none transition-colors"
             />
             <button 
-              onClick={handleSend}
-              className="p-3 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-glow"
+              onClick={() => void handleSend()}
+              disabled={sending}
+              className="p-3 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-glow disabled:opacity-60"
             >
               <Send className="w-5 h-5" />
             </button>
           </div>
           <p className="text-xs text-muted-foreground text-center mt-2">
-            AI Coach использует данные твоего профиля для персонализированных советов
+            Текущий режим: {modeLabels[activeMode]} • Router и Gateway работают через Supabase Edge Functions
           </p>
         </div>
       </div>
