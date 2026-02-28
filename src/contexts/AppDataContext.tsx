@@ -574,6 +574,20 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       };
     });
 
+    const normalizedAchievements = mergedAchievements.map((achievement) => {
+      const row = progressByAchievementId[achievement.id];
+      if (row) {
+        return achievement;
+      }
+
+      return {
+        ...achievement,
+        unlocked: false,
+        unlockedAt: undefined,
+        progress: 0,
+      };
+    });
+
     const now = new Date();
     const currentSeasonKey = getSeasonKey(now);
     const mergedTasks = (mergedContent.tasks as Task[]).map((task) => {
@@ -583,16 +597,19 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const row = taskProgressByCompositeKey[compositeKey];
 
       if (!row) {
+        const status: Task['status'] = task.completed ? 'completed' : task.progress > 0 ? 'in_progress' : 'pending';
+
         return {
           ...task,
           resetPeriod: task.resetPeriod ?? period,
-          status: task.completed ? 'completed' : task.progress > 0 ? 'in_progress' : 'pending',
+          status,
         };
       }
 
       const safeMaxProgress = Math.max(1, Number(row.max_progress ?? task.maxProgress ?? 1));
       const safeProgress = Math.min(safeMaxProgress, Math.max(0, Number(row.progress ?? 0)));
       const isCompleted = Boolean(row.completed);
+      const status: Task['status'] = isCompleted ? 'completed' : safeProgress > 0 ? 'in_progress' : 'pending';
 
       return {
         ...task,
@@ -600,7 +617,7 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
         maxProgress: safeMaxProgress,
         progress: safeProgress,
         completed: isCompleted,
-        status: isCompleted ? 'completed' : safeProgress > 0 ? 'in_progress' : 'pending',
+        status,
       };
     });
 
@@ -613,7 +630,7 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     const computedAllUsers = usersWithStats.length > 0 ? usersWithStats : (computedCurrentUser ? [computedCurrentUser] : []);
 
-    const currentUserUnlockedAchievements = mergedAchievements.filter((item) => item.unlocked).length;
+    const currentUserUnlockedAchievements = normalizedAchievements.filter((item) => item.unlocked).length;
     const currentUserCompletedTasks = mergedTasks.filter((item) => item.completed).length;
 
     const normalizedCurrentUser = computedCurrentUser
@@ -634,7 +651,7 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       currentUser: normalizedCurrentUser as User,
       allUsers: normalizedUsers,
       ...mergedContent,
-      achievements: mergedAchievements,
+      achievements: normalizedAchievements,
       tasks: mergedTasks,
     };
 

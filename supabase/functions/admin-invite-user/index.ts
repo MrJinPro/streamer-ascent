@@ -37,6 +37,7 @@ Deno.serve(async (request: Request) => {
   const payload = await request.json().catch(() => null);
   const email = String(payload?.email ?? '').trim().toLowerCase();
   const roleSlugs = normalizeRoleSlugs(payload?.roleSlugs);
+  const roleSummary = roleSlugs.length > 0 ? roleSlugs.join(', ') : 'streamer';
   const referralCode = String(payload?.referralCode ?? '').trim().toUpperCase() || DEFAULT_ADMIN_REFERRAL_CODE;
   const expiresInHours = Math.min(Math.max(Number(payload?.expiresInHours ?? 72), 1), 168);
 
@@ -78,6 +79,7 @@ Deno.serve(async (request: Request) => {
       invite_token: token,
       invite_ref: referralCode,
       invite_roles: roleSlugs,
+      invite_roles_text: roleSummary,
     },
   });
 
@@ -101,5 +103,6 @@ Deno.serve(async (request: Request) => {
     inviteLink: inviteUrl.toString(),
     expiresAt,
     inviteMailError: inviteMailError?.message ?? null,
+    roleSummary,
   });
 });

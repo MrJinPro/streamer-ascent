@@ -1,3 +1,5 @@
+/// <reference path="../esm-shims.d.ts" />
+/// <reference path="../deno-globals.d.ts" />
 import {
   adminClient,
   corsHeaders,
@@ -40,6 +42,12 @@ Deno.serve(async (request: Request) => {
   const displayName = String(payload?.displayName ?? '').trim();
   const roleSlugs = normalizeRoleSlugs(payload?.roleSlugs);
   const referralCode = String(payload?.referralCode ?? '').trim().toUpperCase() || DEFAULT_ADMIN_REFERRAL_CODE;
+  const appUrl = Deno.env.get('APP_URL') ?? Deno.env.get('SITE_URL') ?? 'http://localhost:5173';
+  const inviteUrl = new URL('/auth', appUrl);
+  inviteUrl.searchParams.set('from', 'admin_create_user');
+  if (referralCode) {
+    inviteUrl.searchParams.set('ref', referralCode);
+  }
 
   if (!EMAIL_REGEX.test(email)) {
     return json(400, { error: 'Invalid email format' });
@@ -85,12 +93,34 @@ Deno.serve(async (request: Request) => {
     role_slugs: roleSlugs,
     referral_code: referralCode,
     status: 'provisioned',
+    invite_link: inviteUrl.toString(),
     inviter_user_id: requester.id,
     metadata: {
       source: 'admin-create-user',
       created_user_id: createdUserId,
+      role_slugs: roleSlugs,
     },
   });
+
+  const roleSummary = roleSlugs.length > 0 ? roleSlugs.join(', ') : 'streamer';
+  const { error: inviteMailError } = await adminClient.auth.admin.inviteUserByEmail(email, {
+    redirectTo: inviteUrl.toString(),
+    data: {
+      source: 'admin-create-user',
+      invite_ref: referralCode,
+      invite_roles: roleSlugs,
+      invite_roles_text: roleSummary,
+      created_user_id: createdUserId,
+    },
+  });
+
+  if (!inviteMailError) {
+    await adminClient
+      .from('admin_invites')
+      .update({ status: 'sent' })
+      .eq('email', email)
+      .eq('status', 'provisioned');
+  }
 
   await adminClient.from('audit_log').insert({
     actor_user_id: requester.id,
@@ -108,5 +138,8 @@ Deno.serve(async (request: Request) => {
     ok: true,
     userId: createdUserId,
     email,
+    inviteLink: inviteUrl.toString(),
+    inviteMailError: inviteMailError?.message ?? null,
+    roleSummary,
   });
 });

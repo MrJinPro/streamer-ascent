@@ -33,7 +33,18 @@ export const canAccessAdminSettings = (role?: string | null, email?: string | nu
   return role === 'owner' || role === 'admin' || role === 'support' || isSuperAdminEmail(email);
 };
 
-const PRODUCT_STAFF_ROLES = new Set(['owner', 'admin', 'support', 'architect', 'system_owner']);
+const PRODUCT_STAFF_ROLES = new Set([
+  'owner',
+  'admin',
+  'support',
+  'developer',
+  'senior_curator',
+  'curator',
+  'manager',
+  'moderator',
+  'architect',
+  'system_owner',
+]);
 
 export const canAccessProduct = (role?: string | null, email?: string | null): boolean => {
   if (isSuperAdminEmail(email)) {

@@ -97,8 +97,13 @@ export const enforceAdminRateLimit = async (userId: string, action: string, perM
 };
 
 export const normalizeRoleSlugs = (value: unknown) => {
-  if (!Array.isArray(value)) return [] as string[];
-  return value
+  const raw = Array.isArray(value)
+    ? value
+    : typeof value === 'string'
+      ? value.split(',')
+      : [];
+
+  return raw
     .map((item) => String(item ?? '').trim().toLowerCase())
     .filter(Boolean)
     .filter((item, idx, arr) => arr.indexOf(item) === idx);

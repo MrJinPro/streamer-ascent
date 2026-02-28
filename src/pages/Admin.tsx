@@ -662,9 +662,24 @@ const UsersTab: React.FC<{ users: User[] }> = ({ users }) => {
     setCreateOpen(false);
     await loadDirectoryUsers();
 
+    if (data.inviteMailError) {
+      if (data.inviteLink && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        void navigator.clipboard.writeText(data.inviteLink);
+      }
+
+      toast({
+        title: 'Пользователь создан, но письмо не отправлено',
+        description: data.inviteLink
+          ? `Роли: ${data.roleSummary ?? 'streamer'}. Причина: ${data.inviteMailError}. Ссылка скопирована в буфер.`
+          : `Роли: ${data.roleSummary ?? 'streamer'}. Причина: ${data.inviteMailError}`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     toast({
       title: 'Пользователь создан',
-      description: `User ID: ${data.userId}`,
+      description: `Роли: ${data.roleSummary ?? 'streamer'}. Письмо отправлено на ${data.email}`,
     });
   };
 
