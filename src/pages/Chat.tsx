@@ -81,6 +81,7 @@ const Chat: React.FC = () => {
   const [groupTitle, setGroupTitle] = useState('');
   const [groupMemberIds, setGroupMemberIds] = useState<string[]>([]);
   const [excludedForMessage, setExcludedForMessage] = useState<string[]>([]);
+  const [contactSearch, setContactSearch] = useState('');
   const [profileUserIds, setProfileUserIds] = useState<Set<string>>(new Set());
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [newMessagesCount, setNewMessagesCount] = useState(0);
@@ -187,6 +188,16 @@ const Chat: React.FC = () => {
     return allUsers.filter((u) => u.id !== user.id && isProfileUser(u.id));
   }, [allUsers, currentRole, membersByThread, profileUserIds, roleMap, threads, user?.id]);
 
+  const filteredContacts = useMemo(() => {
+    const needle = contactSearch.trim().toLowerCase();
+    if (!needle) return potentialContacts;
+
+    return potentialContacts.filter((contact) => {
+      const label = `${contact.name} ${contact.id} ${getRoleLabel(contact.role)}`.toLowerCase();
+      return label.includes(needle);
+    });
+  }, [contactSearch, potentialContacts]);
+
   useEffect(() => {
     const loadProfileUserIds = async () => {
       const candidateIds = Array.from(new Set(allUsers.map((item) => item.id).filter(Boolean)));
@@ -280,6 +291,10 @@ const Chat: React.FC = () => {
 
     const threadIds = (myMemberships ?? []).map((item) => item.thread_id);
     if (threadIds.length === 0) {
+      if (isSilent) {
+        return;
+      }
+
       setThreads([]);
       setMembers([]);
       setMessages([]);
@@ -544,9 +559,9 @@ const Chat: React.FC = () => {
   }
 
   return (
-    <div className="h-[calc(100vh-6rem)] flex gap-4 animate-fade-in">
+    <div className="h-[calc(100vh-6rem)] min-h-0 flex gap-4 animate-fade-in">
       {/* Conversations List */}
-      <div className="w-96 flex flex-col rounded-xl glass border border-border overflow-hidden">
+      <div className="w-96 min-h-0 flex flex-col rounded-xl glass border border-border overflow-hidden">
         <div className="p-4 border-b border-border space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="font-display font-semibold">Чаты</h2>
@@ -605,8 +620,14 @@ const Chat: React.FC = () => {
 
           <div className="rounded-lg border border-border p-2 bg-secondary/20 max-h-32 overflow-y-auto">
             <p className="text-xs text-muted-foreground mb-2">Быстрые контакты</p>
+            <input
+              value={contactSearch}
+              onChange={(event) => setContactSearch(event.target.value)}
+              placeholder="Поиск контакта..."
+              className="w-full mb-2 px-2 py-1.5 rounded-md bg-background border border-border text-xs"
+            />
             <div className="space-y-1">
-              {potentialContacts.slice(0, 8).map((contact) => (
+              {filteredContacts.slice(0, 8).map((contact) => (
                 <button
                   key={contact.id}
                   onClick={() => void openDirect(contact.id)}
@@ -615,11 +636,14 @@ const Chat: React.FC = () => {
                   {contact.name} <span className="text-xs text-muted-foreground">({getRoleLabel(contact.role)})</span>
                 </button>
               ))}
+              {filteredContacts.length === 0 && (
+                <p className="text-xs text-muted-foreground px-2 py-1">Контакты не найдены</p>
+              )}
             </div>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto">
           {threadsSorted.map((thread) => {
             const unread = unreadMap[thread.id] ?? 0;
 
@@ -658,7 +682,7 @@ const Chat: React.FC = () => {
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col rounded-xl glass border border-border overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col rounded-xl glass border border-border overflow-hidden">
         {!selectedThread ? (
           <div className="h-full flex items-center justify-center text-muted-foreground">
             Выберите чат слева или создайте новый.
@@ -707,11 +731,11 @@ const Chat: React.FC = () => {
             )}
 
             {/* Messages */}
-            <div className="relative flex-1">
+            <div className="relative flex-1 min-h-0">
               <div
                 ref={messagesContainerRef}
                 onScroll={handleMessagesScroll}
-                className="h-full overflow-y-auto p-4 space-y-4"
+                className="h-full min-h-0 overflow-y-auto p-4 space-y-4"
               >
               {selectedThreadMessages.map((msg) => {
                 const isOwn = msg.sender_user_id === user.id;
