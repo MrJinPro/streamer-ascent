@@ -18,6 +18,7 @@ interface AIMessage {
   content: string;
   isAI: boolean;
   timestamp: Date;
+  isPending?: boolean;
   modeId?: ModeId;
   logId?: string | null;
   sources?: Array<{
@@ -70,10 +71,10 @@ const AICoach: React.FC = () => {
 
   const quickActions = useMemo(
     () => [
-      { icon: TrendingUp, label: 'Отчёт 7 дней', prompt: 'Сделай анализ прогресса за 7 дней и дай план на неделю' },
-      { icon: Mic2, label: 'Сценарий эфира', prompt: 'Собери сценарий эфира на 90 минут с пиками активности' },
-      { icon: CalendarCheck2, label: 'Миссии на сегодня', prompt: 'Составь миссии на сегодня в формате 3+2+1' },
-      { icon: Sparkles, label: 'Идеи контента', prompt: 'Дай 10 идей контента с хуками для TikTok Live' },
+      { icon: TrendingUp, label: 'Отчёт 7 дней', mode: 'progress_report' as ModeId, prompt: 'Сделай анализ прогресса за 7 дней и дай план на неделю' },
+      { icon: Mic2, label: 'Сценарий эфира', mode: 'live_plan' as ModeId, prompt: 'Собери сценарий эфира на 90 минут с пиками активности' },
+      { icon: CalendarCheck2, label: 'Миссии на сегодня', mode: 'daily_missions' as ModeId, prompt: 'Составь миссии на сегодня в формате 3+2+1' },
+      { icon: Sparkles, label: 'Идеи контента', mode: 'content_factory' as ModeId, prompt: 'Дай 10 идей контента с хуками для TikTok Live' },
     ],
     [],
   );
@@ -111,6 +112,19 @@ const AICoach: React.FC = () => {
     setSending(true);
 
     const selectedMode = activeMode === 'universal_chat' ? null : activeMode;
+    const pendingMessageId = `pending-${Date.now()}`;
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: pendingMessageId,
+        content: 'Думаю над ответом…',
+        isAI: true,
+        isPending: true,
+        timestamp: new Date(),
+        modeId: selectedMode ?? 'universal_chat',
+      },
+    ]);
 
     const { data, error } = await supabasePublic.functions.invoke('ai-coach-chat', {
       body: {
@@ -121,6 +135,7 @@ const AICoach: React.FC = () => {
     });
 
     if (error || !data?.ok) {
+      setMessages((prev) => prev.filter((msg) => msg.id !== pendingMessageId));
       toast({
         title: 'AI Coach недоступен',
         description: error?.message ?? data?.error ?? 'Не удалось получить ответ',
@@ -131,7 +146,7 @@ const AICoach: React.FC = () => {
     }
 
     const aiResponse: AIMessage = {
-      id: (Date.now() + 1).toString(),
+      id: `ai-${Date.now()}`,
       content: String(data.answer ?? 'Пустой ответ'),
       isAI: true,
       timestamp: new Date(),
@@ -144,7 +159,7 @@ const AICoach: React.FC = () => {
       })),
     };
 
-    setMessages(prev => [...prev, aiResponse]);
+    setMessages((prev) => [...prev.filter((msg) => msg.id !== pendingMessageId), aiResponse]);
     setSending(false);
   };
 
@@ -162,7 +177,8 @@ const AICoach: React.FC = () => {
     toast({ title: 'Feedback сохранён', description: value > 0 ? 'Спасибо за оценку 👍' : 'Принято, улучшим ответ 👌' });
   };
 
-  const handleQuickAction = (prompt: string) => {
+  const handleQuickAction = (prompt: string, mode: ModeId) => {
+    setActiveMode(mode);
     setMessage(prompt);
   };
 
@@ -211,7 +227,7 @@ const AICoach: React.FC = () => {
         {quickActions.map((action, index) => (
           <button
             key={index}
-            onClick={() => handleQuickAction(action.prompt)}
+            onClick={() => handleQuickAction(action.prompt, action.mode)}
             className="flex items-center gap-2 px-4 py-2 rounded-full bg-secondary border border-border hover:border-primary/50 hover:bg-primary/10 transition-all text-sm"
           >
             <action.icon className="w-4 h-4 text-primary" />
@@ -244,6 +260,9 @@ const AICoach: React.FC = () => {
                   : "bg-primary text-primary-foreground rounded-tr-sm"
               )}>
                 <p className="text-sm whitespace-pre-line">{msg.content}</p>
+                {msg.isPending && (
+                  <p className="text-[11px] mt-2 text-muted-foreground animate-pulse">AI Coach печатает ответ…</p>
+                )}
                 {msg.isAI && msg.modeId && (
                   <p className="text-[11px] mt-2 text-primary">Формат ответа: {modeLabels[msg.modeId]}</p>
                 )}
@@ -309,7 +328,7 @@ const AICoach: React.FC = () => {
             </button>
           </div>
           <p className="text-xs text-muted-foreground text-center mt-2">
-            Текущий формат: {modeLabels[activeMode]}
+            Текущий формат: {modeLabels[activeMode]}{sending ? ' • Отправляю запрос…' : ''}
           </p>
         </div>
       </div>

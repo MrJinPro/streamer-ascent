@@ -59,6 +59,36 @@ const GLOBAL_DOMAIN_SYSTEM_PROMPT = [
   'Если данных недостаточно, скажи это прямо и предложи, какие именно стримерские метрики нужно добавить.',
 ].join(' ');
 
+const getModeOutputRequirements = (modeId: string) => {
+  if (modeId === 'daily_missions') {
+    return [
+      'Формат обязателен и без отклонений:',
+      '1) Обязательные задачи (3 пункта)',
+      '2) Дополнительные задачи (2 пункта)',
+      '3) Усиление (1 пункт)',
+      'Каждый пункт: действие + измеримый результат + дедлайн на сегодня.',
+      'Не используй общие фразы, не повторяйся.',
+    ].join(' ');
+  }
+
+  if (modeId === 'content_factory') {
+    return [
+      'Сформируй РОВНО 10 идей для TikTok Live.',
+      'Для каждой идеи дай: Хук, Сценарий (3 шага), Интерактив с чатом, CTA.',
+      'Идеи должны быть реалистичны для стрима и не нарушать правила платформы.',
+      'Запрещено предлагать просмотр фильмов/чужого контента с потенциальным нарушением авторских прав.',
+      'Избегай обезличенных формулировок типа "вашу аудиторию" — обращайся к стримеру на "ты".',
+      'Не пиши вступление/воду, сразу к списку идей.',
+    ].join(' ');
+  }
+
+  if (modeId === 'progress_report') {
+    return 'Формат обязателен: Итог, Сильные стороны, Слабые зоны, План на 7 дней, Быстрые задачи на 24ч.';
+  }
+
+  return 'Ответ должен быть практичным, конкретным и ориентированным на действия стримера.';
+};
+
 const isSchemaCacheError = (error: { code?: string; message?: string; details?: string } | null | undefined) => {
   if (!error) return false;
   const text = `${error.code ?? ''} ${error.message ?? ''} ${error.details ?? ''}`;
@@ -241,7 +271,7 @@ const callModel = async (
     };
   }
 
-  const system = `${GLOBAL_DOMAIN_SYSTEM_PROMPT}\n\n${mode.system_prompt}\n\nСтиль: ${mode.style_guide ?? 'по делу'}\n\nКонтекст JSON:\n${JSON.stringify(contextPayload)}`;
+  const system = `${GLOBAL_DOMAIN_SYSTEM_PROMPT}\n\n${mode.system_prompt}\n\nТребования к формату: ${getModeOutputRequirements(mode.id)}\n\nСтиль: ${mode.style_guide ?? 'по делу'}\n\nКонтекст JSON:\n${JSON.stringify(contextPayload)}`;
 
   const response = await fetch(endpoint, {
     method: 'POST',
