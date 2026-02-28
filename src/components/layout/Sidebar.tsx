@@ -22,6 +22,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useAppData } from '@/contexts/AppDataContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { canAccessAdminSettings, getRoleLabel } from '@/lib/roles';
+import { supabasePublic } from '@/integrations/supabase/publicClient';
 import logo from '@/assets/novaboost-logo.png';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -38,10 +39,10 @@ const mainNavItems: NavItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
   { icon: TrendingUp, label: 'Прогресс', href: '/progress' },
   { icon: Trophy, label: 'Достижения', href: '/achievements' },
-  { icon: ListTodo, label: 'Задачи', href: '/tasks', badge: 3 },
+  { icon: ListTodo, label: 'Задачи', href: '/tasks' },
   { icon: GraduationCap, label: 'Обучение', href: '/learning' },
   { icon: BookOpen, label: 'Статьи', href: '/articles' },
-  { icon: MessageSquare, label: 'Чат', href: '/chat', badge: 2 },
+  { icon: MessageSquare, label: 'Чат', href: '/chat' },
   { icon: Sparkles, label: 'AI Наставник', href: '/ai-coach', isNew: true },
   { icon: Trophy, label: 'Рейтинг', href: '/ranking' },
 ];
@@ -58,7 +59,8 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ onNavigate }) => {
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
   const { signOut, role, user } = useAuth();
-  const { currentUser } = useAppData();
+  const { currentUser, tasks, refresh } = useAppData();
+  const [chatUnreadTotal, setChatUnreadTotal] = React.useState(0);
   const xpPercent = (currentUser.xp / currentUser.xpToNextLevel) * 100;
   const effectiveRole = role ?? currentUser.role;
   const authDisplayName =
@@ -71,6 +73,92 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ onNavigate }) => {
     (user?.user_metadata?.avatar_url as string | undefined) ??
     (user?.user_metadata?.picture as string | undefined);
   const displayAvatar = authAvatar ?? currentUser.avatar;
+  const pendingTasksCount = React.useMemo(
+    () => tasks.filter((task) => task.status !== 'completed' && !task.completed).length,
+    [tasks],
+  );
+
+  const loadChatUnreadTotal = React.useCallback(async () => {
+    if (!user?.id) {
+      setChatUnreadTotal(0);
+      return;
+    }
+
+    const { data, error } = await (supabasePublic as any).rpc('chat_get_unread_counts');
+    if (error) {
+      return;
+    }
+
+    const total = (data ?? []).reduce((sum: number, row: { unread_count?: number }) => {
+      return sum + Number(row.unread_count ?? 0);
+    }, 0);
+
+    setChatUnreadTotal(total);
+  }, [user?.id]);
+
+  React.useEffect(() => {
+    void loadChatUnreadTotal();
+  }, [loadChatUnreadTotal]);
+
+  React.useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+
+    const tasksChannel = supabasePublic
+      .channel(`sidebar-task-badges-${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'app_content', filter: 'key=eq.tasks' },
+        () => {
+          void refresh();
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'user_task_progress', filter: `user_id=eq.${user.id}` },
+        () => {
+          void refresh();
+        },
+      )
+      .subscribe();
+
+    const chatChannel = supabasePublic
+      .channel(`sidebar-chat-badges-${user.id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages_internal' }, () => {
+        void loadChatUnreadTotal();
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_message_receipts' }, () => {
+        void loadChatUnreadTotal();
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_thread_members' }, () => {
+        void loadChatUnreadTotal();
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_thread_members' }, () => {
+        void loadChatUnreadTotal();
+      })
+      .subscribe();
+
+    return () => {
+      void supabasePublic.removeChannel(tasksChannel);
+      void supabasePublic.removeChannel(chatChannel);
+    };
+  }, [loadChatUnreadTotal, refresh, user?.id]);
+
+  const getItemBadge = React.useCallback(
+    (item: NavItem) => {
+      if (item.href === '/tasks') {
+        return pendingTasksCount > 0 ? pendingTasksCount : undefined;
+      }
+
+      if (item.href === '/chat') {
+        return chatUnreadTotal > 0 ? chatUnreadTotal : undefined;
+      }
+
+      return item.badge;
+    },
+    [chatUnreadTotal, pendingTasksCount],
+  );
 
   return (
     <>
@@ -158,6 +246,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ onNavigate }) => {
       <nav className="relative flex-1 px-3 py-2 space-y-0.5 overflow-y-auto">
         {mainNavItems.map((item) => {
           const isActive = location.pathname === item.href;
+          const itemBadge = getItemBadge(item);
           return (
             <NavLink
               key={item.href}
@@ -181,18 +270,18 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ onNavigate }) => {
               )} />
               <span className="flex-1">{item.label}</span>
               
-              {item.badge && (
+              {itemBadge && (
                 <span className={cn(
                   "flex items-center justify-center min-w-5 h-5 px-1.5 text-xs font-bold rounded-full",
                   isActive 
                     ? "bg-white/20 text-white" 
                     : "bg-accent text-accent-foreground"
                 )}>
-                  {item.badge}
+                  {itemBadge > 99 ? '99+' : itemBadge}
                 </span>
               )}
               
-              {item.isNew && !item.badge && (
+              {item.isNew && !itemBadge && (
                 <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-gradient-cyan text-white">
                   New
                 </span>
