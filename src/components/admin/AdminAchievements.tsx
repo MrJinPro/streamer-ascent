@@ -12,13 +12,14 @@ import { toast } from '@/hooks/use-toast';
 import { useAppData } from '@/contexts/AppDataContext';
 import { supabasePublic } from '@/integrations/supabase/publicClient';
 
-const rarityLabels = { common: 'Обычное', rare: 'Редкое', epic: 'Эпическое', legendary: 'Легендарное' };
+const rarityLabels = { common: 'Обычное', rare: 'Редкое', epic: 'Эпическое', legendary: 'Легендарное', secret: 'Секретное' };
 const categoryLabels = { diamonds: 'Алмазы', stream: 'Стримы', community: 'Комьюнити', special: 'Особые' };
 const rarityStyles = {
   common: 'bg-muted-foreground/20 text-muted-foreground',
   rare: 'bg-primary/20 text-primary',
   epic: 'bg-nova-purple/20 text-nova-purple',
   legendary: 'bg-accent/20 text-accent',
+  secret: 'bg-nova-cyan/20 text-nova-cyan',
 };
 
 type FormData = {

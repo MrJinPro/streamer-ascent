@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { useAppData } from '@/contexts/AppDataContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { formatSeasonLabel, getTaskPeriod } from '@/lib/progressionEconomy';
 
 // Генерация 50 уровней
 const generateLevels = (currentLevel: number) => {
@@ -67,13 +68,20 @@ const diamondCheckpoints = [
 ];
 
 const Progress: React.FC = () => {
-  const { currentUser } = useAppData();
+  const { currentUser, tasks } = useAppData();
   const [selectedCheckpoint, setSelectedCheckpoint] = useState<typeof diamondCheckpoints[0] | null>(null);
   const [showRewardDialog, setShowRewardDialog] = useState(false);
   const levels = generateLevels(currentUser.stats.currentLevel);
   
   const currentDiamonds = currentUser.stats.diamondsTotal;
   const currentLevelData = levels.find(l => l.status === 'current');
+  const seasonLabel = formatSeasonLabel();
+  const xpProgressPercent = currentUser.xpToNextLevel > 0 ? Math.min(100, (currentUser.xp / currentUser.xpToNextLevel) * 100) : 0;
+  const completedTasks = tasks.filter((item) => item.completed);
+  const completedTasksCount = completedTasks.length;
+  const weeklyXp = completedTasks
+    .filter((item) => getTaskPeriod(item) === 'weekly')
+    .reduce((sum, item) => sum + item.xpReward, 0);
   
   // Позиция на пути (%)
   const progressToNextCheckpoint = () => {
@@ -119,7 +127,7 @@ const Progress: React.FC = () => {
         <div className="text-center mb-8 md:mb-12">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-4">
             <Sparkles className="w-4 h-4 text-nova-gold animate-pulse" />
-            <span className="text-sm font-medium">Сезон 1 • Январь 2026</span>
+            <span className="text-sm font-medium">Сезон • {seasonLabel}</span>
           </div>
           <h1 className="text-3xl md:text-5xl font-display font-bold mb-3">
             <span className="text-gradient">Путь к Легенде</span>
@@ -153,10 +161,10 @@ const Progress: React.FC = () => {
                   <div>
                     <div className="flex justify-between text-sm mb-2">
                       <span className="text-muted-foreground">До уровня {currentUser.stats.currentLevel + 1}</span>
-                      <span className="font-semibold text-gradient">2,450 / 5,000 XP</span>
+                      <span className="font-semibold text-gradient">{currentUser.xp.toLocaleString()} / {currentUser.xpToNextLevel.toLocaleString()} XP</span>
                     </div>
                     <div className="h-3 bg-muted rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-primary rounded-full progress-glow transition-all duration-1000" style={{ width: '49%' }} />
+                      <div className="h-full bg-gradient-primary rounded-full progress-glow transition-all duration-1000" style={{ width: `${xpProgressPercent}%` }} />
                     </div>
                   </div>
                   
@@ -168,7 +176,7 @@ const Progress: React.FC = () => {
                     </div>
                     <div className="p-3 rounded-xl bg-secondary/50 text-center">
                       <Zap className="w-5 h-5 text-nova-gold mx-auto mb-1" />
-                      <p className="text-xl font-bold text-gradient-gold">+850</p>
+                      <p className="text-xl font-bold text-gradient-gold">+{weeklyXp.toLocaleString()}</p>
                       <p className="text-xs text-muted-foreground">XP за неделю</p>
                     </div>
                   </div>
@@ -251,15 +259,15 @@ const Progress: React.FC = () => {
               <div className="space-y-3">
                 <div className="flex justify-between items-center p-3 rounded-lg bg-secondary/30">
                   <span className="text-sm text-muted-foreground">Заданий выполнено</span>
-                  <span className="font-bold">47 / 90</span>
+                  <span className="font-bold">{completedTasksCount} / {tasks.length}</span>
                 </div>
                 <div className="flex justify-between items-center p-3 rounded-lg bg-secondary/30">
                   <span className="text-sm text-muted-foreground">Часов стримов</span>
-                  <span className="font-bold text-gradient-accent">128ч</span>
+                  <span className="font-bold text-gradient-accent">{Math.round(currentUser.totalHours)}ч</span>
                 </div>
                 <div className="flex justify-between items-center p-3 rounded-lg bg-secondary/30">
                   <span className="text-sm text-muted-foreground">Место в рейтинге</span>
-                  <span className="font-bold text-gradient-gold">#3</span>
+                  <span className="font-bold text-gradient-gold">#{currentUser.stats.rank > 0 ? currentUser.stats.rank : '—'}</span>
                 </div>
               </div>
             </div>

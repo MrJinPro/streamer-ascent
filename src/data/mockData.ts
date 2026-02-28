@@ -49,7 +49,7 @@ export interface Achievement {
   title: string;
   description: string;
   icon: string;
-  rarity: 'common' | 'rare' | 'epic' | 'legendary';
+  rarity: 'common' | 'rare' | 'epic' | 'legendary' | 'secret';
   unlocked: boolean;
   unlockedAt?: string;
   progress?: number;

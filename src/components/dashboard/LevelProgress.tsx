@@ -1,11 +1,25 @@
 import React from 'react';
 import { Zap, Star, Trophy, Target } from 'lucide-react';
 import { useAppData } from '@/contexts/AppDataContext';
+import { getTaskPeriod } from '@/lib/progressionEconomy';
 
 const LevelProgress: React.FC = () => {
-  const { currentUser } = useAppData();
+  const { currentUser, tasks } = useAppData();
   const progress = (currentUser.xp / currentUser.xpToNextLevel) * 100;
   const xpNeeded = currentUser.xpToNextLevel - currentUser.xp;
+  const completedTasks = tasks.filter((item) => item.completed);
+  const todayXp = completedTasks
+    .filter((item) => getTaskPeriod(item) === 'daily')
+    .reduce((sum, item) => sum + item.xpReward, 0);
+  const weekXp = completedTasks
+    .filter((item) => getTaskPeriod(item) === 'weekly')
+    .reduce((sum, item) => sum + item.xpReward, 0);
+  const monthXp = completedTasks
+    .filter((item) => {
+      const period = getTaskPeriod(item);
+      return period === 'monthly' || period === 'seasonal';
+    })
+    .reduce((sum, item) => sum + item.xpReward, 0);
 
   return (
     <div className="glass-card p-6 relative overflow-hidden">
@@ -38,15 +52,15 @@ const LevelProgress: React.FC = () => {
         <div className="grid grid-cols-3 gap-4">
           <div className="text-center p-3 rounded-xl bg-secondary/50">
             <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1"><Target className="w-4 h-4" /><span className="text-xs">Сегодня</span></div>
-            <p className="text-xl font-bold text-gradient">+125</p>
+            <p className="text-xl font-bold text-gradient">+{todayXp.toLocaleString()}</p>
           </div>
           <div className="text-center p-3 rounded-xl bg-secondary/50">
             <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1"><Zap className="w-4 h-4" /><span className="text-xs">Неделя</span></div>
-            <p className="text-xl font-bold text-gradient-gold">+850</p>
+            <p className="text-xl font-bold text-gradient-gold">+{weekXp.toLocaleString()}</p>
           </div>
           <div className="text-center p-3 rounded-xl bg-secondary/50">
             <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1"><Star className="w-4 h-4" /><span className="text-xs">Месяц</span></div>
-            <p className="text-xl font-bold text-gradient-cyan">+3,240</p>
+            <p className="text-xl font-bold text-gradient-cyan">+{monthXp.toLocaleString()}</p>
           </div>
         </div>
       </div>

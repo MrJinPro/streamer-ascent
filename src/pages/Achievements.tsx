@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { useAppData } from '@/contexts/AppDataContext';
 import { cn } from '@/lib/utils';
-import { Filter, Trophy } from 'lucide-react';
+import { Filter, Trophy, Sparkles, Lock } from 'lucide-react';
 
 const Achievements: React.FC = () => {
   const { achievements } = useAppData();
   const [filter, setFilter] = useState<'all' | 'unlocked' | 'locked'>('all');
 
-  const filteredAchievements = achievements.filter(a => {
+  const visibleAchievements = achievements.filter((achievement) => achievement.rarity !== 'secret' || achievement.unlocked);
+
+  const filteredAchievements = visibleAchievements.filter(a => {
     if (filter === 'unlocked') return a.unlocked;
     if (filter === 'locked') return !a.unlocked;
     return true;
@@ -18,6 +20,7 @@ const Achievements: React.FC = () => {
     rare: 'border-primary/40 bg-primary/5 hover:border-primary/60',
     epic: 'border-nova-purple/40 bg-nova-purple/5 hover:border-nova-purple/60',
     legendary: 'border-accent/40 bg-accent/5 hover:border-accent/60 shadow-gold',
+    secret: 'border-nova-cyan/40 bg-nova-cyan/5 hover:border-nova-cyan/60',
   };
 
   const rarityBadge = {
@@ -25,6 +28,7 @@ const Achievements: React.FC = () => {
     rare: 'bg-primary/20 text-primary',
     epic: 'bg-nova-purple/20 text-nova-purple',
     legendary: 'bg-accent/20 text-accent',
+    secret: 'bg-nova-cyan/20 text-nova-cyan',
   };
 
   const rarityLabels = {
@@ -32,15 +36,17 @@ const Achievements: React.FC = () => {
     rare: 'Редкое',
     epic: 'Эпическое',
     legendary: 'Легендарное',
+    secret: 'Секретное',
   };
 
   const stats = {
-    total: achievements.length,
-    unlocked: achievements.filter(a => a.unlocked).length,
-    common: achievements.filter(a => a.rarity === 'common' && a.unlocked).length,
-    rare: achievements.filter(a => a.rarity === 'rare' && a.unlocked).length,
-    epic: achievements.filter(a => a.rarity === 'epic' && a.unlocked).length,
-    legendary: achievements.filter(a => a.rarity === 'legendary' && a.unlocked).length,
+    total: visibleAchievements.length,
+    unlocked: visibleAchievements.filter(a => a.unlocked).length,
+    common: visibleAchievements.filter(a => a.rarity === 'common' && a.unlocked).length,
+    rare: visibleAchievements.filter(a => a.rarity === 'rare' && a.unlocked).length,
+    epic: visibleAchievements.filter(a => a.rarity === 'epic' && a.unlocked).length,
+    legendary: visibleAchievements.filter(a => a.rarity === 'legendary' && a.unlocked).length,
+    secret: visibleAchievements.filter(a => a.rarity === 'secret' && a.unlocked).length,
   };
 
   return (
@@ -49,7 +55,7 @@ const Achievements: React.FC = () => {
         <div>
           <h1 className="text-3xl font-display font-bold">Достижения</h1>
           <p className="text-muted-foreground mt-1">
-            Коллекционируй награды и отслеживай свой прогресс
+            Коллекционируй награды, повышай статус и отслеживай свой прогресс
           </p>
         </div>
         <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 border border-accent/30">
@@ -59,8 +65,25 @@ const Achievements: React.FC = () => {
         </div>
       </div>
 
+      <div className="rounded-xl border border-border bg-secondary/20 p-4 md:p-5">
+        <div className="flex items-start gap-3">
+          <Sparkles className="w-5 h-5 text-accent mt-0.5" />
+          <div className="space-y-2 text-sm">
+            <p className="font-semibold">Что такое достижения и как их получать</p>
+            <p className="text-muted-foreground">
+              Достижения — это долгосрочные цели за активность: стримы, стабильность, вклад в комьюнити и специальные события.
+              Выполняй условия, следи за прогрессом в карточках и забирай награды после разблокировки.
+            </p>
+            <p className="text-muted-foreground">
+              В системе есть <span className="font-medium text-foreground">секретные</span> достижения: до получения они не показываются в списке,
+              и условия по ним не раскрываются заранее.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {Object.entries(rarityLabels).map(([key, label]) => (
           <div 
             key={key}
@@ -123,7 +146,7 @@ const Achievements: React.FC = () => {
                     "text-[10px] px-1.5 py-0.5 rounded-full uppercase tracking-wider",
                     rarityBadge[achievement.rarity]
                   )}>
-                    {achievement.rarity}
+                    {rarityLabels[achievement.rarity]}
                   </span>
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">{achievement.description}</p>
@@ -146,7 +169,9 @@ const Achievements: React.FC = () => {
                     </div>
                   </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground mt-2">🔒 Заблокировано</p>
+                  <p className="text-xs text-muted-foreground mt-2 inline-flex items-center gap-1">
+                    <Lock className="w-3 h-3" /> Заблокировано
+                  </p>
                 )}
               </div>
             </div>

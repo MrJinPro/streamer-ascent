@@ -32,3 +32,18 @@ export const getRoleLabel = (role?: string | null): string => {
 export const canAccessAdminSettings = (role?: string | null, email?: string | null): boolean => {
   return role === 'owner' || role === 'admin' || role === 'support' || isSuperAdminEmail(email);
 };
+
+const PRODUCT_STAFF_ROLES = new Set(['owner', 'admin', 'support', 'architect', 'system_owner']);
+
+export const canAccessProduct = (role?: string | null, email?: string | null): boolean => {
+  if (isSuperAdminEmail(email)) {
+    return true;
+  }
+
+  const normalizedRole = String(role ?? '').toLowerCase();
+  if (!normalizedRole) {
+    return false;
+  }
+
+  return normalizedRole === 'streamer' || PRODUCT_STAFF_ROLES.has(normalizedRole);
+};

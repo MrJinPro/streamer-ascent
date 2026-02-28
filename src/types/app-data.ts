@@ -49,7 +49,7 @@ export interface Achievement {
   title: string;
   description: string;
   icon: string;
-  rarity: 'common' | 'rare' | 'epic' | 'legendary';
+  rarity: 'common' | 'rare' | 'epic' | 'legendary' | 'secret';
   unlocked: boolean;
   unlockedAt?: string;
   progress?: number;
@@ -94,6 +94,9 @@ export interface UserAppStats {
   streakDays?: number;
   totalHours?: number;
   completedTasks?: number;
+  taskSeasonXp?: number;
+  taskSeasonKey?: string;
+  taskSyncedAt?: string;
   achievements?: number;
   diamondsTotal?: number;
   diamonds30Days?: number;
@@ -118,6 +121,8 @@ export interface Task {
   title: string;
   description: string;
   type: 'daily' | 'weekly' | 'challenge';
+  resetPeriod?: 'daily' | 'weekly' | 'monthly' | 'seasonal';
+  difficulty?: 1 | 2 | 3 | 4 | 5;
   xpReward: number;
   progress: number;
   maxProgress: number;

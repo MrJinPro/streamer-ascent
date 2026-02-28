@@ -14,6 +14,7 @@ import type {
 } from '@/types/app-data';
 import { supabasePublic } from '@/integrations/supabase/publicClient';
 import { useAuth } from '@/contexts/AuthContext';
+import { getSeasonKey, getTaskPeriod, getTaskPeriodKey } from '@/lib/progressionEconomy';
 
 export type AppContentKey =
   | 'checkpoints'
@@ -276,6 +277,19 @@ type UserAchievementRow = {
   unlocked_at: string | null;
 };
 
+type UserTaskProgressRow = {
+  task_id: string;
+  period: 'daily' | 'weekly' | 'monthly' | 'seasonal';
+  period_key: string;
+  season_key: string;
+  progress: number;
+  max_progress: number;
+  completed: boolean;
+  completed_at: string | null;
+  xp_awarded: number;
+  updated_at: string;
+};
+
 const AppDataContext = createContext<AppDataContextValue | null>(null);
 
 const toRows = (data: Partial<PersistedContentShape>) =>
@@ -287,6 +301,7 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [dbData, setDbData] = useState<Partial<PersistedContentShape>>({});
   const [dbUsers, setDbUsers] = useState<User[]>([]);
   const [userAchievementRows, setUserAchievementRows] = useState<UserAchievementRow[]>([]);
+  const [userTaskProgressRows, setUserTaskProgressRows] = useState<UserTaskProgressRow[]>([]);
 
   const hydrate = useCallback(async () => {
     setLoading(true);
@@ -376,6 +391,22 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     if (user?.id) {
+      const currentSeasonKey = getSeasonKey();
+
+      await (supabasePublic as any).rpc('sync_user_task_stats', { p_user_id: user.id, p_season_key: currentSeasonKey });
+
+      const { data: taskProgressRows, error: taskProgressError } = await (supabasePublic as any)
+        .from('user_task_progress')
+        .select('task_id,period,period_key,season_key,progress,max_progress,completed,completed_at,xp_awarded,updated_at')
+        .eq('user_id', user.id)
+        .eq('season_key', currentSeasonKey);
+
+      if (!taskProgressError) {
+        setUserTaskProgressRows((taskProgressRows ?? []) as UserTaskProgressRow[]);
+      } else if (isSchemaMismatchError(taskProgressError)) {
+        setUserTaskProgressRows([]);
+      }
+
       await (supabasePublic as any).rpc('refresh_user_achievements', { p_user_id: user.id });
 
       const { data: achievementRows, error: achievementRowsError } = await (supabasePublic as any)
@@ -387,6 +418,7 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setUserAchievementRows((achievementRows ?? []) as UserAchievementRow[]);
       }
     } else {
+      setUserTaskProgressRows([]);
       setUserAchievementRows([]);
     }
 
@@ -520,6 +552,12 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return acc;
     }, {});
 
+    const taskProgressByCompositeKey = userTaskProgressRows.reduce<Record<string, UserTaskProgressRow>>((acc, row) => {
+      const compositeKey = `${row.task_id}:${row.period}:${row.period_key}:${row.season_key}`;
+      acc[compositeKey] = row;
+      return acc;
+    }, {});
+
     const mergedAchievements = (mergedContent.achievements as Achievement[]).map((achievement) => {
       const row = progressByAchievementId[achievement.id];
       if (!row) {
@@ -536,6 +574,36 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       };
     });
 
+    const now = new Date();
+    const currentSeasonKey = getSeasonKey(now);
+    const mergedTasks = (mergedContent.tasks as Task[]).map((task) => {
+      const period = getTaskPeriod(task);
+      const periodKey = getTaskPeriodKey(period, now);
+      const compositeKey = `${task.id}:${period}:${periodKey}:${currentSeasonKey}`;
+      const row = taskProgressByCompositeKey[compositeKey];
+
+      if (!row) {
+        return {
+          ...task,
+          resetPeriod: task.resetPeriod ?? period,
+          status: task.completed ? 'completed' : task.progress > 0 ? 'in_progress' : 'pending',
+        };
+      }
+
+      const safeMaxProgress = Math.max(1, Number(row.max_progress ?? task.maxProgress ?? 1));
+      const safeProgress = Math.min(safeMaxProgress, Math.max(0, Number(row.progress ?? 0)));
+      const isCompleted = Boolean(row.completed);
+
+      return {
+        ...task,
+        resetPeriod: task.resetPeriod ?? period,
+        maxProgress: safeMaxProgress,
+        progress: safeProgress,
+        completed: isCompleted,
+        status: isCompleted ? 'completed' : safeProgress > 0 ? 'in_progress' : 'pending',
+      };
+    });
+
     const usersWithStats = dbUsers.map(item => applyUserStats(item, userStats[item.id]));
 
     const computedCurrentUser =
@@ -546,10 +614,12 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const computedAllUsers = usersWithStats.length > 0 ? usersWithStats : (computedCurrentUser ? [computedCurrentUser] : []);
 
     const currentUserUnlockedAchievements = mergedAchievements.filter((item) => item.unlocked).length;
+    const currentUserCompletedTasks = mergedTasks.filter((item) => item.completed).length;
 
     const normalizedCurrentUser = computedCurrentUser
       ? {
           ...computedCurrentUser,
+          completedTasks: userStats[computedCurrentUser.id]?.completedTasks ?? currentUserCompletedTasks,
           achievements: currentUserUnlockedAchievements,
         }
       : computedCurrentUser;
@@ -565,6 +635,7 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       allUsers: normalizedUsers,
       ...mergedContent,
       achievements: mergedAchievements,
+      tasks: mergedTasks,
     };
 
     return {
@@ -573,7 +644,7 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       refresh: hydrate,
       updateContent,
     };
-  }, [dbData, dbUsers, hydrate, loading, updateContent, user, userAchievementRows]);
+  }, [dbData, dbUsers, hydrate, loading, updateContent, user, userAchievementRows, userTaskProgressRows]);
 
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;
 };

@@ -8,6 +8,7 @@ const rarityStyles = {
   rare: { bg: 'bg-primary/10', border: 'border-primary/30', text: 'text-primary' },
   epic: { bg: 'bg-accent/10', border: 'border-accent/30', text: 'text-accent' },
   legendary: { bg: 'bg-gradient-to-br from-nova-gold/20 to-nova-gold/5', border: 'border-nova-gold/40', text: 'text-nova-gold' },
+  secret: { bg: 'bg-nova-cyan/10', border: 'border-nova-cyan/40', text: 'text-nova-cyan' },
 };
 
 const RecentAchievements: React.FC = () => {
@@ -32,7 +33,12 @@ const RecentAchievements: React.FC = () => {
               <div key={achievement.id} className={cn("group flex items-center gap-3 md:gap-4 p-2.5 md:p-3 rounded-xl border transition-all duration-200 cursor-pointer hover:scale-[1.02]", rarity.bg, rarity.border)}>
                 <div className="relative flex-shrink-0">
                   <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-xl md:text-2xl">{achievement.icon}</div>
-                  {achievement.rarity === 'legendary' && <Sparkles className="absolute -top-1 -right-1 w-3 h-3 md:w-4 md:h-4 text-nova-gold animate-float" />}
+                  {(achievement.rarity === 'legendary' || achievement.rarity === 'secret') && (
+                    <Sparkles className={cn(
+                      "absolute -top-1 -right-1 w-3 h-3 md:w-4 md:h-4 animate-float",
+                      achievement.rarity === 'secret' ? 'text-nova-cyan' : 'text-nova-gold',
+                    )} />
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className={cn("font-semibold text-sm md:text-base truncate", rarity.text)}>{achievement.title}</p>

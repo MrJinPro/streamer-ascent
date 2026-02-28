@@ -30,6 +30,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import AnimatedBackground from '@/components/dashboard/AnimatedBackground';
 import { getRoleLabel } from '@/lib/roles';
+import { getTotalXpFromLevel } from '@/lib/progressionEconomy';
 import { supabasePublic } from '@/integrations/supabase/publicClient';
 import { toast } from '@/hooks/use-toast';
 import {
@@ -117,6 +118,10 @@ const Profile: React.FC = () => {
 
   const levelProgress = (user.stats.currentLevel / user.stats.maxLevel) * 100;
   const xpProgress = (user.xp / user.xpToNextLevel) * 100;
+  const totalXpEarned = useMemo(() => getTotalXpFromLevel(user.level, user.xp), [user.level, user.xp]);
+  const xpPerCompletedTask = user.completedTasks > 0 ? Math.floor(totalXpEarned / user.completedTasks) : 0;
+  const xpDeficit = Math.max(0, user.xpToNextLevel - user.xp);
+  const estimatedTasksToLevel = Math.ceil(xpDeficit / Math.max(50, xpPerCompletedTask || 50));
 
   const diamondHistory = useMemo(() => {
     const points = 31;
@@ -730,8 +735,8 @@ const Profile: React.FC = () => {
                       <Zap className="w-7 h-7 text-nova-cyan" />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold">{user.xp.toLocaleString()}</p>
-                      <p className="text-sm text-muted-foreground">Опыта XP</p>
+                      <p className="text-2xl font-bold">{totalXpEarned.toLocaleString()}</p>
+                      <p className="text-sm text-muted-foreground">Всего XP</p>
                     </div>
                   </div>
                 </CardContent>
@@ -809,11 +814,11 @@ const Profile: React.FC = () => {
 
                   <div className="grid grid-cols-2 gap-3">
                     <div className="p-3 rounded-xl bg-secondary/50 text-center">
-                      <p className="text-lg font-bold">{Math.floor(user.xp / user.completedTasks || 0)}</p>
+                      <p className="text-lg font-bold">{xpPerCompletedTask.toLocaleString()}</p>
                       <p className="text-xs text-muted-foreground">XP за задачу</p>
                     </div>
                     <div className="p-3 rounded-xl bg-secondary/50 text-center">
-                      <p className="text-lg font-bold">{Math.ceil((user.xpToNextLevel - user.xp) / 50)}</p>
+                      <p className="text-lg font-bold">{estimatedTasksToLevel}</p>
                       <p className="text-xs text-muted-foreground">Заданий до уровня</p>
                     </div>
                   </div>
@@ -861,6 +866,7 @@ const Profile: React.FC = () => {
                   key={achievement.id} 
                   className={`glass-card border-0 hover-lift ${
                     achievement.rarity === 'legendary' ? 'ring-2 ring-nova-gold/50' :
+                    achievement.rarity === 'secret' ? 'ring-2 ring-nova-cyan/50' :
                     achievement.rarity === 'epic' ? 'ring-2 ring-primary/50' : ''
                   }`}
                 >
@@ -868,6 +874,7 @@ const Profile: React.FC = () => {
                     <div className="flex items-start gap-4">
                       <div className={`text-4xl p-3 rounded-xl ${
                         achievement.rarity === 'legendary' ? 'bg-nova-gold/20' :
+                        achievement.rarity === 'secret' ? 'bg-nova-cyan/20' :
                         achievement.rarity === 'epic' ? 'bg-primary/20' :
                         achievement.rarity === 'rare' ? 'bg-nova-cyan/20' :
                         'bg-secondary/50'
@@ -881,12 +888,14 @@ const Profile: React.FC = () => {
                             variant="outline" 
                             className={`text-xs ${
                               achievement.rarity === 'legendary' ? 'border-nova-gold text-nova-gold' :
+                              achievement.rarity === 'secret' ? 'border-nova-cyan text-nova-cyan' :
                               achievement.rarity === 'epic' ? 'border-primary text-primary' :
                               achievement.rarity === 'rare' ? 'border-nova-cyan text-nova-cyan' :
                               'border-muted-foreground'
                             }`}
                           >
                             {achievement.rarity === 'legendary' ? 'Легендарное' :
+                             achievement.rarity === 'secret' ? 'Секретное' :
                              achievement.rarity === 'epic' ? 'Эпическое' :
                              achievement.rarity === 'rare' ? 'Редкое' : 'Обычное'}
                           </Badge>

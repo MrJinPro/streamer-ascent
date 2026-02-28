@@ -89,6 +89,10 @@ Deno.serve(async (request: Request) => {
   const referralCode = referralCodeInput ?? latestInvite?.referral_code ?? null;
   const invitedRoles = normalizeRoleSlugs(latestInvite?.role_slugs ?? []);
 
+  if (!referralCode && invitedRoles.length === 0) {
+    return json(403, { error: 'Agency approval is required before onboarding completion' });
+  }
+
   if (referralCode) {
     const { data: referralConsumed, error: consumeError } = await adminClient.rpc('consume_referral_code', {
       p_code: referralCode,

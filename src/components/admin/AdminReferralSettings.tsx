@@ -60,6 +60,11 @@ const parseMetaValue = (raw: string | null | undefined, key: string) => {
   return value?.trim() || null;
 };
 
+const generateReferralCode = () => {
+  const random = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `NOVA-${random}`;
+};
+
 const AdminReferralSettings: React.FC = () => {
   const [applications, setApplications] = useState<Application[]>([]);
   const [codes, setCodes] = useState<ReferralCode[]>([]);
@@ -79,61 +84,67 @@ const AdminReferralSettings: React.FC = () => {
   const loadData = async () => {
     setLoading(true);
 
-    const [applicationsRes, codesRes, rewardsRes] = await Promise.all([
+    const [applicationsRes, codesRes] = await Promise.all([
       supabasePublic
         .from('agency_join_applications')
-        .select('id,full_name,username,tiktok_username,email,telegram,age,heard_about,inviter_referral_code,assigned_referral_code,status,created_at')
+        .select('id,full_name,tiktok_username,email,telegram,status,created_at,stream_experience,motivation')
         .order('created_at', { ascending: false }),
       supabasePublic
         .from('agency_referral_codes')
         .select('id,code,is_active,used_count,max_uses,expires_at,note')
         .order('created_at', { ascending: false }),
-      supabasePublic.from('referral_reward_settings').select('rewards_enabled').eq('id', 1).maybeSingle(),
     ]);
 
     if (!applicationsRes.error) {
-      setApplications((applicationsRes.data ?? []) as Application[]);
-    } else if (isSchemaMismatchError(applicationsRes.error)) {
-      const legacyRes = await supabasePublic
+      const baseMapped: Application[] = (applicationsRes.data ?? []).map((item) => {
+        const username = parseMetaValue(item.stream_experience, 'username') ?? item.email.split('@')[0] ?? 'unknown';
+        const parsedAge = Number(parseMetaValue(item.stream_experience, 'age'));
+        const heardAbout = parseMetaValue(item.stream_experience, 'source') ?? 'other';
+        const inviterCode = parseMetaValue(item.motivation, 'inviter_code') ?? 'NO-CODE';
+
+        return {
+          id: item.id,
+          full_name: item.full_name,
+          username,
+          tiktok_username: item.tiktok_username,
+          email: item.email,
+          telegram: item.telegram ?? '@unknown',
+          age: Number.isFinite(parsedAge) ? parsedAge : 18,
+          heard_about: heardAbout,
+          inviter_referral_code: inviterCode,
+          assigned_referral_code: null,
+          status: (item.status as Application['status']) ?? 'pending',
+          created_at: item.created_at,
+        };
+      });
+
+      const modernRes = await supabasePublic
         .from('agency_join_applications')
-        .select('id,full_name,tiktok_username,email,telegram,stream_experience,motivation,status,created_at')
+        .select('id,username,age,heard_about,inviter_referral_code,assigned_referral_code')
         .order('created_at', { ascending: false });
 
-      if (!legacyRes.error) {
-        const legacyMapped: Application[] = (legacyRes.data ?? []).map((item) => {
-          const username = parseMetaValue(item.stream_experience, 'username') ?? item.email.split('@')[0] ?? 'unknown';
-          const parsedAge = Number(parseMetaValue(item.stream_experience, 'age'));
-          const heardAbout = parseMetaValue(item.stream_experience, 'source') ?? 'other';
-          const inviterCode = parseMetaValue(item.motivation, 'inviter_code') ?? 'NO-CODE';
+      if (!modernRes.error) {
+        const byId = new Map(baseMapped.map((row) => [row.id, row]));
+        for (const modernRow of modernRes.data ?? []) {
+          const current = byId.get(modernRow.id);
+          if (!current) continue;
 
-          return {
-            id: item.id,
-            full_name: item.full_name,
-            username,
-            tiktok_username: item.tiktok_username,
-            email: item.email,
-            telegram: item.telegram ?? '@unknown',
-            age: Number.isFinite(parsedAge) ? parsedAge : 18,
-            heard_about: heardAbout,
-            inviter_referral_code: inviterCode,
-            assigned_referral_code: null,
-            status: (item.status as Application['status']) ?? 'pending',
-            created_at: item.created_at,
-          };
-        });
-
-        setApplications(legacyMapped);
-      } else {
-        console.error('Failed to load legacy agency applications', legacyRes.error);
-        toast({ title: 'Ошибка загрузки заявок', description: legacyRes.error.message, variant: 'destructive' });
+          current.username = modernRow.username ?? current.username;
+          current.age = modernRow.age ?? current.age;
+          current.heard_about = modernRow.heard_about ?? current.heard_about;
+          current.inviter_referral_code = modernRow.inviter_referral_code ?? current.inviter_referral_code;
+          current.assigned_referral_code = modernRow.assigned_referral_code ?? current.assigned_referral_code;
+        }
       }
+
+      setApplications(baseMapped);
     } else {
       console.error('Failed to load agency applications', applicationsRes.error);
       toast({ title: 'Ошибка загрузки заявок', description: applicationsRes.error.message, variant: 'destructive' });
     }
 
     if (!codesRes.error) setCodes((codesRes.data ?? []) as ReferralCode[]);
-    if (!rewardsRes.error) setRewardsEnabled(Boolean(rewardsRes.data?.rewards_enabled));
+    setRewardsEnabled(false);
 
     setLoading(false);
   };
@@ -184,7 +195,45 @@ const AdminReferralSettings: React.FC = () => {
     });
 
     if (error) {
-      toast({ title: 'Ошибка одобрения', description: error.message, variant: 'destructive' });
+      const isMissingRpc = /404|not found|PGRST202|Could not find the function/i.test(
+        `${error.code ?? ''} ${error.message ?? ''} ${error.details ?? ''}`,
+      );
+
+      if (!isMissingRpc) {
+        toast({ title: 'Ошибка одобрения', description: error.message, variant: 'destructive' });
+        return;
+      }
+
+      const fallbackCode = generateReferralCode();
+
+      const { error: insertCodeError } = await supabasePublic.from('agency_referral_codes').insert({
+        code: fallbackCode,
+        max_uses: 5,
+        note: 'auto-generated fallback approval',
+      });
+
+      if (insertCodeError) {
+        toast({ title: 'Ошибка одобрения', description: insertCodeError.message, variant: 'destructive' });
+        return;
+      }
+
+      const { error: updateApplicationError } = await supabasePublic
+        .from('agency_join_applications')
+        .update({
+          status: 'approved',
+          assigned_referral_code: fallbackCode,
+          approved_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .eq('status', 'pending');
+
+      if (updateApplicationError && !isSchemaMismatchError(updateApplicationError)) {
+        toast({ title: 'Ошибка одобрения', description: updateApplicationError.message, variant: 'destructive' });
+        return;
+      }
+
+      toast({ title: 'Заявка одобрена', description: `Новый реферальный код: ${fallbackCode}` });
+      await loadData();
       return;
     }
 

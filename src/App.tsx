@@ -32,8 +32,31 @@ import ProductAgency from "@/pages/ProductAgency";
 
 const queryClient = new QueryClient();
 
+const AccessRestricted = () => {
+  const { signOut } = useAuth();
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      <div className="max-w-xl w-full rounded-xl border border-border bg-card p-6 space-y-3">
+        <h2 className="text-xl font-semibold">Доступ ограничен</h2>
+        <p className="text-sm text-muted-foreground">
+          Продукт доступен только для стримеров NovaBoost Agency и внутренних staff-ролей.
+        </p>
+        <div className="pt-2">
+          <button
+            onClick={() => void signOut()}
+            className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium"
+          >
+            Выйти из аккаунта
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const ProtectedArea = () => {
-  const { user, loading, onboardingCompleted } = useAuth();
+  const { user, loading, onboardingCompleted, canAccessProduct } = useAuth();
 
   if (loading) {
     return (
@@ -49,6 +72,10 @@ const ProtectedArea = () => {
 
   if (!onboardingCompleted) {
     return <Navigate to="/onboarding" replace />;
+  }
+
+  if (!canAccessProduct) {
+    return <AccessRestricted />;
   }
 
   return (

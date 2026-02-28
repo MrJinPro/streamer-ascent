@@ -1,12 +1,13 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabasePublic } from '@/integrations/supabase/publicClient';
-import { isSuperAdminEmail } from '@/lib/roles';
+import { canAccessProduct as canAccessProductByRole, isSuperAdminEmail } from '@/lib/roles';
 
 interface AuthContextValue {
   user: User | null;
   session: Session | null;
   role: string | null;
+  canAccessProduct: boolean;
   referralCode: string | null;
   onboardingCompleted: boolean | null;
   loading: boolean;
@@ -102,6 +103,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       session,
       user: session?.user ?? null,
       role,
+      canAccessProduct: canAccessProductByRole(role, session?.user?.email ?? null),
       referralCode,
       onboardingCompleted,
       loading: authLoading || profileLoading,
