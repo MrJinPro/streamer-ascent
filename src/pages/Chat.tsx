@@ -146,6 +146,22 @@ const Chat: React.FC = () => {
     [threads],
   );
 
+  useEffect(() => {
+    if (threadsSorted.length === 0) {
+      return;
+    }
+
+    if (!selectedThreadId) {
+      setSelectedThreadId(threadsSorted[0].id);
+      return;
+    }
+
+    const stillExists = threadsSorted.some((thread) => thread.id === selectedThreadId);
+    if (!stillExists) {
+      setSelectedThreadId(threadsSorted[0].id);
+    }
+  }, [selectedThreadId, threadsSorted]);
+
   const potentialContacts = useMemo(() => {
     if (!user?.id) return [];
 
