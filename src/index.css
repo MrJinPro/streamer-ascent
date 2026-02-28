@@ -21,6 +21,15 @@
   }
 }
 
+@keyframes secret-vibe {
+  0% { transform: translateX(0) scale(1.01); }
+  20% { transform: translateX(-1px) rotate(-0.3deg) scale(1.012); }
+  40% { transform: translateX(1px) rotate(0.3deg) scale(1.015); }
+  60% { transform: translateX(-1px) rotate(-0.25deg) scale(1.012); }
+  80% { transform: translateX(1px) rotate(0.25deg) scale(1.013); }
+  100% { transform: translateX(0) scale(1.01); }
+}
+
 @layer base {
   :root {
     --background: 0 0% 98%;
@@ -318,6 +327,18 @@
   .animate-shimmer {
     position: relative;
     overflow: hidden;
+  }
+
+  .secret-hover-vibe {
+    @apply transition-all duration-300;
+    box-shadow: 0 0 0 hsl(var(--nova-cyan) / 0);
+  }
+
+  .secret-hover-vibe:hover {
+    animation: secret-vibe 220ms ease-in-out 1;
+    box-shadow:
+      0 0 22px hsl(var(--nova-cyan) / 0.28),
+      0 0 34px hsl(var(--nova-purple) / 0.18);
   }
 
   .animate-shimmer::after {

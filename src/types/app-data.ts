@@ -64,6 +64,7 @@ export interface Achievement {
     | 'streak_days'
     | 'time_window_sum'
     | 'time_window_count'
+    | 'hidden_combo'
     | 'manual_only'
     | 'verified_by_admin';
   grantMode?: 'auto' | 'verified_by_admin' | 'manual_only';

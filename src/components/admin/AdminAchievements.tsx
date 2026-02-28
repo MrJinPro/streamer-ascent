@@ -62,6 +62,7 @@ const progressTypeLabels: Record<NonNullable<Achievement['progressType']>, strin
   streak_days: 'streak_days (серия дней)',
   time_window_sum: 'time_window_sum (сумма за период)',
   time_window_count: 'time_window_count (кол-во за период)',
+  hidden_combo: 'hidden_combo (секретная комбинация)',
   manual_only: 'manual_only (только вручную)',
   verified_by_admin: 'verified_by_admin (кандидат + подтверждение)',
 };
