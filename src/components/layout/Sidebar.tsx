@@ -23,6 +23,8 @@ import { useAppData } from '@/contexts/AppDataContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { canAccessAdminSettings, getRoleLabel } from '@/lib/roles';
 import { supabasePublic } from '@/integrations/supabase/publicClient';
+import type { Task } from '@/types/app-data';
+import { getSeasonKey, getTaskPeriod, getTaskPeriodKey } from '@/lib/progressionEconomy';
 import logo from '@/assets/novaboost-logo.png';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -51,6 +53,16 @@ const adminNavItems: NavItem[] = [
   { icon: Settings, label: 'Админ панель', href: '/admin' },
 ];
 
+type UserTaskProgressLite = {
+  task_id: string;
+  period: 'daily' | 'weekly' | 'monthly' | 'seasonal';
+  period_key: string;
+  season_key: string;
+  progress: number;
+  max_progress: number;
+  completed: boolean;
+};
+
 interface SidebarContentProps {
   onNavigate?: () => void;
 }
@@ -59,7 +71,10 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ onNavigate }) => {
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
   const { signOut, role, user } = useAuth();
-  const { currentUser, tasks, refresh } = useAppData();
+  const { currentUser, tasks } = useAppData();
+  const [pendingTasksCount, setPendingTasksCount] = React.useState(() =>
+    tasks.filter((task) => task.status !== 'completed' && !task.completed).length,
+  );
   const [chatUnreadTotal, setChatUnreadTotal] = React.useState(0);
   const xpPercent = (currentUser.xp / currentUser.xpToNextLevel) * 100;
   const effectiveRole = role ?? currentUser.role;
@@ -73,10 +88,59 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ onNavigate }) => {
     (user?.user_metadata?.avatar_url as string | undefined) ??
     (user?.user_metadata?.picture as string | undefined);
   const displayAvatar = authAvatar ?? currentUser.avatar;
-  const pendingTasksCount = React.useMemo(
-    () => tasks.filter((task) => task.status !== 'completed' && !task.completed).length,
-    [tasks],
-  );
+
+  const getPendingTasksCountFromItems = React.useCallback((items: Task[]) => {
+    return items.filter((task) => task.status !== 'completed' && !task.completed).length;
+  }, []);
+
+  const loadPendingTasksCount = React.useCallback(async () => {
+    if (!user?.id) {
+      setPendingTasksCount(getPendingTasksCountFromItems(tasks));
+      return;
+    }
+
+    const now = new Date();
+    const currentSeasonKey = getSeasonKey(now);
+
+    const [{ data: tasksRow, error: tasksError }, { data: taskProgressRows, error: progressError }] = await Promise.all([
+      supabasePublic.from('app_content').select('payload').eq('key', 'tasks').maybeSingle(),
+      (supabasePublic as any)
+        .from('user_task_progress')
+        .select('task_id,period,period_key,season_key,progress,max_progress,completed')
+        .eq('user_id', user.id)
+        .eq('season_key', currentSeasonKey),
+    ]);
+
+    if (tasksError || progressError) {
+      setPendingTasksCount(getPendingTasksCountFromItems(tasks));
+      return;
+    }
+
+    const sourceTasks = (tasksRow?.payload as Task[] | null) ?? tasks;
+    const progressByCompositeKey = ((taskProgressRows ?? []) as UserTaskProgressLite[]).reduce<Record<string, UserTaskProgressLite>>(
+      (acc, row) => {
+        const key = `${row.task_id}:${row.period}:${row.period_key}:${row.season_key}`;
+        acc[key] = row;
+        return acc;
+      },
+      {},
+    );
+
+    let pendingCount = 0;
+    for (const task of sourceTasks) {
+      const period = getTaskPeriod(task);
+      const periodKey = getTaskPeriodKey(period, now);
+      const compositeKey = `${task.id}:${period}:${periodKey}:${currentSeasonKey}`;
+      const row = progressByCompositeKey[compositeKey];
+
+      const isCompleted = row ? Boolean(row.completed) : Boolean(task.completed || task.status === 'completed');
+      if (!isCompleted) {
+        pendingCount += 1;
+      }
+    }
+
+    setPendingTasksCount(pendingCount);
+  }, [getPendingTasksCountFromItems, tasks, user?.id]);
 
   const loadChatUnreadTotal = React.useCallback(async () => {
     if (!user?.id) {
@@ -97,6 +161,14 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ onNavigate }) => {
   }, [user?.id]);
 
   React.useEffect(() => {
+    setPendingTasksCount(getPendingTasksCountFromItems(tasks));
+  }, [getPendingTasksCountFromItems, tasks]);
+
+  React.useEffect(() => {
+    void loadPendingTasksCount();
+  }, [loadPendingTasksCount]);
+
+  React.useEffect(() => {
     void loadChatUnreadTotal();
   }, [loadChatUnreadTotal]);
 
@@ -111,14 +183,14 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ onNavigate }) => {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'app_content', filter: 'key=eq.tasks' },
         () => {
-          void refresh();
+          void loadPendingTasksCount();
         },
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'user_task_progress', filter: `user_id=eq.${user.id}` },
         () => {
-          void refresh();
+          void loadPendingTasksCount();
         },
       )
       .subscribe();
@@ -143,7 +215,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ onNavigate }) => {
       void supabasePublic.removeChannel(tasksChannel);
       void supabasePublic.removeChannel(chatChannel);
     };
-  }, [loadChatUnreadTotal, refresh, user?.id]);
+  }, [loadChatUnreadTotal, loadPendingTasksCount, user?.id]);
 
   const getItemBadge = React.useCallback(
     (item: NavItem) => {
