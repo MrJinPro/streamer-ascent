@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Send, Plus, ShieldCheck, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import UserRoleBadges from '@/components/UserRoleBadges';
@@ -82,6 +82,11 @@ const Chat: React.FC = () => {
   const [groupMemberIds, setGroupMemberIds] = useState<string[]>([]);
   const [excludedForMessage, setExcludedForMessage] = useState<string[]>([]);
   const [profileUserIds, setProfileUserIds] = useState<Set<string>>(new Set());
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const [newMessagesCount, setNewMessagesCount] = useState(0);
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  const previousMessageCountRef = useRef(0);
+  const previousThreadIdRef = useRef<string | null>(null);
 
   const currentRole = role ?? 'streamer';
 
@@ -108,6 +113,29 @@ const Chat: React.FC = () => {
     () => (selectedThread ? messages.filter((item) => item.thread_id === selectedThread.id) : []),
     [messages, selectedThread],
   );
+
+  const detectIsAtBottom = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return true;
+    const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    return distanceToBottom <= 48;
+  }, []);
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    container.scrollTo({ top: container.scrollHeight, behavior });
+    setIsAtBottom(true);
+    setNewMessagesCount(0);
+  }, []);
+
+  const handleMessagesScroll = useCallback(() => {
+    const atBottom = detectIsAtBottom();
+    setIsAtBottom(atBottom);
+    if (atBottom) {
+      setNewMessagesCount(0);
+    }
+  }, [detectIsAtBottom]);
 
   const threadsSorted = useMemo(
     () => [...threads].sort((a, b) => {
@@ -430,7 +458,35 @@ const Chat: React.FC = () => {
     void loadMessages(selectedThreadId);
     void markSelectedThreadRead(selectedThreadId);
     setExcludedForMessage([]);
+    setNewMessagesCount(0);
   }, [selectedThreadId]);
+
+  useEffect(() => {
+    const currentThreadId = selectedThread?.id ?? null;
+    const currentCount = selectedThreadMessages.length;
+
+    if (previousThreadIdRef.current !== currentThreadId) {
+      previousThreadIdRef.current = currentThreadId;
+      previousMessageCountRef.current = currentCount;
+      requestAnimationFrame(() => scrollToBottom('auto'));
+      return;
+    }
+
+    const delta = currentCount - previousMessageCountRef.current;
+    if (delta <= 0) {
+      previousMessageCountRef.current = currentCount;
+      return;
+    }
+
+    const atBottomNow = detectIsAtBottom();
+    if (atBottomNow) {
+      requestAnimationFrame(() => scrollToBottom('smooth'));
+    } else {
+      setNewMessagesCount((prev) => prev + delta);
+    }
+
+    previousMessageCountRef.current = currentCount;
+  }, [detectIsAtBottom, scrollToBottom, selectedThread?.id, selectedThreadMessages.length]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -635,7 +691,12 @@ const Chat: React.FC = () => {
             )}
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="relative flex-1">
+              <div
+                ref={messagesContainerRef}
+                onScroll={handleMessagesScroll}
+                className="h-full overflow-y-auto p-4 space-y-4"
+              >
               {selectedThreadMessages.map((msg) => {
                 const isOwn = msg.sender_user_id === user.id;
                 const status = isOwn ? getOwnMessageStatus(msg.id) : null;
@@ -673,6 +734,18 @@ const Chat: React.FC = () => {
               })}
               {selectedThreadMessages.length === 0 && (
                 <div className="text-sm text-muted-foreground">Сообщений пока нет. Напишите первым.</div>
+              )}
+              </div>
+
+              {!isAtBottom && newMessagesCount > 0 && (
+                <div className="absolute bottom-4 right-4">
+                  <button
+                    onClick={() => scrollToBottom('smooth')}
+                    className="px-3 py-2 rounded-full bg-primary text-primary-foreground text-xs font-medium shadow-md hover:bg-primary/90 transition-colors"
+                  >
+                    К новым сообщениям ({newMessagesCount})
+                  </button>
+                </div>
               )}
             </div>
 
