@@ -214,6 +214,8 @@ const Chat: React.FC = () => {
     if (!user?.id) return;
     setLoading(true);
 
+    await (supabasePublic as any).rpc('chat_sync_support_memberships', { p_user_id: user.id });
+
     const { data: myMemberships, error: myMembershipsError } = await supabasePublic
       .from('chat_thread_members')
       .select('thread_id')
