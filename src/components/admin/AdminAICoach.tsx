@@ -51,6 +51,33 @@ const modeTitles: Record<string, string> = {
   universal_chat: 'Универсальный чат',
 };
 
+const modePromptTemplates: Record<string, string> = {
+  progress_report:
+    'Ты AI Coach NovaBoost. Режим: progress_report. Сначала короткий итог (3-5 строк), затем блоки: Сильные стороны, Слабые зоны, План на 7 дней, Быстрые задачи на 24 часа. Используй только данные из user_data. Если данных мало — явно укажи, каких метрик не хватает.',
+  live_plan:
+    'Ты AI Coach NovaBoost. Режим: live_plan. Построй сценарий эфира по тайм-блокам: старт, разогрев, ядро, интерактив, удержание, финал. Для каждого блока добавь: цель, пример фраз, триггер активности, реакцию на подарки.',
+  live_review:
+    'Ты AI Coach NovaBoost. Режим: live_review. Разбери эфир структурно: что сработало, что просело, почему, и как исправить в следующем эфире. Верни 5 приоритетных действий с метриками контроля.',
+  daily_missions:
+    'Ты AI Coach NovaBoost. Режим: daily_missions. Верни строго формат: 3 обязательных, 2 дополнительных, 1 усиление. Каждая миссия должна быть измеримой, с дедлайном и ожидаемым результатом.',
+  content_factory:
+    'Ты AI Coach NovaBoost. Режим: content_factory. Сгенерируй идеи контента для TikTok Live: хук, сценарий, CTA, интерактив, варианты на разные уровни активности чата. Избегай общих фраз, давай конкретные формулировки.',
+  tiktok_qa:
+    'Ты AI Policy Helpdesk NovaBoost. Отвечай ТОЛЬКО на основе policy_context. Если в данных нет точного правила — прямо скажи об этом и запроси уточнение. Всегда добавляй раздел "Источники".',
+  universal_chat:
+    'Ты универсальный AI Coach NovaBoost. Определи намерение пользователя, выбери практичную структуру ответа и дай конкретные шаги. Если запрос размытый — задай один уточняющий вопрос.',
+};
+
+const modeStyleTemplates: Record<string, string> = {
+  progress_report: 'Аналитично, конкретно, по пунктам.',
+  live_plan: 'Динамично, с таймингом и готовыми репликами.',
+  live_review: 'Конструктивно и без воды, с приоритетами.',
+  daily_missions: 'Формат чек-листа: коротко и измеримо.',
+  content_factory: 'Креативно, но применимо сразу на эфире.',
+  tiktok_qa: 'Строго по правилам и со ссылкой на источники.',
+  universal_chat: 'Дружелюбно и по делу.',
+};
+
 const AdminAICoach: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [setupWarning, setSetupWarning] = useState<string | null>(null);
@@ -222,6 +249,13 @@ const AdminAICoach: React.FC = () => {
         </div>
       </div>
 
+      <div className="rounded-xl border border-border bg-secondary/20 p-4 text-sm space-y-1">
+        <p><span className="font-semibold">model</span> — строковый ID модели провайдера (например, gpt-4o-mini).</p>
+        <p><span className="font-semibold">key_alias</span> — фиксирует режим на конкретный ключ; если пусто, используется автопул активных ключей провайдера.</p>
+        <p><span className="font-semibold">temperature</span> — креативность: 0.2 строже, 0.7 креативнее.</p>
+        <p><span className="font-semibold">max_tokens</span> — максимальная длина ответа.</p>
+      </div>
+
       <div className="space-y-4">
         <h3 className="font-semibold flex items-center gap-2"><Bot className="w-4 h-4" /> Modes Settings</h3>
         {sortedModes.map((mode) => (
@@ -303,6 +337,19 @@ const AdminAICoach: React.FC = () => {
               placeholder="system prompt"
             />
 
+            <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+              <p>Подсказка: используй расширенную инструкцию режима, чтобы ответы были стабильнее.</p>
+              <button
+                onClick={() => {
+                  updateModeField(mode.id, 'system_prompt', modePromptTemplates[mode.id] ?? mode.system_prompt);
+                  updateModeField(mode.id, 'style_guide', modeStyleTemplates[mode.id] ?? mode.style_guide);
+                }}
+                className="px-2 py-1 rounded border border-border hover:bg-secondary text-xs"
+              >
+                Подставить рекомендуемую инструкцию
+              </button>
+            </div>
+
             <div className="flex justify-end">
               <button
                 onClick={() => void saveMode(mode)}
@@ -319,6 +366,9 @@ const AdminAICoach: React.FC = () => {
 
       <div className="space-y-3">
         <h3 className="font-semibold flex items-center gap-2"><KeyRound className="w-4 h-4" /> API Keys</h3>
+        <div className="rounded-xl border border-border bg-secondary/20 p-3 text-sm text-muted-foreground">
+          Рекомендуемо создать 2-3 ключа одного провайдера (например OpenAI): система автоматически переключится на другой, если один упрётся в лимит/ошибку.
+        </div>
         <div className="rounded-xl border border-border p-4 grid grid-cols-1 lg:grid-cols-5 gap-3">
           <input
             value={newKeyAlias}

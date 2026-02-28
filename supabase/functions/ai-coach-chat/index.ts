@@ -40,6 +40,13 @@ type RequestPayload = {
   testMode?: boolean;
 };
 
+type ApiKeyCandidate = {
+  alias: string;
+  provider: string;
+  secret_value: string;
+  is_active: boolean;
+};
+
 const OPENAI_ENDPOINTS: Record<string, string> = {
   openai: 'https://api.openai.com/v1/chat/completions',
   openrouter: 'https://openrouter.ai/api/v1/chat/completions',
@@ -103,6 +110,27 @@ const fallbackModeById = (modeId: string): AiModeRow => ({
   data_requirements: [],
   style_guide: 'по делу',
 });
+
+const isRetryableModelError = (message: string) => {
+  const text = message.toLowerCase();
+  return /(429|rate limit|quota|overloaded|temporar|timeout|connection|service unavailable)/i.test(text);
+};
+
+const orderKeysForMode = (keys: ApiKeyCandidate[], preferredAlias: string | null) => {
+  const activeKeys = keys.filter((item) => item.is_active && item.secret_value);
+  if (!preferredAlias) {
+    const shuffled = [...activeKeys];
+    for (let index = shuffled.length - 1; index > 0; index -= 1) {
+      const randomIndex = Math.floor(Math.random() * (index + 1));
+      [shuffled[index], shuffled[randomIndex]] = [shuffled[randomIndex], shuffled[index]];
+    }
+    return shuffled;
+  }
+
+  const preferred = activeKeys.filter((item) => item.alias === preferredAlias);
+  const others = activeKeys.filter((item) => item.alias !== preferredAlias);
+  return [...preferred, ...others];
+};
 
 const estimateTokens = (text: string) => Math.max(1, Math.ceil(text.length / 4));
 
@@ -303,16 +331,15 @@ Deno.serve(async (request: Request) => {
     return json(429, { error: 'Daily cost limit reached for this mode' });
   }
 
-  const [{ data: userContextRows, error: contextError }, { data: keyRow, error: keyError }] = await Promise.all([
+  const [{ data: userContextRows, error: contextError }, { data: keyRows, error: keyError }] = await Promise.all([
     adminClient.rpc('ai_build_user_context', { p_user_id: requester.id, p_mode_id: mode.id }),
     adminClient
       .from('ai_api_keys')
       .select('alias,provider,secret_value,is_active')
       .eq('is_active', true)
-      .or(mode.key_alias ? `alias.eq.${mode.key_alias},provider.eq.${mode.provider}` : `provider.eq.${mode.provider}`)
+      .eq('provider', mode.provider)
       .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+      .limit(20),
   ]);
 
   if (contextError && !isSchemaCacheError(contextError)) {
@@ -320,7 +347,7 @@ Deno.serve(async (request: Request) => {
   }
 
   const userContext = contextError ? {} : (userContextRows ?? {});
-  const apiKey = keyError ? '' : String((keyRow as any)?.secret_value ?? '');
+  const keyCandidates = keyError ? [] : orderKeysForMode((keyRows ?? []) as ApiKeyCandidate[], mode.key_alias ?? null);
 
   let policySources: PolicyResult[] = [];
   if (mode.id === 'tiktok_qa') {
@@ -339,7 +366,30 @@ Deno.serve(async (request: Request) => {
   }
 
   try {
-    const llmResult = await callModel(mode, apiKey, message, userContext, policySources, route.reason);
+    let llmResult: Awaited<ReturnType<typeof callModel>> | null = null;
+    let lastModelError: string | null = null;
+
+    if (keyCandidates.length === 0) {
+      llmResult = await callModel(mode, '', message, userContext, policySources, route.reason);
+    } else {
+      for (const candidate of keyCandidates) {
+        try {
+          llmResult = await callModel(mode, candidate.secret_value, message, userContext, policySources, route.reason);
+          break;
+        } catch (error) {
+          const errText = error instanceof Error ? error.message : 'Unknown model error';
+          lastModelError = errText;
+          if (!isRetryableModelError(errText)) {
+            break;
+          }
+        }
+      }
+    }
+
+    if (!llmResult) {
+      return json(502, { error: lastModelError ?? 'All model keys failed' });
+    }
+
     const totalTokens = llmResult.promptTokens + llmResult.completionTokens;
     const costUsd = estimateCostUsd(totalTokens, llmResult.provider, llmResult.model);
     const latencyMs = Date.now() - startedAt;
