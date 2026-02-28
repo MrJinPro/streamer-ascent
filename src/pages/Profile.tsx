@@ -51,6 +51,7 @@ import {
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(var(--nova-gold))', 'hsl(var(--nova-cyan))'];
 const LEGAL_VERSION = '2026-02-21';
+const MAX_PINNED_ACHIEVEMENTS = 6;
 
 type EditableProfile = {
   displayName: string;
@@ -90,6 +91,7 @@ const Profile: React.FC = () => {
   const [savingProfile, setSavingProfile] = useState(false);
   const [agreeAgencyOffer, setAgreeAgencyOffer] = useState(false);
   const [signingOffer, setSigningOffer] = useState(false);
+  const [pinnedAchievementIds, setPinnedAchievementIds] = useState<string[]>([]);
   const [legalStatus, setLegalStatus] = useState<LegalStatus>({
     agencyOfferAcceptedAt: null,
     termsAcceptedAt: null,
@@ -177,6 +179,68 @@ const Profile: React.FC = () => {
 
   // User achievements (mock - take first few from allAchievements)
   const userAchievements = allAchievements.filter(a => a.unlocked).slice(0, 6);
+  const pinnedAchievements = userAchievements.filter((item) => pinnedAchievementIds.includes(item.id));
+
+  useEffect(() => {
+    const loadPins = async () => {
+      const { data, error } = await (supabasePublic as any)
+        .from('user_achievement_pins')
+        .select('achievement_id,position')
+        .eq('user_id', user.id)
+        .order('position', { ascending: true });
+
+      if (error) {
+        return;
+      }
+
+      setPinnedAchievementIds((data ?? []).map((row: { achievement_id: string }) => row.achievement_id));
+    };
+
+    void loadPins();
+  }, [user.id]);
+
+  const togglePinAchievement = async (achievementId: string) => {
+    if (!isOwnProfile) return;
+
+    const alreadyPinned = pinnedAchievementIds.includes(achievementId);
+
+    if (alreadyPinned) {
+      const { error } = await (supabasePublic as any)
+        .from('user_achievement_pins')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('achievement_id', achievementId);
+
+      if (error) {
+        toast({ title: 'Не удалось открепить достижение', description: error.message, variant: 'destructive' });
+        return;
+      }
+
+      setPinnedAchievementIds((prev) => prev.filter((id) => id !== achievementId));
+      return;
+    }
+
+    if (pinnedAchievementIds.length >= MAX_PINNED_ACHIEVEMENTS) {
+      toast({
+        title: 'Лимит закреплений',
+        description: `Можно закрепить максимум ${MAX_PINNED_ACHIEVEMENTS} достижений`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const position = pinnedAchievementIds.length + 1;
+    const { error } = await (supabasePublic as any)
+      .from('user_achievement_pins')
+      .upsert({ user_id: user.id, achievement_id: achievementId, position }, { onConflict: 'user_id,achievement_id' });
+
+    if (error) {
+      toast({ title: 'Не удалось закрепить достижение', description: error.message, variant: 'destructive' });
+      return;
+    }
+
+    setPinnedAchievementIds((prev) => [...prev, achievementId]);
+  };
 
   useEffect(() => {
     if (!authUser?.id || !isOwnProfile) return;
@@ -761,6 +825,22 @@ const Profile: React.FC = () => {
               </Link>
             </div>
 
+            <div className="space-y-2">
+              <h3 className="font-semibold">Витрина профиля</h3>
+              {pinnedAchievements.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Закреплённых достижений пока нет.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {pinnedAchievements.map((achievement) => (
+                    <Badge key={achievement.id} variant="outline" className="gap-2">
+                      <span>{achievement.icon}</span>
+                      <span>{achievement.title}</span>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {userAchievements.map((achievement) => (
                 <Card 
@@ -802,6 +882,14 @@ const Profile: React.FC = () => {
                           <p className="text-xs text-muted-foreground mt-2">
                             Получено: {new Date(achievement.unlockedAt).toLocaleDateString('ru-RU')}
                           </p>
+                        )}
+                        {isOwnProfile && (
+                          <button
+                            className="mt-2 text-xs text-primary hover:underline"
+                            onClick={() => void togglePinAchievement(achievement.id)}
+                          >
+                            {pinnedAchievementIds.includes(achievement.id) ? 'Убрать из витрины' : 'Закрепить в витрине'}
+                          </button>
                         )}
                       </div>
                     </div>

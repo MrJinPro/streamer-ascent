@@ -54,6 +54,20 @@ export interface Achievement {
   unlockedAt?: string;
   progress?: number;
   maxProgress?: number;
+  targetValue?: number;
+  progressType?:
+    | 'counter_total'
+    | 'sum_total'
+    | 'duration_total'
+    | 'max_in_single_session'
+    | 'sum_in_single_session'
+    | 'streak_days'
+    | 'time_window_sum'
+    | 'time_window_count'
+    | 'manual_only'
+    | 'verified_by_admin';
+  grantMode?: 'auto' | 'verified_by_admin' | 'manual_only';
+  rule?: Record<string, unknown>;
   reward?:
     | string
     | {

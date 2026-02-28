@@ -268,6 +268,14 @@ interface AppDataContextValue extends AppDataShape {
   updateContent: <K extends keyof ContentOnlyShape>(key: K, payload: ContentOnlyShape[K]) => Promise<void>;
 }
 
+type UserAchievementRow = {
+  achievement_id: string;
+  progress_value: number;
+  target_value: number;
+  status: 'in_progress' | 'unlocked' | 'revoked';
+  unlocked_at: string | null;
+};
+
 const AppDataContext = createContext<AppDataContextValue | null>(null);
 
 const toRows = (data: Partial<PersistedContentShape>) =>
@@ -278,6 +286,7 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [loading, setLoading] = useState(true);
   const [dbData, setDbData] = useState<Partial<PersistedContentShape>>({});
   const [dbUsers, setDbUsers] = useState<User[]>([]);
+  const [userAchievementRows, setUserAchievementRows] = useState<UserAchievementRow[]>([]);
 
   const hydrate = useCallback(async () => {
     setLoading(true);
@@ -364,6 +373,21 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setDbUsers([createFallbackUserFromAuth(user)]);
     } else {
       setDbUsers([]);
+    }
+
+    if (user?.id) {
+      await (supabasePublic as any).rpc('refresh_user_achievements', { p_user_id: user.id });
+
+      const { data: achievementRows, error: achievementRowsError } = await (supabasePublic as any)
+        .from('achievement_progress')
+        .select('achievement_id,progress_value,target_value,status,unlocked_at')
+        .eq('user_id', user.id);
+
+      if (!achievementRowsError) {
+        setUserAchievementRows((achievementRows ?? []) as UserAchievementRow[]);
+      }
+    } else {
+      setUserAchievementRows([]);
     }
 
     setLoading(false);
@@ -491,6 +515,27 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const mergedAll = { ...defaultContent, ...dbData } as PersistedContentShape;
     const { userStats, ...mergedContent } = mergedAll;
 
+    const progressByAchievementId = userAchievementRows.reduce<Record<string, UserAchievementRow>>((acc, row) => {
+      acc[row.achievement_id] = row;
+      return acc;
+    }, {});
+
+    const mergedAchievements = (mergedContent.achievements as Achievement[]).map((achievement) => {
+      const row = progressByAchievementId[achievement.id];
+      if (!row) {
+        return achievement;
+      }
+
+      return {
+        ...achievement,
+        progress: Math.floor(Number(row.progress_value ?? 0)),
+        targetValue: Math.floor(Number(row.target_value ?? achievement.targetValue ?? achievement.maxProgress ?? 1)),
+        maxProgress: Math.floor(Number(row.target_value ?? achievement.maxProgress ?? 1)),
+        unlocked: row.status === 'unlocked',
+        unlockedAt: row.unlocked_at ?? achievement.unlockedAt,
+      };
+    });
+
     const usersWithStats = dbUsers.map(item => applyUserStats(item, userStats[item.id]));
 
     const computedCurrentUser =
@@ -500,10 +545,26 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     const computedAllUsers = usersWithStats.length > 0 ? usersWithStats : (computedCurrentUser ? [computedCurrentUser] : []);
 
+    const currentUserUnlockedAchievements = mergedAchievements.filter((item) => item.unlocked).length;
+
+    const normalizedCurrentUser = computedCurrentUser
+      ? {
+          ...computedCurrentUser,
+          achievements: currentUserUnlockedAchievements,
+        }
+      : computedCurrentUser;
+
+    const normalizedUsers = computedAllUsers.map((entry) =>
+      normalizedCurrentUser && entry.id === normalizedCurrentUser.id
+        ? { ...entry, achievements: normalizedCurrentUser.achievements }
+        : entry,
+    );
+
     const merged: AppDataShape = {
-      currentUser: computedCurrentUser as User,
-      allUsers: computedAllUsers,
+      currentUser: normalizedCurrentUser as User,
+      allUsers: normalizedUsers,
       ...mergedContent,
+      achievements: mergedAchievements,
     };
 
     return {
@@ -512,7 +573,7 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       refresh: hydrate,
       updateContent,
     };
-  }, [dbData, dbUsers, hydrate, loading, updateContent, user]);
+  }, [dbData, dbUsers, hydrate, loading, updateContent, user, userAchievementRows]);
 
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;
 };

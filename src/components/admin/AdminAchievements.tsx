@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 import { useAppData } from '@/contexts/AppDataContext';
+import { supabasePublic } from '@/integrations/supabase/publicClient';
 
 const rarityLabels = { common: 'Обычное', rare: 'Редкое', epic: 'Эпическое', legendary: 'Легендарное' };
 const categoryLabels = { diamonds: 'Алмазы', stream: 'Стримы', community: 'Комьюнити', special: 'Особые' };
@@ -27,6 +28,10 @@ type FormData = {
   rarity: Achievement['rarity'];
   category: Achievement['category'];
   maxProgress?: number;
+  progressType: NonNullable<Achievement['progressType']>;
+  targetValue?: number;
+  grantMode: NonNullable<Achievement['grantMode']>;
+  ruleJson: string;
   rewardType: 'none' | 'xp' | 'gift' | 'custom';
   rewardXpAmount?: number;
   rewardGiftId?: string;
@@ -40,7 +45,30 @@ const emptyForm: FormData = {
   icon: '🏆',
   rarity: 'common',
   category: 'stream',
+  progressType: 'manual_only',
+  targetValue: 1,
+  grantMode: 'manual_only',
+  ruleJson: '{}',
   rewardType: 'none',
+};
+
+const progressTypeLabels: Record<NonNullable<Achievement['progressType']>, string> = {
+  counter_total: 'counter_total (кол-во событий)',
+  sum_total: 'sum_total (сумма)',
+  duration_total: 'duration_total (накопительное время)',
+  max_in_single_session: 'max_in_single_session (макс за эфир)',
+  sum_in_single_session: 'sum_in_single_session (сумма за эфир)',
+  streak_days: 'streak_days (серия дней)',
+  time_window_sum: 'time_window_sum (сумма за период)',
+  time_window_count: 'time_window_count (кол-во за период)',
+  manual_only: 'manual_only (только вручную)',
+  verified_by_admin: 'verified_by_admin (кандидат + подтверждение)',
+};
+
+const grantModeLabels: Record<NonNullable<Achievement['grantMode']>, string> = {
+  auto: 'auto',
+  verified_by_admin: 'verified_by_admin',
+  manual_only: 'manual_only',
 };
 
 const mapRewardToForm = (reward?: Achievement['reward']) => {
@@ -137,12 +165,29 @@ const formatReward = (reward?: Achievement['reward']): string => {
   return reward.label;
 };
 
+const inferProgressTypeByCategory = (category: Achievement['category']): NonNullable<Achievement['progressType']> => {
+  if (category === 'diamonds') return 'sum_total';
+  if (category === 'stream') return 'duration_total';
+  return 'manual_only';
+};
+
+const formatTracking = (achievement: Achievement): string => {
+  const type = achievement.progressType ?? 'manual_only';
+  const target = achievement.targetValue ?? achievement.maxProgress ?? 1;
+  const mode = achievement.grantMode ?? (type === 'manual_only' ? 'manual_only' : type === 'verified_by_admin' ? 'verified_by_admin' : 'auto');
+  return `${progressTypeLabels[type]} • цель: ${target} • mode: ${mode}`;
+};
+
 const AdminAchievements: React.FC = () => {
   const { achievements: items, updateContent } = useAppData();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<FormData>(emptyForm);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [manualUserId, setManualUserId] = useState('');
+  const [manualAchievementId, setManualAchievementId] = useState('');
+  const [manualNote, setManualNote] = useState('');
+  const [manualGranting, setManualGranting] = useState(false);
 
   const openCreate = () => {
     setEditId(null);
@@ -159,6 +204,10 @@ const AdminAchievements: React.FC = () => {
       rarity: a.rarity,
       category: a.category,
       maxProgress: a.maxProgress,
+      progressType: a.progressType ?? inferProgressTypeByCategory(a.category),
+      targetValue: a.targetValue ?? a.maxProgress,
+      grantMode: a.grantMode ?? 'auto',
+      ruleJson: JSON.stringify(a.rule ?? {}, null, 2),
       ...mapRewardToForm(a.reward),
     });
     setDialogOpen(true);
@@ -169,8 +218,11 @@ const AdminAchievements: React.FC = () => {
     let nextItems: Achievement[];
 
     try {
+      const parsedRule = form.ruleJson.trim() ? JSON.parse(form.ruleJson) as Record<string, unknown> : {};
+
       if (editId) {
         const reward = buildRewardFromForm(form);
+        const targetValue = Math.max(1, Number(form.targetValue ?? form.maxProgress ?? 1));
         nextItems = items.map(a => a.id === editId ? {
           ...a,
           title: form.title,
@@ -178,13 +230,18 @@ const AdminAchievements: React.FC = () => {
           icon: form.icon,
           rarity: form.rarity,
           category: form.category,
-          maxProgress: form.maxProgress,
+          maxProgress: targetValue,
+          targetValue,
+          progressType: form.progressType,
+          grantMode: form.grantMode,
+          rule: parsedRule,
           reward,
         } : a);
         await updateContent('achievements', nextItems);
         toast({ title: 'Достижение обновлено' });
       } else {
         const reward = buildRewardFromForm(form);
+        const targetValue = Math.max(1, Number(form.targetValue ?? form.maxProgress ?? 1));
         const newItem: Achievement = {
           id: Date.now().toString(),
           title: form.title,
@@ -193,9 +250,13 @@ const AdminAchievements: React.FC = () => {
           rarity: form.rarity,
           category: form.category,
           reward,
+          progressType: form.progressType,
+          grantMode: form.grantMode,
+          targetValue,
+          rule: parsedRule,
           unlocked: false,
           progress: 0,
-          maxProgress: form.maxProgress || 1,
+          maxProgress: targetValue,
         };
         nextItems = [...items, newItem];
         await updateContent('achievements', nextItems);
@@ -205,7 +266,7 @@ const AdminAchievements: React.FC = () => {
     } catch (error) {
       toast({
         title: 'Не удалось сохранить достижение',
-        description: error instanceof Error ? error.message : 'Ошибка записи в базу данных',
+        description: error instanceof Error ? error.message : 'Ошибка записи в базу данных или JSON правила',
         variant: 'destructive',
       });
     }
@@ -224,6 +285,33 @@ const AdminAchievements: React.FC = () => {
         variant: 'destructive',
       });
     }
+  };
+
+  const grantAchievementManually = async () => {
+    if (!manualUserId.trim() || !manualAchievementId.trim()) {
+      toast({ title: 'Заполните User ID и достижение', variant: 'destructive' });
+      return;
+    }
+
+    setManualGranting(true);
+
+    const { error } = await (supabasePublic as any).rpc('grant_user_achievement', {
+      p_user_id: manualUserId.trim(),
+      p_achievement_id: manualAchievementId,
+      p_note: manualNote.trim() || null,
+    });
+
+    setManualGranting(false);
+
+    if (error) {
+      toast({ title: 'Не удалось выдать достижение', description: error.message, variant: 'destructive' });
+      return;
+    }
+
+    toast({ title: 'Достижение выдано вручную' });
+    setManualUserId('');
+    setManualAchievementId('');
+    setManualNote('');
   };
 
   return (
@@ -246,6 +334,7 @@ const AdminAchievements: React.FC = () => {
               <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Достижение</th>
               <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Редкость</th>
               <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Категория</th>
+              <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Трекинг</th>
               <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Прогресс</th>
               <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Награда</th>
               <th className="text-right px-4 py-3 text-sm font-medium text-muted-foreground">Действия</th>
@@ -269,7 +358,8 @@ const AdminAchievements: React.FC = () => {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-sm text-muted-foreground">{categoryLabels[a.category]}</td>
-                <td className="px-4 py-3 text-sm">{a.maxProgress ? `0 / ${a.maxProgress}` : '—'}</td>
+                <td className="px-4 py-3 text-xs text-muted-foreground">{formatTracking(a)}</td>
+                <td className="px-4 py-3 text-sm">{`${a.progress ?? 0} / ${a.targetValue ?? a.maxProgress ?? 1}`}</td>
                 <td className="px-4 py-3 text-sm text-muted-foreground">{formatReward(a.reward)}</td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex items-center justify-end gap-1">
@@ -288,6 +378,39 @@ const AdminAchievements: React.FC = () => {
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div className="rounded-xl border border-border p-4 space-y-3">
+        <h4 className="font-semibold">Ручная выдача достижения</h4>
+        <p className="text-xs text-muted-foreground">
+          Используйте для кейсов, которые сложно автоматически отследить (например, приглашения вне реферальной системы).
+        </p>
+        <div className="grid md:grid-cols-3 gap-3">
+          <div>
+            <Label>User ID</Label>
+            <Input value={manualUserId} onChange={(e) => setManualUserId(e.target.value)} placeholder="UUID пользователя" />
+          </div>
+          <div>
+            <Label>Достижение</Label>
+            <Select value={manualAchievementId} onValueChange={setManualAchievementId}>
+              <SelectTrigger><SelectValue placeholder="Выберите достижение" /></SelectTrigger>
+              <SelectContent>
+                {items.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>{a.title}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Комментарий (опционально)</Label>
+            <Input value={manualNote} onChange={(e) => setManualNote(e.target.value)} placeholder="Причина ручной выдачи" />
+          </div>
+        </div>
+        <div className="flex justify-end">
+          <Button onClick={() => void grantAchievementManually()} disabled={manualGranting}>
+            {manualGranting ? 'Выдача...' : 'Выдать достижение'}
+          </Button>
+        </div>
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -322,7 +445,7 @@ const AdminAchievements: React.FC = () => {
               </div>
               <div>
                 <Label>Категория</Label>
-                <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v as any }))}>
+                <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v as any, progressType: inferProgressTypeByCategory(v as Achievement['category']) }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {Object.entries(categoryLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
@@ -332,8 +455,32 @@ const AdminAchievements: React.FC = () => {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Макс. прогресс</Label>
-                <Input type="number" value={form.maxProgress || ''} onChange={e => setForm(f => ({ ...f, maxProgress: Number(e.target.value) || undefined }))} placeholder="напр. 100" />
+                <Label>Тип прогресса</Label>
+                <Select value={form.progressType} onValueChange={v => setForm(f => ({ ...f, progressType: v as FormData['progressType'] }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(progressTypeLabels).map(([key, value]) => (
+                      <SelectItem key={key} value={key}>{value}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Цель прогресса</Label>
+                <Input type="number" value={form.targetValue || ''} onChange={e => setForm(f => ({ ...f, targetValue: Number(e.target.value) || 1, maxProgress: Number(e.target.value) || 1 }))} placeholder="напр. 100" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Режим выдачи</Label>
+                <Select value={form.grantMode} onValueChange={v => setForm(f => ({ ...f, grantMode: v as FormData['grantMode'] }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(grantModeLabels).map(([key, value]) => (
+                      <SelectItem key={key} value={key}>{value}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label>Тип награды</Label>
@@ -347,6 +494,14 @@ const AdminAchievements: React.FC = () => {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            <div>
+              <Label>Rule (JSON)</Label>
+              <Textarea
+                value={form.ruleJson}
+                onChange={e => setForm(f => ({ ...f, ruleJson: e.target.value }))}
+                placeholder='{"event_types":["diamonds_earned"],"window_days":7,"value_field":"amount"}'
+              />
             </div>
             {form.rewardType === 'xp' && (
               <div>
