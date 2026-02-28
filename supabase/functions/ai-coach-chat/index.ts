@@ -45,6 +45,65 @@ const OPENAI_ENDPOINTS: Record<string, string> = {
   openrouter: 'https://openrouter.ai/api/v1/chat/completions',
 };
 
+const isSchemaCacheError = (error: { code?: string; message?: string; details?: string } | null | undefined) => {
+  if (!error) return false;
+  const text = `${error.code ?? ''} ${error.message ?? ''} ${error.details ?? ''}`;
+  return /PGRST20\d|42P01|schema cache|Could not find the table|function .* does not exist|does not exist/i.test(text);
+};
+
+const fallbackRoute = (inputRaw: string, forcedMode: string | null | undefined): RouteResult => {
+  const forced = String(forcedMode ?? '').trim().toLowerCase();
+  if (forced) {
+    return { mode_id: forced, confidence: 1, reason: 'forced_mode_fallback', clarification_question: null };
+  }
+
+  const input = inputRaw.toLowerCase();
+  if (/(правил|policy|бан|ограничени|нарушен|tiktok)/i.test(input)) {
+    return { mode_id: 'tiktok_qa', confidence: 0.92, reason: 'policy_keywords_fallback', clarification_question: null };
+  }
+  if (/(мисси|задач(и|а)|чеклист|сегодня)/i.test(input)) {
+    return { mode_id: 'daily_missions', confidence: 0.9, reason: 'daily_keywords_fallback', clarification_question: null };
+  }
+  if (/(разбор|review|после эфира|прошл(ый|ого) эфир)/i.test(input)) {
+    return { mode_id: 'live_review', confidence: 0.88, reason: 'review_keywords_fallback', clarification_question: null };
+  }
+  if (/(сценарий|план эфира|блоки эфира)/i.test(input)) {
+    return { mode_id: 'live_plan', confidence: 0.9, reason: 'plan_keywords_fallback', clarification_question: null };
+  }
+  if (/(контент|иде(и|я)|хук|сценари|текст)/i.test(input)) {
+    return { mode_id: 'content_factory', confidence: 0.86, reason: 'content_keywords_fallback', clarification_question: null };
+  }
+  if (/(прогресс|отч[её]т|аналит|метрик|рост|падени)/i.test(input)) {
+    return { mode_id: 'progress_report', confidence: 0.9, reason: 'progress_keywords_fallback', clarification_question: null };
+  }
+
+  return {
+    mode_id: 'universal_chat',
+    confidence: 0.44,
+    reason: 'low_confidence_fallback',
+    clarification_question: 'Уточни, что нужно: анализ прогресса, план эфира, разбор, миссии, контент или TikTok-правила?',
+  };
+};
+
+const fallbackModeById = (modeId: string): AiModeRow => ({
+  id: modeId,
+  enabled: true,
+  provider: 'openai',
+  model: 'gpt-4o-mini',
+  temperature: modeId === 'tiktok_qa' ? 0.2 : 0.5,
+  max_tokens: modeId === 'daily_missions' ? 900 : 1200,
+  cost_limit_daily_usd: 5,
+  rate_limit_per_minute: 20,
+  key_alias: null,
+  system_prompt:
+    modeId === 'tiktok_qa'
+      ? 'Отвечай только по переданному policy context. Если контекста нет — сообщи, что нет точного правила.'
+      : `Ты AI Coach NovaBoost. Режим: ${modeId}. Дай практичный и структурированный ответ.`,
+  allowed_tools: [],
+  data_requirements: [],
+  style_guide: 'по делу',
+});
+
 const estimateTokens = (text: string) => Math.max(1, Math.ceil(text.length / 4));
 
 const estimateCostUsd = (totalTokens: number, provider: string, model: string) => {
@@ -192,14 +251,9 @@ Deno.serve(async (request: Request) => {
     p_forced_mode: payload.modeId ?? null,
   });
 
-  if (routeError) {
-    return json(500, { error: routeError.message });
-  }
-
-  const route = ((routeRows ?? [])[0] ?? null) as RouteResult | null;
-  if (!route) {
-    return json(500, { error: 'Router did not return mode' });
-  }
+  const route = routeError
+    ? fallbackRoute(message, payload.modeId)
+    : (((routeRows ?? [])[0] ?? null) as RouteResult | null) ?? fallbackRoute(message, payload.modeId);
 
   if (route.confidence < 0.5 && route.mode_id === 'universal_chat' && route.clarification_question) {
     return json(200, {
@@ -220,28 +274,24 @@ Deno.serve(async (request: Request) => {
     .eq('id', route.mode_id)
     .maybeSingle();
 
-  if (modeError || !modeRow || !modeRow.enabled) {
-    return json(400, { error: 'Mode unavailable or disabled' });
-  }
-
-  const mode = modeRow as AiModeRow;
+  const mode = modeError || !modeRow || !modeRow.enabled ? fallbackModeById(route.mode_id) : (modeRow as AiModeRow);
 
   const oneMinuteAgo = new Date(Date.now() - 60_000).toISOString();
-  const { count: minuteCount } = await adminClient
+  const { count: minuteCount, error: minuteCountError } = await adminClient
     .from('ai_chat_logs')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', requester.id)
     .eq('mode_id', mode.id)
     .gte('created_at', oneMinuteAgo);
 
-  if ((minuteCount ?? 0) >= mode.rate_limit_per_minute) {
+  if (!minuteCountError && (minuteCount ?? 0) >= mode.rate_limit_per_minute) {
     return json(429, { error: 'Rate limit exceeded for this mode' });
   }
 
   const dayStart = new Date();
   dayStart.setUTCHours(0, 0, 0, 0);
 
-  const { data: costRows } = await adminClient
+  const { data: costRows, error: costRowsError } = await adminClient
     .from('ai_chat_logs')
     .select('cost_usd')
     .eq('user_id', requester.id)
@@ -249,11 +299,11 @@ Deno.serve(async (request: Request) => {
     .gte('created_at', dayStart.toISOString());
 
   const todayCost = (costRows ?? []).reduce((sum: number, row: any) => sum + Number(row.cost_usd ?? 0), 0);
-  if (todayCost >= Number(mode.cost_limit_daily_usd ?? 0)) {
+  if (!costRowsError && todayCost >= Number(mode.cost_limit_daily_usd ?? 0)) {
     return json(429, { error: 'Daily cost limit reached for this mode' });
   }
 
-  const [{ data: userContextRows, error: contextError }, { data: keyRow }] = await Promise.all([
+  const [{ data: userContextRows, error: contextError }, { data: keyRow, error: keyError }] = await Promise.all([
     adminClient.rpc('ai_build_user_context', { p_user_id: requester.id, p_mode_id: mode.id }),
     adminClient
       .from('ai_api_keys')
@@ -265,12 +315,12 @@ Deno.serve(async (request: Request) => {
       .maybeSingle(),
   ]);
 
-  if (contextError) {
+  if (contextError && !isSchemaCacheError(contextError)) {
     return json(500, { error: contextError.message });
   }
 
-  const userContext = userContextRows ?? {};
-  const apiKey = String((keyRow as any)?.secret_value ?? '');
+  const userContext = contextError ? {} : (userContextRows ?? {});
+  const apiKey = keyError ? '' : String((keyRow as any)?.secret_value ?? '');
 
   let policySources: PolicyResult[] = [];
   if (mode.id === 'tiktok_qa') {
@@ -281,11 +331,11 @@ Deno.serve(async (request: Request) => {
       p_limit: 6,
     });
 
-    if (policyError) {
+    if (policyError && !isSchemaCacheError(policyError)) {
       return json(500, { error: policyError.message });
     }
 
-    policySources = (policyRows ?? []) as PolicyResult[];
+    policySources = policyError ? [] : ((policyRows ?? []) as PolicyResult[]);
   }
 
   try {
@@ -319,7 +369,7 @@ Deno.serve(async (request: Request) => {
       .select('id')
       .maybeSingle();
 
-    if (logError) {
+    if (logError && !isSchemaCacheError(logError)) {
       return json(500, { error: logError.message });
     }
 
@@ -344,7 +394,8 @@ Deno.serve(async (request: Request) => {
         costUsd,
         latencyMs,
       },
-      logId: logRow?.id ?? null,
+      logId: logError ? null : (logRow?.id ?? null),
+      setupRequired: Boolean(modeError || routeError || contextError || keyError || minuteCountError || costRowsError),
     });
   } catch (error) {
     const messageText = error instanceof Error ? error.message : 'Unknown model error';

@@ -27,6 +27,20 @@ type Payload = {
   modeId?: string;
 };
 
+const isSchemaCacheError = (error: { code?: string; message?: string; details?: string } | null | undefined) => {
+  if (!error) return false;
+  const text = `${error.code ?? ''} ${error.message ?? ''} ${error.details ?? ''}`;
+  return /PGRST20\d|42P01|schema cache|Could not find the table|does not exist/i.test(text);
+};
+
+const setupRequiredResponse = (defaults: Record<string, unknown> = {}) =>
+  json(200, {
+    ok: true,
+    setupRequired: true,
+    setupMessage: 'AI Coach schema is not ready yet. Wait for migrations to finish and retry.',
+    ...defaults,
+  });
+
 Deno.serve(async (request: Request) => {
   if (request.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -68,7 +82,12 @@ Deno.serve(async (request: Request) => {
       .select('id,enabled,provider,model,temperature,max_tokens,cost_limit_daily_usd,rate_limit_per_minute,key_alias,system_prompt,allowed_tools,data_requirements,style_guide,updated_at')
       .order('id', { ascending: true });
 
-    if (error) return json(500, { error: error.message });
+    if (error) {
+      if (isSchemaCacheError(error)) {
+        return setupRequiredResponse({ modes: [] });
+      }
+      return json(500, { error: error.message });
+    }
     return json(200, { ok: true, modes: data ?? [] });
   }
 
@@ -94,7 +113,12 @@ Deno.serve(async (request: Request) => {
     };
 
     const { error } = await adminClient.from('ai_modes').upsert(upsertPayload, { onConflict: 'id' });
-    if (error) return json(500, { error: error.message });
+    if (error) {
+      if (isSchemaCacheError(error)) {
+        return setupRequiredResponse();
+      }
+      return json(500, { error: error.message });
+    }
 
     return json(200, { ok: true });
   }
@@ -105,7 +129,12 @@ Deno.serve(async (request: Request) => {
       .select('id,alias,provider,is_active,created_by,created_at,updated_at,secret_masked')
       .order('updated_at', { ascending: false });
 
-    if (error) return json(500, { error: error.message });
+    if (error) {
+      if (isSchemaCacheError(error)) {
+        return setupRequiredResponse({ keys: [] });
+      }
+      return json(500, { error: error.message });
+    }
     return json(200, { ok: true, keys: data ?? [] });
   }
 
@@ -128,7 +157,12 @@ Deno.serve(async (request: Request) => {
     };
 
     const { error } = await adminClient.from('ai_api_keys').upsert(record, { onConflict: 'alias' });
-    if (error) return json(500, { error: error.message });
+    if (error) {
+      if (isSchemaCacheError(error)) {
+        return setupRequiredResponse();
+      }
+      return json(500, { error: error.message });
+    }
 
     return json(200, { ok: true });
   }
@@ -138,7 +172,12 @@ Deno.serve(async (request: Request) => {
     if (!keyId) return json(400, { error: 'keyId is required' });
 
     const { error } = await adminClient.from('ai_api_keys').delete().eq('id', keyId);
-    if (error) return json(500, { error: error.message });
+    if (error) {
+      if (isSchemaCacheError(error)) {
+        return setupRequiredResponse();
+      }
+      return json(500, { error: error.message });
+    }
 
     return json(200, { ok: true });
   }
@@ -152,7 +191,12 @@ Deno.serve(async (request: Request) => {
       .order('created_at', { ascending: false })
       .limit(limit);
 
-    if (error) return json(500, { error: error.message });
+    if (error) {
+      if (isSchemaCacheError(error)) {
+        return setupRequiredResponse({ logs: [] });
+      }
+      return json(500, { error: error.message });
+    }
     return json(200, { ok: true, logs: data ?? [] });
   }
 

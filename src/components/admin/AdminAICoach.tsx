@@ -53,6 +53,7 @@ const modeTitles: Record<string, string> = {
 
 const AdminAICoach: React.FC = () => {
   const [loading, setLoading] = useState(true);
+  const [setupWarning, setSetupWarning] = useState<string | null>(null);
   const [savingModeId, setSavingModeId] = useState<string | null>(null);
   const [modes, setModes] = useState<AiMode[]>([]);
   const [keys, setKeys] = useState<ApiKeyRow[]>([]);
@@ -70,6 +71,7 @@ const AdminAICoach: React.FC = () => {
 
   const loadAll = async () => {
     setLoading(true);
+    setSetupWarning(null);
 
     const [modesRes, keysRes, logsRes] = await Promise.all([
       supabasePublic.functions.invoke('admin-ai-coach', { body: { action: 'get_modes' } }),
@@ -79,14 +81,23 @@ const AdminAICoach: React.FC = () => {
 
     if (!modesRes.error && modesRes.data?.ok) {
       setModes(modesRes.data.modes as AiMode[]);
+      if (modesRes.data.setupRequired) {
+        setSetupWarning(String(modesRes.data.setupMessage ?? 'AI Coach schema is not ready yet.'));
+      }
     }
 
     if (!keysRes.error && keysRes.data?.ok) {
       setKeys(keysRes.data.keys as ApiKeyRow[]);
+      if (keysRes.data.setupRequired) {
+        setSetupWarning(String(keysRes.data.setupMessage ?? 'AI Coach schema is not ready yet.'));
+      }
     }
 
     if (!logsRes.error && logsRes.data?.ok) {
       setLogs(logsRes.data.logs as LogRow[]);
+      if (logsRes.data.setupRequired) {
+        setSetupWarning(String(logsRes.data.setupMessage ?? 'AI Coach schema is not ready yet.'));
+      }
     }
 
     setLoading(false);
@@ -197,6 +208,12 @@ const AdminAICoach: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {setupWarning && (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-200">
+          {setupWarning}
+        </div>
+      )}
+
       <div className="rounded-xl glass border border-border p-4 flex items-center gap-3">
         <Bot className="w-5 h-5 text-primary" />
         <div>
