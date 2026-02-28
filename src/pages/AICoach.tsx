@@ -44,13 +44,13 @@ const modeTabs: ModeConfig[] = [
 ];
 
 const modeLabels: Record<ModeId, string> = {
-  progress_report: 'progress_report',
-  live_plan: 'live_plan',
-  live_review: 'live_review',
-  daily_missions: 'daily_missions',
-  content_factory: 'content_factory',
-  tiktok_qa: 'tiktok_qa',
-  universal_chat: 'universal_chat',
+  progress_report: 'Анализ прогресса',
+  live_plan: 'План эфира',
+  live_review: 'Разбор эфира',
+  daily_missions: 'Задачи на сегодня',
+  content_factory: 'Контент',
+  tiktok_qa: 'TikTok правила',
+  universal_chat: 'Свободный диалог',
 };
 
 const AICoach: React.FC = () => {
@@ -245,7 +245,7 @@ const AICoach: React.FC = () => {
               )}>
                 <p className="text-sm whitespace-pre-line">{msg.content}</p>
                 {msg.isAI && msg.modeId && (
-                  <p className="text-[11px] mt-2 text-primary">Режим: {modeLabels[msg.modeId]}</p>
+                  <p className="text-[11px] mt-2 text-primary">Формат ответа: {modeLabels[msg.modeId]}</p>
                 )}
 
                 {msg.isAI && msg.sources && msg.sources.length > 0 && (
@@ -309,7 +309,7 @@ const AICoach: React.FC = () => {
             </button>
           </div>
           <p className="text-xs text-muted-foreground text-center mt-2">
-            Текущий режим: {modeLabels[activeMode]} • Router и Gateway работают через Supabase Edge Functions
+            Текущий формат: {modeLabels[activeMode]}
           </p>
         </div>
       </div>

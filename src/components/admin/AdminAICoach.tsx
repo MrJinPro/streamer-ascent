@@ -45,10 +45,10 @@ const modeTitles: Record<string, string> = {
   progress_report: 'Анализ прогресса',
   live_plan: 'План эфира',
   live_review: 'Разбор эфира',
-  daily_missions: 'Миссии дня',
-  content_factory: 'Контент-фабрика',
+  daily_missions: 'Задачи на сегодня',
+  content_factory: 'Контент',
   tiktok_qa: 'TikTok правила',
-  universal_chat: 'Универсальный чат',
+  universal_chat: 'Свободный диалог',
 };
 
 const modePromptTemplates: Record<string, string> = {
@@ -91,8 +91,8 @@ const AdminAICoach: React.FC = () => {
   const [newKeySecret, setNewKeySecret] = useState('');
   const [newKeyActive, setNewKeyActive] = useState(true);
 
-  const [testModeId, setTestModeId] = useState('universal_chat');
-  const [testPrompt, setTestPrompt] = useState('Сделай короткий анализ моего прогресса за неделю.');
+  const [testModeId, setTestModeId] = useState('progress_report');
+  const [testPrompt, setTestPrompt] = useState('Сделай анализ моего прогресса стримов за 7 дней: сильные стороны, слабые зоны и план на неделю.');
   const [testResult, setTestResult] = useState('');
   const [runningTest, setRunningTest] = useState(false);
 
@@ -244,8 +244,8 @@ const AdminAICoach: React.FC = () => {
       <div className="rounded-xl glass border border-border p-4 flex items-center gap-3">
         <Bot className="w-5 h-5 text-primary" />
         <div>
-          <p className="font-semibold">AI Coach Settings</p>
-          <p className="text-sm text-muted-foreground">Modes, API Keys, Logs и Test Mode</p>
+          <p className="font-semibold">Настройки AI Coach</p>
+          <p className="text-sm text-muted-foreground">Режимы, API-ключи, логи и тестирование</p>
         </div>
       </div>
 
@@ -257,19 +257,18 @@ const AdminAICoach: React.FC = () => {
       </div>
 
       <div className="space-y-4">
-        <h3 className="font-semibold flex items-center gap-2"><Bot className="w-4 h-4" /> Modes Settings</h3>
+        <h3 className="font-semibold flex items-center gap-2"><Bot className="w-4 h-4" /> Настройки режимов</h3>
         {sortedModes.map((mode) => (
           <div key={mode.id} className="rounded-xl border border-border p-4 space-y-3">
             <div className="flex items-center gap-3">
               <p className="font-medium">{modeTitles[mode.id] ?? mode.id}</p>
-              <span className="text-xs px-2 py-0.5 rounded bg-secondary">{mode.id}</span>
               <label className="ml-auto text-sm flex items-center gap-2">
                 <input
                   type="checkbox"
                   checked={mode.enabled}
                   onChange={(event) => updateModeField(mode.id, 'enabled', event.target.checked)}
                 />
-                enabled
+                включён
               </label>
             </div>
 
@@ -278,13 +277,13 @@ const AdminAICoach: React.FC = () => {
                 value={mode.provider}
                 onChange={(event) => updateModeField(mode.id, 'provider', event.target.value)}
                 className="px-3 py-2 rounded-md bg-background border border-border text-sm"
-                placeholder="provider"
+                placeholder="Провайдер"
               />
               <input
                 value={mode.model}
                 onChange={(event) => updateModeField(mode.id, 'model', event.target.value)}
                 className="px-3 py-2 rounded-md bg-background border border-border text-sm"
-                placeholder="model"
+                placeholder="Модель"
               />
               <input
                 type="number"
@@ -292,14 +291,14 @@ const AdminAICoach: React.FC = () => {
                 value={mode.temperature}
                 onChange={(event) => updateModeField(mode.id, 'temperature', Number(event.target.value))}
                 className="px-3 py-2 rounded-md bg-background border border-border text-sm"
-                placeholder="temperature"
+                placeholder="Креативность"
               />
               <input
                 type="number"
                 value={mode.max_tokens}
                 onChange={(event) => updateModeField(mode.id, 'max_tokens', Number(event.target.value))}
                 className="px-3 py-2 rounded-md bg-background border border-border text-sm"
-                placeholder="max_tokens"
+                placeholder="Длина ответа"
               />
               <input
                 type="number"
@@ -307,20 +306,20 @@ const AdminAICoach: React.FC = () => {
                 value={mode.cost_limit_daily_usd}
                 onChange={(event) => updateModeField(mode.id, 'cost_limit_daily_usd', Number(event.target.value))}
                 className="px-3 py-2 rounded-md bg-background border border-border text-sm"
-                placeholder="cost_limit_daily_usd"
+                placeholder="Лимит затрат / день"
               />
               <input
                 type="number"
                 value={mode.rate_limit_per_minute}
                 onChange={(event) => updateModeField(mode.id, 'rate_limit_per_minute', Number(event.target.value))}
                 className="px-3 py-2 rounded-md bg-background border border-border text-sm"
-                placeholder="rate_limit_per_minute"
+                placeholder="Лимит запросов / мин"
               />
               <input
                 value={mode.key_alias ?? ''}
                 onChange={(event) => updateModeField(mode.id, 'key_alias', event.target.value || null)}
                 className="px-3 py-2 rounded-md bg-background border border-border text-sm"
-                placeholder="key_alias"
+                placeholder="Название ключа"
               />
               <input
                 value={mode.style_guide ?? ''}
@@ -334,7 +333,7 @@ const AdminAICoach: React.FC = () => {
               value={mode.system_prompt}
               onChange={(event) => updateModeField(mode.id, 'system_prompt', event.target.value)}
               className="w-full px-3 py-2 rounded-md bg-background border border-border min-h-24 text-sm"
-              placeholder="system prompt"
+              placeholder="Инструкция для режима"
             />
 
             <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
@@ -365,7 +364,7 @@ const AdminAICoach: React.FC = () => {
       </div>
 
       <div className="space-y-3">
-        <h3 className="font-semibold flex items-center gap-2"><KeyRound className="w-4 h-4" /> API Keys</h3>
+        <h3 className="font-semibold flex items-center gap-2"><KeyRound className="w-4 h-4" /> API-ключи</h3>
         <div className="rounded-xl border border-border bg-secondary/20 p-3 text-sm text-muted-foreground">
           Рекомендуемо создать 2-3 ключа одного провайдера (например OpenAI): система автоматически переключится на другой, если один упрётся в лимит/ошибку.
         </div>
@@ -373,30 +372,30 @@ const AdminAICoach: React.FC = () => {
           <input
             value={newKeyAlias}
             onChange={(event) => setNewKeyAlias(event.target.value)}
-            placeholder="alias"
+            placeholder="Название ключа"
             className="px-3 py-2 rounded-md bg-background border border-border text-sm"
           />
           <input
             value={newKeyProvider}
             onChange={(event) => setNewKeyProvider(event.target.value)}
-            placeholder="provider"
+            placeholder="Провайдер"
             className="px-3 py-2 rounded-md bg-background border border-border text-sm"
           />
           <input
             value={newKeySecret}
             onChange={(event) => setNewKeySecret(event.target.value)}
-            placeholder="secret"
+            placeholder="Секретный ключ"
             className="px-3 py-2 rounded-md bg-background border border-border text-sm"
           />
           <label className="text-sm flex items-center gap-2 px-2">
             <input type="checkbox" checked={newKeyActive} onChange={(event) => setNewKeyActive(event.target.checked)} />
-            active
+            активен
           </label>
           <button
             onClick={() => void saveApiKey()}
             className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm"
           >
-            <Save className="w-4 h-4" /> Сохранить ключ
+            <Save className="w-4 h-4" /> Добавить ключ
           </button>
         </div>
 
@@ -404,10 +403,10 @@ const AdminAICoach: React.FC = () => {
           <table className="w-full text-sm">
             <thead className="bg-secondary/50">
               <tr>
-                <th className="text-left px-3 py-2">Alias</th>
-                <th className="text-left px-3 py-2">Provider</th>
-                <th className="text-left px-3 py-2">Secret</th>
-                <th className="text-left px-3 py-2">Active</th>
+                <th className="text-left px-3 py-2">Название</th>
+                <th className="text-left px-3 py-2">Провайдер</th>
+                <th className="text-left px-3 py-2">Ключ</th>
+                <th className="text-left px-3 py-2">Статус</th>
                 <th className="text-left px-3 py-2">Действия</th>
               </tr>
             </thead>
@@ -434,7 +433,7 @@ const AdminAICoach: React.FC = () => {
       </div>
 
       <div className="space-y-3">
-        <h3 className="font-semibold flex items-center gap-2"><TestTube2 className="w-4 h-4" /> Test Mode</h3>
+        <h3 className="font-semibold flex items-center gap-2"><TestTube2 className="w-4 h-4" /> Проверка ответа</h3>
         <div className="rounded-xl border border-border p-4 space-y-3">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
             <select
@@ -443,7 +442,7 @@ const AdminAICoach: React.FC = () => {
               className="px-3 py-2 rounded-md bg-background border border-border text-sm"
             >
               {sortedModes.map((mode) => (
-                <option key={mode.id} value={mode.id}>{mode.id}</option>
+                <option key={mode.id} value={mode.id}>{modeTitles[mode.id] ?? mode.id}</option>
               ))}
             </select>
             <input
@@ -459,7 +458,7 @@ const AdminAICoach: React.FC = () => {
             disabled={runningTest}
             className="px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm disabled:opacity-60"
           >
-            Run test
+            Запустить проверку
           </button>
 
           {testResult && (
@@ -477,7 +476,7 @@ const AdminAICoach: React.FC = () => {
             <thead className="bg-secondary/50">
               <tr>
                 <th className="text-left px-3 py-2">Время</th>
-                <th className="text-left px-3 py-2">Mode</th>
+                <th className="text-left px-3 py-2">Режим</th>
                 <th className="text-left px-3 py-2">Tokens</th>
                 <th className="text-left px-3 py-2">Cost</th>
                 <th className="text-left px-3 py-2">Latency</th>
@@ -488,7 +487,7 @@ const AdminAICoach: React.FC = () => {
               {logs.map((log) => (
                 <tr key={log.id} className="border-t border-border">
                   <td className="px-3 py-2">{new Date(log.created_at).toLocaleString('ru-RU')}</td>
-                  <td className="px-3 py-2">{log.mode_id}</td>
+                  <td className="px-3 py-2">{modeTitles[log.mode_id] ?? log.mode_id}</td>
                   <td className="px-3 py-2">{log.total_tokens ?? 0}</td>
                   <td className="px-3 py-2">${Number(log.cost_usd ?? 0).toFixed(4)}</td>
                   <td className="px-3 py-2">{log.latency_ms ?? 0} ms</td>

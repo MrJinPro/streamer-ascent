@@ -52,6 +52,13 @@ const OPENAI_ENDPOINTS: Record<string, string> = {
   openrouter: 'https://openrouter.ai/api/v1/chat/completions',
 };
 
+const GLOBAL_DOMAIN_SYSTEM_PROMPT = [
+  'Ты AI Coach платформы NovaBoost Tools для TikTok Live стримеров.',
+  'Отвечай ТОЛЬКО в контексте стриминга, эфиров, аудитории, удержания, контента, задач и метрик стримера.',
+  'Не подменяй домен на учебу, карьерный коучинг, фитнес или общую психологию, если пользователь явно об этом не попросил.',
+  'Если данных недостаточно, скажи это прямо и предложи, какие именно стримерские метрики нужно добавить.',
+].join(' ');
+
 const isSchemaCacheError = (error: { code?: string; message?: string; details?: string } | null | undefined) => {
   if (!error) return false;
   const text = `${error.code ?? ''} ${error.message ?? ''} ${error.details ?? ''}`;
@@ -176,6 +183,29 @@ const formatByMode = (modeId: string, answer: string, policySources: PolicyResul
   return trimmed;
 };
 
+const sanitizeOutOfDomainAnswer = (modeId: string, answer: string, userContext: unknown) => {
+  const text = answer.trim();
+  const lower = text.toLowerCase();
+
+  const hasWrongDomainWords = /(уч[её]б|школ|универ|домашн|экзамен|карьер|офис|корпоратив|собесед)/i.test(lower);
+  const hasStreamingWords = /(стрим|эфир|аудитор|чат|удержан|тик ?ток|tiktok|донат|подарк|контент)/i.test(lower);
+
+  if (!hasWrongDomainWords || hasStreamingWords) {
+    return text;
+  }
+
+  const ctx = JSON.stringify(userContext ?? {});
+  const hasAnyStats = ctx.length > 4;
+
+  if (modeId === 'progress_report') {
+    return hasAnyStats
+      ? 'Итог\nНедостаточно чистых данных для точного анализа, но фокус должен быть на стримерских метриках.\n\nСильные стороны\n- Есть базовый контекст профиля и активности.\n\nСлабые\n- Не хватает стабильных данных по удержанию, пикам и источникам подарков.\n\nПлан\n1) Зафиксируй расписание эфиров на 7 дней.\n2) Для каждого эфира добавляй цель по удержанию и интерактиву.\n3) После эфира фиксируй 3 вывода: что подняло активность, где был спад, какие CTA сработали.\n\nБыстрые задачи\n- Сегодня: 1 эфир с чётким сценарием блоков и интерактивом каждые 10–15 минут.'
+      : 'Итог\nДля анализа прогресса не хватает стримерских данных.\n\nСильные стороны\n- Запрос сформулирован по делу.\n\nСлабые\n- Нет данных по метрикам эфиров.\n\nПлан\n1) Подключить данные последних 7/30 дней по эфирам.\n2) Добавить задания и выполнение.\n3) Собирать пики активности чата и подарков.\n\nБыстрые задачи\n- Отправь запрос повторно после появления метрик.';
+  }
+
+  return 'Переформулирую в домене NovaBoost: фокус на стриминге, метриках эфиров, активности чата, контент-плане и выполнении задач. Уточни период анализа (24ч / 7д / 30д), и я дам точный план действий.';
+};
+
 const callModel = async (
   mode: AiModeRow,
   apiKey: string,
@@ -211,7 +241,7 @@ const callModel = async (
     };
   }
 
-  const system = `${mode.system_prompt}\n\nСтиль: ${mode.style_guide ?? 'по делу'}\n\nКонтекст JSON:\n${JSON.stringify(contextPayload)}`;
+  const system = `${GLOBAL_DOMAIN_SYSTEM_PROMPT}\n\n${mode.system_prompt}\n\nСтиль: ${mode.style_guide ?? 'по делу'}\n\nКонтекст JSON:\n${JSON.stringify(contextPayload)}`;
 
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -394,10 +424,12 @@ Deno.serve(async (request: Request) => {
     const costUsd = estimateCostUsd(totalTokens, llmResult.provider, llmResult.model);
     const latencyMs = Date.now() - startedAt;
 
-    const finalText =
+    const modeFormattedText =
       mode.id === 'tiktok_qa' && policySources.length === 0
         ? 'Не нашёл точного правила во внутренней базе по этому вопросу. Уточни контекст: регион, тип нарушения и сценарий эфира.'
         : formatByMode(mode.id, llmResult.text, policySources);
+
+    const finalText = sanitizeOutOfDomainAnswer(mode.id, modeFormattedText, userContext);
 
     const { data: logRow, error: logError } = await adminClient
       .from('ai_chat_logs')
