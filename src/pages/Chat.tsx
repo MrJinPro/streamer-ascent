@@ -210,9 +210,13 @@ const Chat: React.FC = () => {
     setUnreadMap(nextMap);
   };
 
-  const loadThreads = async () => {
+  const loadThreads = async (options?: { silent?: boolean }) => {
     if (!user?.id) return;
-    setLoading(true);
+    const isSilent = options?.silent ?? false;
+
+    if (!isSilent) {
+      setLoading(true);
+    }
 
     await (supabasePublic as any).rpc('chat_sync_support_memberships', { p_user_id: user.id });
 
@@ -224,7 +228,9 @@ const Chat: React.FC = () => {
 
     if (myMembershipsError) {
       toast({ title: 'Не удалось загрузить чаты', description: myMembershipsError.message, variant: 'destructive' });
-      setLoading(false);
+      if (!isSilent) {
+        setLoading(false);
+      }
       return;
     }
 
@@ -234,7 +240,9 @@ const Chat: React.FC = () => {
       setMembers([]);
       setMessages([]);
       setReceipts([]);
-      setLoading(false);
+      if (!isSilent) {
+        setLoading(false);
+      }
       return;
     }
 
@@ -252,7 +260,9 @@ const Chat: React.FC = () => {
 
     if (threadError || memberError) {
       toast({ title: 'Не удалось загрузить переписки', description: threadError?.message ?? memberError?.message, variant: 'destructive' });
-      setLoading(false);
+      if (!isSilent) {
+        setLoading(false);
+      }
       return;
     }
 
@@ -296,7 +306,9 @@ const Chat: React.FC = () => {
     }
 
     await loadUnread();
-    setLoading(false);
+    if (!isSilent) {
+      setLoading(false);
+    }
   };
 
   const loadMessages = async (threadId: string) => {
@@ -340,7 +352,7 @@ const Chat: React.FC = () => {
       return;
     }
     const threadId = Array.isArray(data) ? data[0] : data;
-    await loadThreads();
+    await loadThreads({ silent: true });
     if (threadId) setSelectedThreadId(threadId);
   };
 
@@ -360,7 +372,7 @@ const Chat: React.FC = () => {
     }
 
     const threadId = Array.isArray(data) ? data[0] : data;
-    await loadThreads();
+    await loadThreads({ silent: true });
     if (threadId) setSelectedThreadId(threadId);
   };
 
@@ -384,7 +396,7 @@ const Chat: React.FC = () => {
     setGroupTitle('');
     setGroupMemberIds([]);
     const threadId = Array.isArray(data) ? data[0] : data;
-    await loadThreads();
+    await loadThreads({ silent: true });
     if (threadId) setSelectedThreadId(threadId);
   };
 
@@ -406,7 +418,7 @@ const Chat: React.FC = () => {
 
     setMessage('');
     setExcludedForMessage([]);
-    await Promise.all([loadThreads(), loadMessages(selectedThread.id)]);
+    await Promise.all([loadThreads({ silent: true }), loadMessages(selectedThread.id)]);
   };
 
   useEffect(() => {
@@ -426,7 +438,7 @@ const Chat: React.FC = () => {
     const channel = supabasePublic
       .channel(`internal-chat-${user.id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages_internal' }, () => {
-        void loadThreads();
+        void loadThreads({ silent: true });
         if (selectedThreadId) void loadMessages(selectedThreadId);
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_message_receipts' }, () => {
@@ -434,7 +446,7 @@ const Chat: React.FC = () => {
         if (selectedThreadId) void loadMessages(selectedThreadId);
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_thread_members' }, () => {
-        void loadThreads();
+        void loadThreads({ silent: true });
       })
       .subscribe();
 

@@ -9,7 +9,7 @@ set search_path = public
 as $$
 declare
   v_uid uuid := coalesce(p_user_id, auth.uid());
-  v_role public.app_role_t;
+  v_role text;
   v_synced integer := 0;
 begin
   if v_uid is null then
@@ -20,8 +20,8 @@ begin
     raise exception 'forbidden';
   end if;
 
-  v_role := public.chat_resolve_role(v_uid);
-  if v_role::text not in ('support', 'admin', 'owner') then
+  v_role := public.chat_resolve_role(v_uid)::text;
+  if v_role not in ('support', 'admin', 'owner') then
     return 0;
   end if;
 
