@@ -9,6 +9,8 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const Leaderboard: React.FC = () => {
   const { allUsers, currentUser } = useAppData();
+  const { user: authUser } = useAuth();
+  const navigate = useNavigate();
   const leaderboard = getLeaderboard(allUsers).slice(0, 5);
 
   const getRankStyle = (rank: number) => {
