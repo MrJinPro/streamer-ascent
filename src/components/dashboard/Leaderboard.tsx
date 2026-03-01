@@ -1,9 +1,11 @@
 import React from 'react';
-import { Trophy, Crown, Medal, TrendingUp, Diamond, Flame, ChevronRight } from 'lucide-react';
+import { Trophy, Crown, Medal, TrendingUp, Diamond, Flame, ChevronRight, MessageCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAppData } from '@/contexts/AppDataContext';
 import { getLeaderboard, formatDiamonds } from '@/data/appDataUtils';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Leaderboard: React.FC = () => {
   const { allUsers, currentUser } = useAppData();
