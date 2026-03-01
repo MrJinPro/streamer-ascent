@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Send, Plus, Search, ShieldCheck, Users, Smile, Trash2,
   ArrowDown, MessageCircle, X, MoreVertical, UserPlus, Hash
