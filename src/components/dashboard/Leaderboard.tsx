@@ -156,6 +156,21 @@ const Leaderboard: React.FC = () => {
                   )}
                 </div>
 
+                {/* Message button */}
+                {authUser && authUser.id !== user.id && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="flex-shrink-0 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/chat?dm=${user.id}`);
+                    }}
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" />
+                  </Button>
+                )}
+
                 {/* Hover indicator */}
                 <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-0 rounded-r-full bg-gradient-primary transition-all duration-200 group-hover:h-8" />
               </div>

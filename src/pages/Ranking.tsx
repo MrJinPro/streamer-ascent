@@ -563,6 +563,7 @@ const Ranking = () => {
                   />
                   <span>{selectedUser.name}</span>
                   <Badge variant="outline">Lv.{selectedUser.level}</Badge>
+                  <SendMessageButton targetUserId={selectedUser.id} size="sm" />
                 </>
               )}
             </DialogTitle>
