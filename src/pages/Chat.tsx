@@ -420,8 +420,23 @@ const Chat: React.FC = () => {
     inputRef.current?.focus();
   };
 
+  // Handle ?dm=userId query param to auto-open DM
+  const [searchParams, setSearchParams] = useSearchParams();
+  const dmTargetHandled = useRef<string | null>(null);
+
   // Initial load
   useEffect(() => { void loadThreads(); }, [user?.id]);
+
+  // Auto-open DM when navigated with ?dm=userId
+  useEffect(() => {
+    const dmTarget = searchParams.get('dm');
+    if (!dmTarget || !user?.id || loading) return;
+    if (dmTargetHandled.current === dmTarget) return;
+    dmTargetHandled.current = dmTarget;
+    // Clear the param
+    setSearchParams({}, { replace: true });
+    void openDirect(dmTarget);
+  }, [searchParams, user?.id, loading]);
 
   // Load messages on thread select
   useEffect(() => {
