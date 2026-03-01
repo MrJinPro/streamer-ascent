@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import UserRoleBadges from '@/components/UserRoleBadges';
+import SendMessageButton from '@/components/SendMessageButton';
 import { 
   ArrowLeft, 
   Diamond, 
@@ -447,6 +448,9 @@ const Profile: React.FC = () => {
                   Присоединился {new Date(user.joinedDate).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}
                 </p>
                 <UserRoleBadges userId={user.id} className="mt-1" />
+                {!isOwnProfile && (
+                  <SendMessageButton targetUserId={user.id} className="mt-3" variant="default" />
+                )}
                 {!userId && referralCode && (
                   <div className="mt-2 inline-flex items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-1.5">
                     <span className="text-xs text-muted-foreground">Ваш реферальный код:</span>

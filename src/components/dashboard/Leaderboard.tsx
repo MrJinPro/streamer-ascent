@@ -1,12 +1,16 @@
 import React from 'react';
-import { Trophy, Crown, Medal, TrendingUp, Diamond, Flame, ChevronRight } from 'lucide-react';
+import { Trophy, Crown, Medal, TrendingUp, Diamond, Flame, ChevronRight, MessageCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAppData } from '@/contexts/AppDataContext';
 import { getLeaderboard, formatDiamonds } from '@/data/appDataUtils';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Leaderboard: React.FC = () => {
   const { allUsers, currentUser } = useAppData();
+  const { user: authUser } = useAuth();
+  const navigate = useNavigate();
   const leaderboard = getLeaderboard(allUsers).slice(0, 5);
 
   const getRankStyle = (rank: number) => {
@@ -151,6 +155,21 @@ const Leaderboard: React.FC = () => {
                     </div>
                   )}
                 </div>
+
+                {/* Message button */}
+                {authUser && authUser.id !== user.id && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="flex-shrink-0 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/chat?dm=${user.id}`);
+                    }}
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" />
+                  </Button>
+                )}
 
                 {/* Hover indicator */}
                 <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-0 rounded-r-full bg-gradient-primary transition-all duration-200 group-hover:h-8" />

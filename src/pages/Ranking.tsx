@@ -4,6 +4,7 @@ import {
   Minus, Diamond, Clock, Users, Heart, ChevronUp, ChevronDown,
   Calendar, Filter, Search, Sparkles, Zap
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAppData } from '@/contexts/AppDataContext';
 import { formatDiamonds } from '@/data/appDataUtils';
 import type { User } from '@/types/app-data';
@@ -11,6 +12,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import SendMessageButton from '@/components/SendMessageButton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Select,
@@ -561,6 +563,7 @@ const Ranking = () => {
                   />
                   <span>{selectedUser.name}</span>
                   <Badge variant="outline">Lv.{selectedUser.level}</Badge>
+                  <SendMessageButton targetUserId={selectedUser.id} size="sm" />
                 </>
               )}
             </DialogTitle>
