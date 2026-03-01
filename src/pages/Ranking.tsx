@@ -4,6 +4,7 @@ import {
   Minus, Diamond, Clock, Users, Heart, ChevronUp, ChevronDown,
   Calendar, Filter, Search, Sparkles, Zap
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAppData } from '@/contexts/AppDataContext';
 import { formatDiamonds } from '@/data/appDataUtils';
 import type { User } from '@/types/app-data';
