@@ -1,5 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Send, Plus, ShieldCheck, Users } from 'lucide-react';
+import {
+  Send, Plus, Search, ShieldCheck, Users, Smile, Trash2,
+  ArrowDown, MessageCircle, X, MoreVertical, UserPlus, Hash
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import UserRoleBadges from '@/components/UserRoleBadges';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,6 +10,19 @@ import { useAppData } from '@/contexts/AppDataContext';
 import { supabasePublic } from '@/integrations/supabase/publicClient';
 import { toast } from '@/hooks/use-toast';
 import { getRoleLabel } from '@/lib/roles';
+import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import data from '@emoji-mart/data';
+import Picker from '@emoji-mart/react';
 
 type ChatThreadKind = 'direct' | 'group' | 'support';
 
@@ -52,21 +68,17 @@ type UserProfile = {
 };
 
 const rolePriority: Record<string, number> = {
-  owner: 1,
-  admin: 2,
-  developer: 3,
-  senior_curator: 4,
-  manager: 5,
-  curator: 6,
-  moderator: 7,
-  support: 8,
-  investor: 9,
-  streamer: 10,
+  owner: 1, admin: 2, developer: 3, senior_curator: 4, manager: 5,
+  curator: 6, moderator: 7, support: 8, investor: 9, streamer: 10,
 };
+
+const EMOJI_QUICK = ['👍', '❤️', '😂', '🔥', '😊', '🎉', '💎', '✨'];
 
 const Chat: React.FC = () => {
   const { user, role } = useAuth();
   const { allUsers } = useAppData();
+  const isMobile = useIsMobile();
+
   const [loading, setLoading] = useState(true);
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [members, setMembers] = useState<ChatMember[]>([]);
@@ -77,19 +89,39 @@ const Chat: React.FC = () => {
   const [unreadMap, setUnreadMap] = useState<Record<string, number>>({});
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [message, setMessage] = useState('');
-  const [createGroupMode, setCreateGroupMode] = useState(false);
-  const [groupTitle, setGroupTitle] = useState('');
-  const [groupMemberIds, setGroupMemberIds] = useState<string[]>([]);
   const [excludedForMessage, setExcludedForMessage] = useState<string[]>([]);
-  const [contactSearch, setContactSearch] = useState('');
   const [profileUserIds, setProfileUserIds] = useState<Set<string>>(new Set());
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [newMessagesCount, setNewMessagesCount] = useState(0);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(!isMobile);
+  const [threadSearch, setThreadSearch] = useState('');
+  const [showNewChatDialog, setShowNewChatDialog] = useState(false);
+  const [newChatSearch, setNewChatSearch] = useState('');
+  const [newChatTab, setNewChatTab] = useState<'contact' | 'group'>('contact');
+  const [groupTitle, setGroupTitle] = useState('');
+  const [groupMemberIds, setGroupMemberIds] = useState<string[]>([]);
+  const [deletingThreadId, setDeletingThreadId] = useState<string | null>(null);
+
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const previousMessageCountRef = useRef(0);
   const previousThreadIdRef = useRef<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const emojiRef = useRef<HTMLDivElement>(null);
 
   const currentRole = role ?? 'streamer';
+
+  // Close emoji picker on outside click
+  useEffect(() => {
+    if (!showEmojiPicker) return;
+    const handler = (e: MouseEvent) => {
+      if (emojiRef.current && !emojiRef.current.contains(e.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showEmojiPicker]);
 
   const membersByThread = useMemo(() => {
     const map: Record<string, ChatMember[]> = {};
@@ -101,7 +133,7 @@ const Chat: React.FC = () => {
   }, [members]);
 
   const selectedThread = useMemo(
-    () => threads.find((thread) => thread.id === selectedThreadId) ?? null,
+    () => threads.find((t) => t.id === selectedThreadId) ?? null,
     [threads, selectedThreadId],
   );
 
@@ -111,15 +143,14 @@ const Chat: React.FC = () => {
   );
 
   const selectedThreadMessages = useMemo(
-    () => (selectedThread ? messages.filter((item) => item.thread_id === selectedThread.id) : []),
+    () => (selectedThread ? messages.filter((m) => m.thread_id === selectedThread.id) : []),
     [messages, selectedThread],
   );
 
   const detectIsAtBottom = useCallback(() => {
     const container = messagesContainerRef.current;
     if (!container) return true;
-    const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-    return distanceToBottom <= 48;
+    return container.scrollHeight - container.scrollTop - container.clientHeight <= 48;
   }, []);
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
@@ -133,9 +164,7 @@ const Chat: React.FC = () => {
   const handleMessagesScroll = useCallback(() => {
     const atBottom = detectIsAtBottom();
     setIsAtBottom(atBottom);
-    if (atBottom) {
-      setNewMessagesCount(0);
-    }
+    if (atBottom) setNewMessagesCount(0);
   }, [detectIsAtBottom]);
 
   const threadsSorted = useMemo(
@@ -147,34 +176,36 @@ const Chat: React.FC = () => {
     [threads],
   );
 
-  useEffect(() => {
-    if (threadsSorted.length === 0) {
-      return;
-    }
+  const filteredThreads = useMemo(() => {
+    const needle = threadSearch.trim().toLowerCase();
+    if (!needle) return threadsSorted;
+    return threadsSorted.filter((t) => {
+      const title = getThreadTitleRaw(t).toLowerCase();
+      return title.includes(needle);
+    });
+  }, [threadSearch, threadsSorted]);
 
+  useEffect(() => {
+    if (threadsSorted.length === 0) return;
     if (!selectedThreadId) {
       setSelectedThreadId(threadsSorted[0].id);
       return;
     }
-
-    const stillExists = threadsSorted.some((thread) => thread.id === selectedThreadId);
-    if (!stillExists) {
-      setSelectedThreadId(threadsSorted[0].id);
-    }
+    const stillExists = threadsSorted.some((t) => t.id === selectedThreadId);
+    if (!stillExists) setSelectedThreadId(threadsSorted[0].id);
   }, [selectedThreadId, threadsSorted]);
 
   const potentialContacts = useMemo(() => {
     if (!user?.id) return [];
-
     const isProfileUser = (id: string) => profileUserIds.has(id);
 
     if (currentRole === 'curator') {
       const streamerIds = new Set<string>();
       for (const thread of threads) {
-        const threadMembers = membersByThread[thread.id] ?? [];
-        threadMembers.forEach((member) => {
-          if (member.user_id !== user.id && (roleMap[member.user_id] ?? 'streamer') === 'streamer') {
-            streamerIds.add(member.user_id);
+        const tm = membersByThread[thread.id] ?? [];
+        tm.forEach((m) => {
+          if (m.user_id !== user.id && (roleMap[m.user_id] ?? 'streamer') === 'streamer') {
+            streamerIds.add(m.user_id);
           }
         });
       }
@@ -188,214 +219,132 @@ const Chat: React.FC = () => {
     return allUsers.filter((u) => u.id !== user.id && isProfileUser(u.id));
   }, [allUsers, currentRole, membersByThread, profileUserIds, roleMap, threads, user?.id]);
 
-  const filteredContacts = useMemo(() => {
-    const needle = contactSearch.trim().toLowerCase();
+  const filteredNewChatContacts = useMemo(() => {
+    const needle = newChatSearch.trim().toLowerCase();
     if (!needle) return potentialContacts;
-
-    return potentialContacts.filter((contact) => {
-      const label = `${contact.name} ${contact.id} ${getRoleLabel(contact.role)}`.toLowerCase();
+    return potentialContacts.filter((c) => {
+      const label = `${c.name} ${getRoleLabel(c.role)}`.toLowerCase();
       return label.includes(needle);
     });
-  }, [contactSearch, potentialContacts]);
+  }, [newChatSearch, potentialContacts]);
 
   useEffect(() => {
     const loadProfileUserIds = async () => {
-      const candidateIds = Array.from(new Set(allUsers.map((item) => item.id).filter(Boolean)));
-      if (candidateIds.length === 0) {
-        setProfileUserIds(new Set());
-        return;
-      }
-
-      const { data } = await supabasePublic
-        .from('profiles')
-        .select('user_id')
-        .in('user_id', candidateIds);
-
-      const ids = new Set<string>((data ?? []).map((row: any) => row.user_id));
-      setProfileUserIds(ids);
+      const candidateIds = Array.from(new Set(allUsers.map((i) => i.id).filter(Boolean)));
+      if (candidateIds.length === 0) { setProfileUserIds(new Set()); return; }
+      const { data } = await supabasePublic.from('profiles').select('user_id').in('user_id', candidateIds);
+      setProfileUserIds(new Set((data ?? []).map((r: any) => r.user_id)));
     };
-
     void loadProfileUserIds();
   }, [allUsers]);
 
   const getDisplayName = (userId: string) => {
     const profile = profilesMap[userId];
-    return profile?.display_name ?? profile?.username ?? allUsers.find((item) => item.id === userId)?.name ?? 'Пользователь';
+    return profile?.display_name ?? profile?.username ?? allUsers.find((i) => i.id === userId)?.name ?? 'Пользователь';
   };
 
   const getAvatar = (userId: string) => {
     const profile = profilesMap[userId];
-    return profile?.avatar_url ?? allUsers.find((item) => item.id === userId)?.avatar ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`;
+    return profile?.avatar_url ?? allUsers.find((i) => i.id === userId)?.avatar ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`;
   };
 
-  const getThreadTitle = (thread: ChatThread) => {
+  function getThreadTitleRaw(thread: ChatThread) {
     if (thread.kind === 'group' || thread.kind === 'support') return thread.title ?? 'Группа';
-
-    const threadMembers = membersByThread[thread.id] ?? [];
-    const other = threadMembers.find((member) => member.user_id !== user?.id);
+    const tm = membersByThread[thread.id] ?? [];
+    const other = tm.find((m) => m.user_id !== user?.id);
     if (!other) return 'Личный чат';
     return getDisplayName(other.user_id);
-  };
+  }
 
   const getThreadAvatar = (thread: ChatThread) => {
     if (thread.kind === 'support') return 'https://api.dicebear.com/7.x/avataaars/svg?seed=Support';
     if (thread.kind === 'group') return 'https://api.dicebear.com/7.x/avataaars/svg?seed=Group';
-
-    const threadMembers = membersByThread[thread.id] ?? [];
-    const other = threadMembers.find((member) => member.user_id !== user?.id);
+    const tm = membersByThread[thread.id] ?? [];
+    const other = tm.find((m) => m.user_id !== user?.id);
     return other ? getAvatar(other.user_id) : 'https://api.dicebear.com/7.x/avataaars/svg?seed=User';
   };
 
   const getOwnMessageStatus = (messageId: string) => {
-    const ownReceipts = receipts.filter((receipt) => receipt.message_id === messageId);
-    if (ownReceipts.length === 0) return 'Отправлено';
-    if (ownReceipts.every((receipt) => receipt.read_at)) return 'Прочитано';
-    if (ownReceipts.every((receipt) => receipt.delivered_at)) return 'Доставлено';
-    return 'Отправлено';
+    const r = receipts.filter((r) => r.message_id === messageId);
+    if (r.length === 0) return '✓';
+    if (r.every((r) => r.read_at)) return '✓✓';
+    if (r.every((r) => r.delivered_at)) return '✓✓';
+    return '✓';
   };
 
   const loadUnread = async () => {
-    const { data, error } = await (supabasePublic as any).rpc('chat_get_unread_counts');
-    if (error) return;
-
+    const { data } = await (supabasePublic as any).rpc('chat_get_unread_counts');
     const nextMap: Record<string, number> = {};
-    for (const row of data ?? []) {
-      nextMap[row.thread_id] = Number(row.unread_count ?? 0);
-    }
+    for (const row of data ?? []) nextMap[row.thread_id] = Number(row.unread_count ?? 0);
     setUnreadMap(nextMap);
   };
 
   const loadThreads = async (options?: { silent?: boolean }) => {
     if (!user?.id) return;
-    const isSilent = options?.silent ?? false;
-
-    if (!isSilent) {
-      setLoading(true);
-    }
+    if (!options?.silent) setLoading(true);
 
     await (supabasePublic as any).rpc('chat_sync_support_memberships', { p_user_id: user.id });
 
     const { data: myMemberships, error: myMembershipsError } = await supabasePublic
-      .from('chat_thread_members')
-      .select('thread_id')
-      .eq('user_id', user.id)
-      .eq('is_active', true);
+      .from('chat_thread_members').select('thread_id').eq('user_id', user.id).eq('is_active', true);
 
     if (myMembershipsError) {
       toast({ title: 'Не удалось загрузить чаты', description: myMembershipsError.message, variant: 'destructive' });
-      if (!isSilent) {
-        setLoading(false);
-      }
+      if (!options?.silent) setLoading(false);
       return;
     }
 
-    const threadIds = (myMemberships ?? []).map((item) => item.thread_id);
+    const threadIds = (myMemberships ?? []).map((i) => i.thread_id);
     if (threadIds.length === 0) {
-      if (isSilent) {
-        return;
-      }
-
-      setThreads([]);
-      setMembers([]);
-      setMessages([]);
-      setReceipts([]);
-      if (!isSilent) {
-        setLoading(false);
-      }
+      if (!options?.silent) { setThreads([]); setMembers([]); setMessages([]); setReceipts([]); setLoading(false); }
       return;
     }
 
-    const [{ data: threadRows, error: threadError }, { data: memberRows, error: memberError }] = await Promise.all([
-      supabasePublic
-        .from('chat_threads')
-        .select('id,kind,title,last_message_text,last_message_at,created_by')
-        .in('id', threadIds),
-      supabasePublic
-        .from('chat_thread_members')
-        .select('thread_id,user_id,member_role,is_active,last_read_at')
-        .in('thread_id', threadIds)
-        .eq('is_active', true),
+    const [{ data: threadRows }, { data: memberRows }] = await Promise.all([
+      supabasePublic.from('chat_threads').select('id,kind,title,last_message_text,last_message_at,created_by').in('id', threadIds),
+      supabasePublic.from('chat_thread_members').select('thread_id,user_id,member_role,is_active,last_read_at').in('thread_id', threadIds).eq('is_active', true),
     ]);
 
-    if (threadError || memberError) {
-      toast({ title: 'Не удалось загрузить переписки', description: threadError?.message ?? memberError?.message, variant: 'destructive' });
-      if (!isSilent) {
-        setLoading(false);
-      }
-      return;
-    }
-
-    const userIds = Array.from(new Set((memberRows ?? []).map((item) => item.user_id)));
+    const userIds = Array.from(new Set((memberRows ?? []).map((i) => i.user_id)));
     const [{ data: profileRows }, { data: roleRows }] = await Promise.all([
-      supabasePublic
-        .from('profiles')
-        .select('user_id,display_name,username,avatar_url,is_online')
-        .in('user_id', userIds),
-      supabasePublic
-        .from('user_roles')
-        .select('user_id,role')
-        .in('user_id', userIds),
+      supabasePublic.from('profiles').select('user_id,display_name,username,avatar_url,is_online').in('user_id', userIds),
+      supabasePublic.from('user_roles').select('user_id,role').in('user_id', userIds),
     ]);
 
-    const nextProfilesMap = (profileRows ?? []).reduce<Record<string, UserProfile>>((acc, item: any) => {
-      acc[item.user_id] = item;
+    setProfilesMap((profileRows ?? []).reduce<Record<string, UserProfile>>((acc, i: any) => { acc[i.user_id] = i; return acc; }, {}));
+    setRoleMap((roleRows ?? []).reduce<Record<string, string>>((acc, i: any) => {
+      if (!acc[i.user_id] || (rolePriority[i.role] ?? 99) < (rolePriority[acc[i.user_id]] ?? 99)) acc[i.user_id] = i.role;
       return acc;
-    }, {});
-
-    const nextRoleMap = (roleRows ?? []).reduce<Record<string, string>>((acc, item: any) => {
-      const current = acc[item.user_id];
-      if (!current || (rolePriority[item.role] ?? 99) < (rolePriority[current] ?? 99)) {
-        acc[item.user_id] = item.role;
-      }
-      return acc;
-    }, {});
-
+    }, {}));
     setThreads((threadRows ?? []) as ChatThread[]);
     setMembers((memberRows ?? []) as ChatMember[]);
-    setProfilesMap(nextProfilesMap);
-    setRoleMap(nextRoleMap);
 
     if (!selectedThreadId && threadRows && threadRows.length > 0) {
       const sorted = [...threadRows].sort((a, b) => {
-        const aTime = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
-        const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
-        return bTime - aTime;
+        const aT = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+        const bT = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+        return bT - aT;
       });
       setSelectedThreadId(sorted[0].id);
     }
 
     await loadUnread();
-    if (!isSilent) {
-      setLoading(false);
-    }
+    if (!options?.silent) setLoading(false);
   };
 
   const loadMessages = async (threadId: string) => {
-    const { data: messageRows, error: messageError } = await supabasePublic
+    const { data: messageRows } = await supabasePublic
       .from('chat_messages_internal')
       .select('id,thread_id,sender_user_id,message_text,excluded_user_ids,created_at')
-      .eq('thread_id', threadId)
-      .order('created_at', { ascending: true })
-      .limit(500);
-
-    if (messageError) {
-      toast({ title: 'Не удалось загрузить сообщения', description: messageError.message, variant: 'destructive' });
-      return;
-    }
+      .eq('thread_id', threadId).order('created_at', { ascending: true }).limit(500);
 
     setMessages((messageRows ?? []) as ChatMessage[]);
 
-    const messageIds = (messageRows ?? []).map((item) => item.id);
-    if (messageIds.length === 0) {
-      setReceipts([]);
-      return;
-    }
+    const messageIds = (messageRows ?? []).map((i) => i.id);
+    if (messageIds.length === 0) { setReceipts([]); return; }
 
     const { data: receiptRows } = await supabasePublic
-      .from('chat_message_receipts')
-      .select('message_id,recipient_user_id,delivered_at,read_at')
-      .in('message_id', messageIds);
-
+      .from('chat_message_receipts').select('message_id,recipient_user_id,delivered_at,read_at').in('message_id', messageIds);
     setReceipts((receiptRows ?? []) as ChatReceipt[]);
   };
 
@@ -406,84 +355,74 @@ const Chat: React.FC = () => {
 
   const openSupportThread = async () => {
     const { data, error } = await (supabasePublic as any).rpc('chat_get_or_create_support_thread');
-    if (error) {
-      toast({ title: 'Не удалось открыть техподдержку', description: error.message, variant: 'destructive' });
-      return;
-    }
+    if (error) { toast({ title: 'Не удалось открыть техподдержку', description: error.message, variant: 'destructive' }); return; }
     const threadId = Array.isArray(data) ? data[0] : data;
     await loadThreads({ silent: true });
-    if (threadId) setSelectedThreadId(threadId);
+    if (threadId) { setSelectedThreadId(threadId); if (isMobile) setShowSidebar(false); }
   };
 
   const openDirect = async (targetUserId: string) => {
-    const { data, error } = await (supabasePublic as any).rpc('chat_get_or_create_direct_thread', {
-      p_target_user_id: targetUserId,
-    });
-
+    const { data, error } = await (supabasePublic as any).rpc('chat_get_or_create_direct_thread', { p_target_user_id: targetUserId });
     if (error) {
       const errorText = String(error.message ?? '').toLowerCase();
-      const description = errorText.includes('target_user_not_found') || errorText.includes('target_profile_not_found')
-        ? 'Пользователь недоступен для чата: профиль не найден.'
-        : error.message;
-
-      toast({ title: 'Не удалось открыть диалог', description, variant: 'destructive' });
+      const desc = errorText.includes('target_user_not_found') || errorText.includes('target_profile_not_found')
+        ? 'Пользователь недоступен для чата.' : error.message;
+      toast({ title: 'Не удалось открыть диалог', description: desc, variant: 'destructive' });
       return;
     }
-
     const threadId = Array.isArray(data) ? data[0] : data;
     await loadThreads({ silent: true });
-    if (threadId) setSelectedThreadId(threadId);
+    if (threadId) { setSelectedThreadId(threadId); if (isMobile) setShowSidebar(false); }
+    setShowNewChatDialog(false);
   };
 
   const createGroup = async () => {
-    if (!groupTitle.trim()) {
-      toast({ title: 'Название группы обязательно', variant: 'destructive' });
-      return;
-    }
-
-    const { data, error } = await (supabasePublic as any).rpc('chat_create_group', {
-      p_title: groupTitle.trim(),
-      p_member_ids: groupMemberIds,
-    });
-
-    if (error) {
-      toast({ title: 'Не удалось создать группу', description: error.message, variant: 'destructive' });
-      return;
-    }
-
-    setCreateGroupMode(false);
-    setGroupTitle('');
-    setGroupMemberIds([]);
+    if (!groupTitle.trim()) { toast({ title: 'Введите название группы', variant: 'destructive' }); return; }
+    const { data, error } = await (supabasePublic as any).rpc('chat_create_group', { p_title: groupTitle.trim(), p_member_ids: groupMemberIds });
+    if (error) { toast({ title: 'Не удалось создать группу', description: error.message, variant: 'destructive' }); return; }
+    setGroupTitle(''); setGroupMemberIds([]);
     const threadId = Array.isArray(data) ? data[0] : data;
     await loadThreads({ silent: true });
-    if (threadId) setSelectedThreadId(threadId);
+    if (threadId) { setSelectedThreadId(threadId); if (isMobile) setShowSidebar(false); }
+    setShowNewChatDialog(false);
+  };
+
+  const deleteThread = async (threadId: string) => {
+    // Leave thread (deactivate membership)
+    const { error } = await supabasePublic
+      .from('chat_thread_members')
+      .update({ is_active: false })
+      .eq('thread_id', threadId)
+      .eq('user_id', user!.id);
+
+    if (error) { toast({ title: 'Не удалось удалить чат', description: error.message, variant: 'destructive' }); return; }
+
+    setDeletingThreadId(null);
+    if (selectedThreadId === threadId) setSelectedThreadId(null);
+    await loadThreads({ silent: true });
+    toast({ title: 'Чат удалён' });
   };
 
   const sendMessage = async () => {
     if (!selectedThread || !message.trim()) return;
-
     const excluded = selectedThread.kind === 'group' ? excludedForMessage : [];
-
     const { error } = await (supabasePublic as any).rpc('chat_send_message', {
-      p_thread_id: selectedThread.id,
-      p_text: message.trim(),
-      p_excluded_user_ids: excluded,
+      p_thread_id: selectedThread.id, p_text: message.trim(), p_excluded_user_ids: excluded,
     });
-
-    if (error) {
-      toast({ title: 'Не удалось отправить сообщение', description: error.message, variant: 'destructive' });
-      return;
-    }
-
-    setMessage('');
-    setExcludedForMessage([]);
+    if (error) { toast({ title: 'Ошибка отправки', description: error.message, variant: 'destructive' }); return; }
+    setMessage(''); setExcludedForMessage([]); setShowEmojiPicker(false);
     await Promise.all([loadThreads({ silent: true }), loadMessages(selectedThread.id)]);
   };
 
-  useEffect(() => {
-    void loadThreads();
-  }, [user?.id]);
+  const addEmoji = (emoji: any) => {
+    setMessage((prev) => prev + (emoji.native ?? emoji));
+    inputRef.current?.focus();
+  };
 
+  // Initial load
+  useEffect(() => { void loadThreads(); }, [user?.id]);
+
+  // Load messages on thread select
   useEffect(() => {
     if (!selectedThreadId) return;
     void loadMessages(selectedThreadId);
@@ -492,6 +431,7 @@ const Chat: React.FC = () => {
     setNewMessagesCount(0);
   }, [selectedThreadId]);
 
+  // Auto-scroll on new messages
   useEffect(() => {
     const currentThreadId = selectedThread?.id ?? null;
     const currentCount = selectedThreadMessages.length;
@@ -504,24 +444,19 @@ const Chat: React.FC = () => {
     }
 
     const delta = currentCount - previousMessageCountRef.current;
-    if (delta <= 0) {
-      previousMessageCountRef.current = currentCount;
-      return;
-    }
+    if (delta <= 0) { previousMessageCountRef.current = currentCount; return; }
 
-    const atBottomNow = detectIsAtBottom();
-    if (atBottomNow) {
+    if (detectIsAtBottom()) {
       requestAnimationFrame(() => scrollToBottom('smooth'));
     } else {
       setNewMessagesCount((prev) => prev + delta);
     }
-
     previousMessageCountRef.current = currentCount;
   }, [detectIsAtBottom, scrollToBottom, selectedThread?.id, selectedThreadMessages.length]);
 
+  // Realtime
   useEffect(() => {
     if (!user?.id) return;
-
     const channel = supabasePublic
       .channel(`internal-chat-${user.id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages_internal' }, () => {
@@ -536,197 +471,246 @@ const Chat: React.FC = () => {
         void loadThreads({ silent: true });
       })
       .subscribe();
-
-    return () => {
-      void supabasePublic.removeChannel(channel);
-    };
+    return () => { void supabasePublic.removeChannel(channel); };
   }, [user?.id, selectedThreadId]);
 
   if (!user) {
     return (
-      <div className="rounded-xl glass border border-border p-6 text-sm text-muted-foreground">
-        Необходимо войти в систему, чтобы пользоваться чатом.
+      <div className="h-[calc(100vh-6rem)] flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <MessageCircle className="w-16 h-16 mx-auto text-muted-foreground/30" />
+          <p className="text-muted-foreground">Войдите, чтобы пользоваться мессенджером</p>
+        </div>
       </div>
     );
   }
 
   if (loading) {
     return (
-      <div className="rounded-xl glass border border-border p-6 text-sm text-muted-foreground">
-        Загрузка чатов...
+      <div className="h-[calc(100vh-6rem)] flex items-center justify-center">
+        <div className="flex items-center gap-3 text-muted-foreground">
+          <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          Загрузка чатов...
+        </div>
       </div>
     );
   }
 
+  const totalUnread = Object.values(unreadMap).reduce((sum, n) => sum + n, 0);
+
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diff = now.getTime() - d.getTime();
+    if (diff < 86400000 && d.getDate() === now.getDate()) {
+      return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    }
+    if (diff < 172800000) return 'Вчера';
+    return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+  };
+
+  const threadKindIcon = (kind: ChatThreadKind) => {
+    if (kind === 'support') return <ShieldCheck className="w-3.5 h-3.5 text-nova-cyan" />;
+    if (kind === 'group') return <Users className="w-3.5 h-3.5 text-muted-foreground" />;
+    return null;
+  };
+
   return (
-    <div className="h-[calc(100vh-6rem)] min-h-0 flex gap-4 animate-fade-in">
-      {/* Conversations List */}
-      <div className="w-96 min-h-0 flex flex-col rounded-xl glass border border-border overflow-hidden">
-        <div className="p-4 border-b border-border space-y-3">
+    <div className="h-[calc(100vh-6rem)] min-h-0 flex rounded-xl overflow-hidden border border-border bg-card animate-fade-in">
+      {/* === SIDEBAR === */}
+      <div className={cn(
+        'flex flex-col border-r border-border bg-card transition-all duration-200',
+        isMobile
+          ? showSidebar ? 'w-full absolute inset-0 z-30' : 'hidden'
+          : 'w-80 lg:w-96 shrink-0'
+      )}>
+        {/* Sidebar Header */}
+        <div className="p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="font-display font-semibold">Чаты</h2>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setCreateGroupMode(prev => !prev)}
-                className="p-2 rounded-lg hover:bg-secondary transition-colors"
-                title="Создать группу"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => void openSupportThread()}
-                className="p-2 rounded-lg hover:bg-secondary transition-colors"
-                title="Написать в техподдержку"
-              >
-                <ShieldCheck className="w-4 h-4" />
-              </button>
+            <h2 className="font-display font-bold text-lg">Мессенджер</h2>
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="icon" onClick={() => setShowNewChatDialog(true)} title="Новый чат">
+                <Plus className="w-5 h-5" />
+              </Button>
             </div>
           </div>
 
-          {createGroupMode && (
-            <div className="rounded-lg border border-border p-3 space-y-2 bg-secondary/30">
-              <input
-                value={groupTitle}
-                onChange={(event) => setGroupTitle(event.target.value)}
-                placeholder="Название группы"
-                className="w-full px-3 py-2 rounded-md bg-background border border-border"
-              />
-              <div className="max-h-32 overflow-y-auto space-y-1">
-                {potentialContacts.map((contact) => (
-                  <label key={contact.id} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={groupMemberIds.includes(contact.id)}
-                      onChange={(event) => {
-                        setGroupMemberIds((prev) =>
-                          event.target.checked
-                            ? [...prev, contact.id]
-                            : prev.filter((id) => id !== contact.id),
-                        );
-                      }}
-                    />
-                    <span>{contact.name}</span>
-                  </label>
-                ))}
-              </div>
-              <button
-                onClick={() => void createGroup()}
-                className="w-full px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium"
-              >
-                Создать группу
-              </button>
+          {/* Support button — prominent */}
+          <button
+            onClick={() => void openSupportThread()}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-[hsl(var(--nova-cyan)/0.15)] to-[hsl(var(--nova-purple)/0.1)] border border-[hsl(var(--nova-cyan)/0.3)] hover:border-[hsl(var(--nova-cyan)/0.6)] transition-all group"
+          >
+            <div className="w-9 h-9 rounded-full bg-[hsl(var(--nova-cyan)/0.2)] flex items-center justify-center group-hover:scale-110 transition-transform">
+              <ShieldCheck className="w-5 h-5 text-[hsl(var(--nova-cyan))]" />
             </div>
-          )}
+            <div className="text-left">
+              <p className="text-sm font-semibold">Техподдержка</p>
+              <p className="text-xs text-muted-foreground">Написать в поддержку</p>
+            </div>
+          </button>
 
-          <div className="rounded-lg border border-border p-2 bg-secondary/20 max-h-32 overflow-y-auto">
-            <p className="text-xs text-muted-foreground mb-2">Быстрые контакты</p>
-            <input
-              value={contactSearch}
-              onChange={(event) => setContactSearch(event.target.value)}
-              placeholder="Поиск контакта..."
-              className="w-full mb-2 px-2 py-1.5 rounded-md bg-background border border-border text-xs"
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              value={threadSearch}
+              onChange={(e) => setThreadSearch(e.target.value)}
+              placeholder="Поиск чатов..."
+              className="pl-9 h-9 bg-secondary/50 border-0"
             />
-            <div className="space-y-1">
-              {filteredContacts.slice(0, 8).map((contact) => (
-                <button
-                  key={contact.id}
-                  onClick={() => void openDirect(contact.id)}
-                  className="w-full text-left px-2 py-1.5 rounded hover:bg-secondary text-sm"
-                >
-                  {contact.name} <span className="text-xs text-muted-foreground">({getRoleLabel(contact.role)})</span>
-                </button>
-              ))}
-              {filteredContacts.length === 0 && (
-                <p className="text-xs text-muted-foreground px-2 py-1">Контакты не найдены</p>
-              )}
-            </div>
           </div>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          {threadsSorted.map((thread) => {
-            const unread = unreadMap[thread.id] ?? 0;
+        {/* Thread list */}
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="px-2 pb-2">
+            {filteredThreads.length === 0 && (
+              <div className="text-center py-8 text-sm text-muted-foreground">
+                {threadSearch ? 'Ничего не найдено' : 'Нет чатов. Начните новый!'}
+              </div>
+            )}
+            {filteredThreads.map((thread) => {
+              const unread = unreadMap[thread.id] ?? 0;
+              const isSelected = selectedThreadId === thread.id;
 
-            return (
-              <button
-                key={thread.id}
-                onClick={() => setSelectedThreadId(thread.id)}
-                className={cn(
-                  'w-full flex items-center gap-3 p-4 text-left transition-colors',
-                  selectedThreadId === thread.id ? 'bg-primary/10 border-l-2 border-primary' : 'hover:bg-secondary/50',
-                )}
-              >
-                <div className="relative">
-                  <img src={getThreadAvatar(thread)} alt={getThreadTitle(thread)} className="w-12 h-12 rounded-full" />
-                  {(thread.kind === 'group' || thread.kind === 'support') && (
-                    <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-secondary border border-border flex items-center justify-center">
-                      <Users className="w-3 h-3 text-muted-foreground" />
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-medium text-sm truncate">{getThreadTitle(thread)}</p>
-                    {unread > 0 && (
-                      <span className="flex items-center justify-center min-w-5 h-5 px-1.5 text-xs font-bold rounded-full bg-primary text-primary-foreground">
-                        {unread}
-                      </span>
+              return (
+                <div key={thread.id} className="group relative">
+                  <button
+                    onClick={() => { setSelectedThreadId(thread.id); if (isMobile) setShowSidebar(false); }}
+                    className={cn(
+                      'w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all',
+                      isSelected
+                        ? 'bg-primary/10 shadow-sm'
+                        : 'hover:bg-secondary/60',
                     )}
+                  >
+                    <div className="relative shrink-0">
+                      <Avatar className="w-11 h-11">
+                        <AvatarImage src={getThreadAvatar(thread)} />
+                        <AvatarFallback>{getThreadTitleRaw(thread)[0]}</AvatarFallback>
+                      </Avatar>
+                      {thread.kind !== 'direct' && (
+                        <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-card border border-border flex items-center justify-center">
+                          {threadKindIcon(thread.kind)}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className={cn('text-sm truncate', unread > 0 ? 'font-bold' : 'font-medium')}>
+                          {getThreadTitleRaw(thread)}
+                        </p>
+                        {thread.last_message_at && (
+                          <span className="text-[10px] text-muted-foreground shrink-0">
+                            {formatDate(thread.last_message_at)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className={cn('text-xs truncate', unread > 0 ? 'text-foreground font-medium' : 'text-muted-foreground')}>
+                          {thread.last_message_text ?? 'Нет сообщений'}
+                        </p>
+                        {unread > 0 && (
+                          <span className="flex items-center justify-center min-w-5 h-5 px-1.5 text-[10px] font-bold rounded-full bg-primary text-primary-foreground shrink-0">
+                            {unread}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Delete action */}
+                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="p-1 rounded-md hover:bg-secondary"><MoreVertical className="w-3.5 h-3.5 text-muted-foreground" /></button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-40">
+                        <DropdownMenuItem
+                          onClick={(e) => { e.stopPropagation(); setDeletingThreadId(thread.id); }}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" /> Удалить чат
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                  <p className="text-xs text-muted-foreground truncate">{thread.last_message_text ?? 'Нет сообщений'}</p>
                 </div>
-              </button>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        </ScrollArea>
       </div>
 
-      {/* Chat Area */}
-      <div className="flex-1 min-h-0 flex flex-col rounded-xl glass border border-border overflow-hidden">
+      {/* === CHAT AREA === */}
+      <div className={cn(
+        'flex-1 min-h-0 flex flex-col',
+        isMobile && showSidebar && 'hidden',
+      )}>
         {!selectedThread ? (
-          <div className="h-full flex items-center justify-center text-muted-foreground">
-            Выберите чат слева или создайте новый.
+          <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-4 px-6">
+            <MessageCircle className="w-20 h-20 text-muted-foreground/20" />
+            <p className="text-center">Выберите чат или начните новую беседу</p>
+            <Button variant="outline" onClick={() => setShowNewChatDialog(true)}>
+              <Plus className="w-4 h-4 mr-2" /> Новый чат
+            </Button>
           </div>
         ) : (
           <>
-            {/* Header */}
-            <div className="flex items-center gap-3 p-4 border-b border-border">
-              <img src={getThreadAvatar(selectedThread)} alt={getThreadTitle(selectedThread)} className="w-10 h-10 rounded-full" />
-              <div>
-                <p className="font-medium">{getThreadTitle(selectedThread)}</p>
+            {/* Chat Header */}
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card/80 backdrop-blur-sm">
+              {isMobile && (
+                <Button variant="ghost" size="icon" onClick={() => setShowSidebar(true)} className="shrink-0">
+                  <ArrowDown className="w-5 h-5 rotate-90" />
+                </Button>
+              )}
+              <Avatar className="w-10 h-10 shrink-0">
+                <AvatarImage src={getThreadAvatar(selectedThread)} />
+                <AvatarFallback>{getThreadTitleRaw(selectedThread)[0]}</AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-sm truncate">{getThreadTitleRaw(selectedThread)}</p>
                 <p className="text-xs text-muted-foreground">
-                  {selectedThread.kind === 'support'
-                    ? 'Канал техподдержки'
-                    : selectedThread.kind === 'group'
-                      ? `Участников: ${selectedThreadMembers.length}`
-                      : 'Личный диалог'}
+                  {selectedThread.kind === 'support' ? '🛡️ Техподдержка'
+                    : selectedThread.kind === 'group' ? `👥 ${selectedThreadMembers.length} участников`
+                    : '💬 Личный диалог'}
                 </p>
               </div>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon"><MoreVertical className="w-5 h-5" /></Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setDeletingThreadId(selectedThread.id)} className="text-destructive focus:text-destructive">
+                    <Trash2 className="w-4 h-4 mr-2" /> Удалить чат
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
+            {/* Excluded members for group */}
             {selectedThread.kind === 'group' && (
-              <div className="px-4 py-3 border-b border-border bg-secondary/20">
-                <p className="text-xs text-muted-foreground mb-2">Отправить всем, кроме:</p>
-                <div className="flex flex-wrap gap-3">
-                  {selectedThreadMembers
-                    .filter((member) => member.user_id !== user.id)
-                    .map((member) => (
-                      <label key={member.user_id} className="text-xs flex items-center gap-1.5">
+              <div className="px-4 py-2 border-b border-border bg-secondary/20">
+                <details className="text-xs">
+                  <summary className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors">
+                    Исключить участников из сообщения
+                  </summary>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {selectedThreadMembers.filter((m) => m.user_id !== user.id).map((m) => (
+                      <label key={m.user_id} className="flex items-center gap-1.5 text-xs bg-secondary px-2 py-1 rounded-full cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={excludedForMessage.includes(member.user_id)}
-                          onChange={(event) => {
-                            setExcludedForMessage((prev) =>
-                              event.target.checked
-                                ? [...prev, member.user_id]
-                                : prev.filter((id) => id !== member.user_id),
-                            );
-                          }}
+                          checked={excludedForMessage.includes(m.user_id)}
+                          onChange={(e) => setExcludedForMessage((p) => e.target.checked ? [...p, m.user_id] : p.filter((id) => id !== m.user_id))}
+                          className="w-3 h-3"
                         />
-                        <span>{getDisplayName(member.user_id)}</span>
+                        {getDisplayName(m.user_id)}
                       </label>
                     ))}
-                </div>
+                  </div>
+                </details>
               </div>
             )}
 
@@ -735,87 +719,263 @@ const Chat: React.FC = () => {
               <div
                 ref={messagesContainerRef}
                 onScroll={handleMessagesScroll}
-                className="h-full min-h-0 overflow-y-auto p-4 space-y-4"
+                className="h-full overflow-y-auto px-4 py-4 space-y-3"
               >
-              {selectedThreadMessages.map((msg) => {
-                const isOwn = msg.sender_user_id === user.id;
-                const status = isOwn ? getOwnMessageStatus(msg.id) : null;
+                {selectedThreadMessages.length === 0 && (
+                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
+                    <MessageCircle className="w-12 h-12 text-muted-foreground/20" />
+                    <p className="text-sm">Нет сообщений. Напишите первым! 👋</p>
+                  </div>
+                )}
 
-                return (
-                  <div key={msg.id} className={cn('flex gap-3', isOwn && 'flex-row-reverse')}>
-                    {!isOwn && (
-                      <img src={getAvatar(msg.sender_user_id)} alt={getDisplayName(msg.sender_user_id)} className="w-8 h-8 rounded-full" />
-                    )}
-                    <div className="max-w-[75%]">
-                      {!isOwn && (
-                        <div className="flex items-center gap-1.5 mb-0.5 ml-1">
-                          <span className="text-xs font-medium">{getDisplayName(msg.sender_user_id)}</span>
-                          <UserRoleBadges userId={msg.sender_user_id} showInternal />
-                        </div>
+                {selectedThreadMessages.map((msg, idx) => {
+                  const isOwn = msg.sender_user_id === user.id;
+                  const status = isOwn ? getOwnMessageStatus(msg.id) : null;
+                  const prevMsg = selectedThreadMessages[idx - 1];
+                  const showSender = !isOwn && (!prevMsg || prevMsg.sender_user_id !== msg.sender_user_id);
+
+                  return (
+                    <div key={msg.id} className={cn('flex gap-2', isOwn ? 'justify-end' : 'justify-start')}>
+                      {!isOwn && showSender && (
+                        <Avatar className="w-8 h-8 mt-5 shrink-0">
+                          <AvatarImage src={getAvatar(msg.sender_user_id)} />
+                          <AvatarFallback>{getDisplayName(msg.sender_user_id)[0]}</AvatarFallback>
+                        </Avatar>
                       )}
+                      {!isOwn && !showSender && <div className="w-8 shrink-0" />}
 
-                      <div
-                        className={cn(
-                          'p-3 rounded-2xl',
-                          isOwn
-                            ? 'bg-primary text-primary-foreground rounded-br-sm'
-                            : 'bg-secondary text-foreground rounded-bl-sm',
+                      <div className={cn('max-w-[75%] min-w-[80px]', isOwn && 'items-end')}>
+                        {showSender && (
+                          <div className="flex items-center gap-1.5 mb-1 ml-1">
+                            <span className="text-xs font-semibold">{getDisplayName(msg.sender_user_id)}</span>
+                            <UserRoleBadges userId={msg.sender_user_id} showInternal />
+                          </div>
                         )}
-                      >
-                        <p className="text-sm whitespace-pre-wrap break-words">{msg.message_text}</p>
-                        <p className={cn('text-[10px] mt-1', isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
-                          {new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
-                          {isOwn && status ? ` • ${status}` : ''}
-                        </p>
+
+                        <div className={cn(
+                          'px-3.5 py-2.5 rounded-2xl shadow-sm',
+                          isOwn
+                            ? 'bg-primary text-primary-foreground rounded-br-md'
+                            : 'bg-secondary text-foreground rounded-bl-md',
+                        )}>
+                          <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">{msg.message_text}</p>
+                          <div className={cn('flex items-center justify-end gap-1 mt-1', isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground')}>
+                            <span className="text-[10px]">
+                              {new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            {isOwn && <span className="text-[10px]">{status}</span>}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-              {selectedThreadMessages.length === 0 && (
-                <div className="text-sm text-muted-foreground">Сообщений пока нет. Напишите первым.</div>
-              )}
+                  );
+                })}
               </div>
 
-              {!isAtBottom && newMessagesCount > 0 && (
-                <div className="absolute bottom-4 right-4">
-                  <button
-                    onClick={() => scrollToBottom('smooth')}
-                    className="px-3 py-2 rounded-full bg-primary text-primary-foreground text-xs font-medium shadow-md hover:bg-primary/90 transition-colors"
-                  >
-                    К новым сообщениям ({newMessagesCount})
-                  </button>
-                </div>
+              {/* Scroll to bottom button */}
+              {!isAtBottom && (
+                <button
+                  onClick={() => scrollToBottom('smooth')}
+                  className="absolute bottom-4 right-4 w-10 h-10 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:scale-105 transition-transform"
+                >
+                  <ArrowDown className="w-5 h-5" />
+                  {newMessagesCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 text-[10px] font-bold rounded-full bg-destructive text-destructive-foreground flex items-center justify-center">
+                      {newMessagesCount}
+                    </span>
+                  )}
+                </button>
               )}
             </div>
 
-            {/* Input */}
-            <div className="p-4 border-t border-border">
-              <div className="flex items-center gap-3">
+            {/* Input Area */}
+            <div className="px-4 py-3 border-t border-border bg-card/80 backdrop-blur-sm">
+              {/* Quick emoji row */}
+              <div className="flex items-center gap-1 mb-2 overflow-x-auto pb-1">
+                {EMOJI_QUICK.map((e) => (
+                  <button
+                    key={e}
+                    onClick={() => addEmoji({ native: e })}
+                    className="text-lg hover:scale-125 transition-transform px-1 shrink-0"
+                  >
+                    {e}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-end gap-2 relative">
+                {/* Emoji picker */}
+                <div className="relative" ref={emojiRef}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                    className="shrink-0 h-10 w-10"
+                  >
+                    <Smile className="w-5 h-5" />
+                  </Button>
+
+                  {showEmojiPicker && (
+                    <div className="absolute bottom-12 left-0 z-50">
+                      <Picker
+                        data={data}
+                        onEmojiSelect={addEmoji}
+                        theme="dark"
+                        locale="ru"
+                        previewPosition="none"
+                        skinTonePosition="none"
+                        maxFrequentRows={2}
+                      />
+                    </div>
+                  )}
+                </div>
+
                 <input
+                  ref={inputRef}
                   type="text"
                   value={message}
-                  onChange={(event) => setMessage(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' && !event.shiftKey) {
-                      event.preventDefault();
-                      void sendMessage();
-                    }
+                  onChange={(e) => setMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void sendMessage(); }
                   }}
-                  placeholder="Напишите сообщение..."
-                  className="flex-1 px-4 py-2.5 rounded-full bg-secondary border border-border focus:border-primary focus:outline-none transition-colors"
+                  placeholder="Написать сообщение..."
+                  className="flex-1 px-4 py-2.5 rounded-2xl bg-secondary border border-border/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all text-sm"
                 />
-                <button
+
+                <Button
                   onClick={() => void sendMessage()}
-                  className="p-2.5 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                  size="icon"
+                  disabled={!message.trim()}
+                  className="shrink-0 h-10 w-10 rounded-full"
                 >
                   <Send className="w-5 h-5" />
-                </button>
+                </Button>
               </div>
             </div>
           </>
         )}
       </div>
+
+      {/* === NEW CHAT DIALOG === */}
+      <Dialog open={showNewChatDialog} onOpenChange={setShowNewChatDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Новая беседа</DialogTitle>
+            <DialogDescription>Начните личный диалог или создайте группу</DialogDescription>
+          </DialogHeader>
+
+          {/* Tabs */}
+          <div className="flex border-b border-border">
+            <button
+              onClick={() => setNewChatTab('contact')}
+              className={cn('flex-1 py-2.5 text-sm font-medium transition-colors border-b-2',
+                newChatTab === 'contact' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <UserPlus className="w-4 h-4 inline mr-1.5" /> Контакт
+            </button>
+            <button
+              onClick={() => setNewChatTab('group')}
+              className={cn('flex-1 py-2.5 text-sm font-medium transition-colors border-b-2',
+                newChatTab === 'group' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <Hash className="w-4 h-4 inline mr-1.5" /> Группа
+            </button>
+          </div>
+
+          {newChatTab === 'contact' ? (
+            <div className="space-y-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  value={newChatSearch}
+                  onChange={(e) => setNewChatSearch(e.target.value)}
+                  placeholder="Поиск по имени или роли..."
+                  className="pl-9"
+                />
+              </div>
+              <ScrollArea className="h-64">
+                <div className="space-y-1">
+                  {filteredNewChatContacts.slice(0, 30).map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => void openDirect(c.id)}
+                      className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-secondary transition-colors text-left"
+                    >
+                      <Avatar className="w-9 h-9">
+                        <AvatarImage src={c.avatar} />
+                        <AvatarFallback>{c.name[0]}</AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{c.name}</p>
+                        <p className="text-xs text-muted-foreground">{getRoleLabel(c.role)}</p>
+                      </div>
+                    </button>
+                  ))}
+                  {filteredNewChatContacts.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-8">Контакты не найдены</p>
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <Input
+                value={groupTitle}
+                onChange={(e) => setGroupTitle(e.target.value)}
+                placeholder="Название группы"
+              />
+              <ScrollArea className="h-48">
+                <div className="space-y-1">
+                  {potentialContacts.slice(0, 30).map((c) => (
+                    <label
+                      key={c.id}
+                      className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-secondary transition-colors cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={groupMemberIds.includes(c.id)}
+                        onChange={(e) => setGroupMemberIds((p) => e.target.checked ? [...p, c.id] : p.filter((id) => id !== c.id))}
+                        className="w-4 h-4 rounded"
+                      />
+                      <Avatar className="w-8 h-8">
+                        <AvatarImage src={c.avatar} />
+                        <AvatarFallback>{c.name[0]}</AvatarFallback>
+                      </Avatar>
+                      <span className="text-sm">{c.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </ScrollArea>
+              {groupMemberIds.length > 0 && (
+                <p className="text-xs text-muted-foreground">Выбрано: {groupMemberIds.length}</p>
+              )}
+              <Button onClick={() => void createGroup()} className="w-full" disabled={!groupTitle.trim()}>
+                Создать группу
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* === DELETE CONFIRMATION === */}
+      <Dialog open={!!deletingThreadId} onOpenChange={() => setDeletingThreadId(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Удалить чат?</DialogTitle>
+            <DialogDescription>
+              Вы покинете этот чат. Сообщения останутся для других участников.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 justify-end">
+            <Button variant="outline" onClick={() => setDeletingThreadId(null)}>Отмена</Button>
+            <Button variant="destructive" onClick={() => { if (deletingThreadId) void deleteThread(deletingThreadId); }}>
+              Удалить
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -1,6 +1,2 @@
-declare const Deno: {
-  serve: (handler: (request: Request) => Response | Promise<Response>) => void;
-  env: {
-    get: (key: string) => string | undefined;
-  };
-};
+// Deno globals are provided by the Deno runtime — no custom declarations needed.
+export {};

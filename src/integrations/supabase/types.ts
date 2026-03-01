@@ -392,6 +392,199 @@ export type Database = {
           },
         ]
       }
+      achievement_claims: {
+        Row: {
+          achievement_id: string
+          id: string
+          note: string | null
+          requested_at: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          snapshot: Json
+          status: Database["public"]["Enums"]["achievement_claim_status_t"]
+          user_id: string
+        }
+        Insert: {
+          achievement_id: string
+          id?: string
+          note?: string | null
+          requested_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          snapshot?: Json
+          status?: Database["public"]["Enums"]["achievement_claim_status_t"]
+          user_id: string
+        }
+        Update: {
+          achievement_id?: string
+          id?: string
+          note?: string | null
+          requested_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          snapshot?: Json
+          status?: Database["public"]["Enums"]["achievement_claim_status_t"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "achievement_claims_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "achievement_claims_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      achievement_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          numeric_value: number | null
+          occurred_at: string
+          payload: Json
+          source: string
+          stream_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          numeric_value?: number | null
+          occurred_at?: string
+          payload?: Json
+          source?: string
+          stream_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          numeric_value?: number | null
+          occurred_at?: string
+          payload?: Json
+          source?: string
+          stream_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "achievement_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      achievement_progress: {
+        Row: {
+          achievement_id: string
+          grant_mode: string
+          last_event_at: string | null
+          progress_type: Database["public"]["Enums"]["achievement_progress_type_t"]
+          progress_value: number
+          rule: Json
+          status: Database["public"]["Enums"]["achievement_status_t"]
+          target_value: number
+          unlocked_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          achievement_id: string
+          grant_mode?: string
+          last_event_at?: string | null
+          progress_type?: Database["public"]["Enums"]["achievement_progress_type_t"]
+          progress_value?: number
+          rule?: Json
+          status?: Database["public"]["Enums"]["achievement_status_t"]
+          target_value?: number
+          unlocked_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          achievement_id?: string
+          grant_mode?: string
+          last_event_at?: string | null
+          progress_type?: Database["public"]["Enums"]["achievement_progress_type_t"]
+          progress_value?: number
+          rule?: Json
+          status?: Database["public"]["Enums"]["achievement_status_t"]
+          target_value?: number
+          unlocked_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "achievement_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      achievement_unlocks: {
+        Row: {
+          achievement_id: string
+          admin_id: string | null
+          id: string
+          note: string | null
+          snapshot: Json
+          source: Database["public"]["Enums"]["achievement_unlock_source_t"]
+          unlocked_at: string
+          user_id: string
+        }
+        Insert: {
+          achievement_id: string
+          admin_id?: string | null
+          id?: string
+          note?: string | null
+          snapshot?: Json
+          source: Database["public"]["Enums"]["achievement_unlock_source_t"]
+          unlocked_at?: string
+          user_id: string
+        }
+        Update: {
+          achievement_id?: string
+          admin_id?: string | null
+          id?: string
+          note?: string | null
+          snapshot?: Json
+          source?: Database["public"]["Enums"]["achievement_unlock_source_t"]
+          unlocked_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "achievement_unlocks_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "achievement_unlocks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       admin_actions: {
         Row: {
           action: string
@@ -495,68 +688,39 @@ export type Database = {
       }
       agency_join_applications: {
         Row: {
-          age: number
-          approved_at: string | null
-          approved_by: string | null
-          assigned_referral_code: string | null
           created_at: string
           email: string
           full_name: string
-          heard_about: Database["public"]["Enums"]["agency_referral_source_t"]
           id: string
-          inviter_referral_code: string
           motivation: string | null
           status: string
           stream_experience: string | null
-          telegram: string
+          telegram: string | null
           tiktok_username: string
-          username: string
         }
         Insert: {
-          age: number
-          approved_at?: string | null
-          approved_by?: string | null
-          assigned_referral_code?: string | null
           created_at?: string
           email: string
           full_name: string
-          heard_about: Database["public"]["Enums"]["agency_referral_source_t"]
           id?: string
-          inviter_referral_code: string
           motivation?: string | null
           status?: string
           stream_experience?: string | null
-          telegram: string
+          telegram?: string | null
           tiktok_username: string
-          username: string
         }
         Update: {
-          age?: number
-          approved_at?: string | null
-          approved_by?: string | null
-          assigned_referral_code?: string | null
           created_at?: string
           email?: string
           full_name?: string
-          heard_about?: Database["public"]["Enums"]["agency_referral_source_t"]
           id?: string
-          inviter_referral_code?: string
           motivation?: string | null
           status?: string
           stream_experience?: string | null
-          telegram?: string
+          telegram?: string | null
           tiktok_username?: string
-          username?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "agency_join_applications_approved_by_fkey"
-            columns: ["approved_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-        ]
+        Relationships: []
       }
       agency_referral_codes: {
         Row: {
@@ -633,6 +797,276 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ai_api_keys: {
+        Row: {
+          alias: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          provider: string
+          secret_value: string
+          updated_at: string
+        }
+        Insert: {
+          alias: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          provider: string
+          secret_value: string
+          updated_at?: string
+        }
+        Update: {
+          alias?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          provider?: string
+          secret_value?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_chat_logs: {
+        Row: {
+          completion_tokens: number | null
+          cost_usd: number | null
+          created_at: string
+          feedback: number | null
+          id: string
+          latency_ms: number | null
+          mode_id: string
+          model: string | null
+          prompt_text: string
+          prompt_tokens: number | null
+          provider: string | null
+          response_text: string | null
+          router_confidence: number | null
+          router_reason: string | null
+          total_tokens: number | null
+          user_id: string | null
+        }
+        Insert: {
+          completion_tokens?: number | null
+          cost_usd?: number | null
+          created_at?: string
+          feedback?: number | null
+          id?: string
+          latency_ms?: number | null
+          mode_id: string
+          model?: string | null
+          prompt_text: string
+          prompt_tokens?: number | null
+          provider?: string | null
+          response_text?: string | null
+          router_confidence?: number | null
+          router_reason?: string | null
+          total_tokens?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          completion_tokens?: number | null
+          cost_usd?: number | null
+          created_at?: string
+          feedback?: number | null
+          id?: string
+          latency_ms?: number | null
+          mode_id?: string
+          model?: string | null
+          prompt_text?: string
+          prompt_tokens?: number | null
+          provider?: string | null
+          response_text?: string | null
+          router_confidence?: number | null
+          router_reason?: string | null
+          total_tokens?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      ai_coach_auto_advices: {
+        Row: {
+          advice_text: string | null
+          created_at: string
+          error_text: string | null
+          generated_at: string | null
+          id: string
+          is_read: boolean
+          mode_id: string
+          prompt_text: string
+          status: string
+          stream_session_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          advice_text?: string | null
+          created_at?: string
+          error_text?: string | null
+          generated_at?: string | null
+          id?: string
+          is_read?: boolean
+          mode_id?: string
+          prompt_text: string
+          status?: string
+          stream_session_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          advice_text?: string | null
+          created_at?: string
+          error_text?: string | null
+          generated_at?: string | null
+          id?: string
+          is_read?: boolean
+          mode_id?: string
+          prompt_text?: string
+          status?: string
+          stream_session_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ai_coach_live_alerts: {
+        Row: {
+          alert_text: string | null
+          alert_type: string
+          created_at: string
+          donor_username: string
+          error_text: string | null
+          generated_at: string | null
+          id: string
+          is_read: boolean
+          metadata: Json
+          priority: string
+          prompt_text: string
+          status: string
+          stream_session_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          alert_text?: string | null
+          alert_type?: string
+          created_at?: string
+          donor_username: string
+          error_text?: string | null
+          generated_at?: string | null
+          id?: string
+          is_read?: boolean
+          metadata?: Json
+          priority?: string
+          prompt_text: string
+          status?: string
+          stream_session_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          alert_text?: string | null
+          alert_type?: string
+          created_at?: string
+          donor_username?: string
+          error_text?: string | null
+          generated_at?: string | null
+          id?: string
+          is_read?: boolean
+          metadata?: Json
+          priority?: string
+          prompt_text?: string
+          status?: string
+          stream_session_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ai_coach_settings: {
+        Row: {
+          created_at: string
+          description: string | null
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value_json: Json
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value_json: Json
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value_json?: Json
+        }
+        Relationships: []
+      }
+      ai_modes: {
+        Row: {
+          allowed_tools: Json
+          cost_limit_daily_usd: number
+          created_at: string
+          data_requirements: Json
+          enabled: boolean
+          id: string
+          key_alias: string | null
+          max_tokens: number
+          model: string
+          provider: string
+          rate_limit_per_minute: number
+          style_guide: string | null
+          system_prompt: string
+          temperature: number
+          updated_at: string
+        }
+        Insert: {
+          allowed_tools?: Json
+          cost_limit_daily_usd?: number
+          created_at?: string
+          data_requirements?: Json
+          enabled?: boolean
+          id: string
+          key_alias?: string | null
+          max_tokens?: number
+          model: string
+          provider?: string
+          rate_limit_per_minute?: number
+          style_guide?: string | null
+          system_prompt: string
+          temperature?: number
+          updated_at?: string
+        }
+        Update: {
+          allowed_tools?: Json
+          cost_limit_daily_usd?: number
+          created_at?: string
+          data_requirements?: Json
+          enabled?: boolean
+          id?: string
+          key_alias?: string | null
+          max_tokens?: number
+          model?: string
+          provider?: string
+          rate_limit_per_minute?: number
+          style_guide?: string | null
+          system_prompt?: string
+          temperature?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       api_tokens: {
         Row: {
@@ -2197,6 +2631,119 @@ export type Database = {
         }
         Relationships: []
       }
+      policy_chunks: {
+        Row: {
+          chunk_index: number
+          content: string
+          created_at: string
+          doc_id: string
+          embedding: string | null
+          id: string
+          language: string
+          region: string | null
+        }
+        Insert: {
+          chunk_index: number
+          content: string
+          created_at?: string
+          doc_id: string
+          embedding?: string | null
+          id?: string
+          language?: string
+          region?: string | null
+        }
+        Update: {
+          chunk_index?: number
+          content?: string
+          created_at?: string
+          doc_id?: string
+          embedding?: string | null
+          id?: string
+          language?: string
+          region?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "policy_chunks_doc_id_fkey"
+            columns: ["doc_id"]
+            isOneToOne: false
+            referencedRelation: "policy_docs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      policy_docs: {
+        Row: {
+          active: boolean
+          content: string
+          created_at: string
+          id: string
+          language: string
+          region: string | null
+          source_url: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          content: string
+          created_at?: string
+          id?: string
+          language?: string
+          region?: string | null
+          source_url?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          content?: string
+          created_at?: string
+          id?: string
+          language?: string
+          region?: string | null
+          source_url?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      policy_qna: {
+        Row: {
+          active: boolean
+          answer: string
+          created_at: string
+          id: string
+          language: string
+          question: string
+          region: string | null
+          source_chunk_ids: string[]
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          answer: string
+          created_at?: string
+          id?: string
+          language?: string
+          question: string
+          region?: string | null
+          source_chunk_ids?: string[]
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          answer?: string
+          created_at?: string
+          id?: string
+          language?: string
+          question?: string
+          region?: string | null
+          source_chunk_ids?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -2887,6 +3434,35 @@ export type Database = {
         }
         Relationships: []
       }
+      user_achievement_pins: {
+        Row: {
+          achievement_id: string
+          created_at: string
+          position: number
+          user_id: string
+        }
+        Insert: {
+          achievement_id: string
+          created_at?: string
+          position: number
+          user_id: string
+        }
+        Update: {
+          achievement_id?: string
+          created_at?: string
+          position?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_achievement_pins_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       user_legal_acceptances: {
         Row: {
           accepted: boolean
@@ -3292,6 +3868,39 @@ export type Database = {
       }
     }
     Views: {
+      ai_api_keys_public: {
+        Row: {
+          alias: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string | null
+          is_active: boolean | null
+          provider: string | null
+          secret_masked: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          alias?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          provider?: string | null
+          secret_masked?: never
+          updated_at?: string | null
+        }
+        Update: {
+          alias?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          provider?: string | null
+          secret_masked?: never
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       v_investor_growth: {
         Row: {
           month: string | null
@@ -3375,6 +3984,165 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ai_build_user_context: {
+        Args: { p_mode_id?: string; p_user_id: string }
+        Returns: Json
+      }
+      ai_claim_pending_auto_advice: {
+        Args: { p_user_id?: string }
+        Returns: {
+          advice_id: string
+          created_at: string
+          mode_id: string
+          prompt_text: string
+          stream_session_id: string
+        }[]
+      }
+      ai_claim_pending_live_alert: {
+        Args: { p_user_id?: string }
+        Returns: {
+          alert_id: string
+          created_at: string
+          donor_username: string
+          priority: string
+          prompt_text: string
+          stream_session_id: string
+        }[]
+      }
+      ai_coach_setting_number: {
+        Args: { p_default: number; p_key: string }
+        Returns: number
+      }
+      ai_complete_auto_advice: {
+        Args: {
+          p_advice_id: string
+          p_advice_text?: string
+          p_error?: string
+          p_failed?: boolean
+        }
+        Returns: boolean
+      }
+      ai_complete_live_alert: {
+        Args: {
+          p_alert_id: string
+          p_alert_text?: string
+          p_error?: string
+          p_failed?: boolean
+        }
+        Returns: boolean
+      }
+      ai_list_auto_advices: {
+        Args: { p_limit?: number; p_only_unread?: boolean; p_user_id?: string }
+        Returns: {
+          advice_text: string
+          created_at: string
+          generated_at: string
+          id: string
+          is_read: boolean
+          mode_id: string
+          status: string
+          stream_session_id: string
+        }[]
+      }
+      ai_list_live_alerts: {
+        Args: { p_limit?: number; p_only_unread?: boolean; p_user_id?: string }
+        Returns: {
+          alert_text: string
+          alert_type: string
+          created_at: string
+          donor_username: string
+          generated_at: string
+          id: string
+          is_read: boolean
+          priority: string
+          status: string
+          stream_session_id: string
+        }[]
+      }
+      ai_mark_auto_advice_read: {
+        Args: { p_advice_id: string }
+        Returns: boolean
+      }
+      ai_mark_live_alert_read: {
+        Args: { p_alert_id: string }
+        Returns: boolean
+      }
+      ai_modes_public: {
+        Args: never
+        Returns: {
+          allowed_tools: Json
+          cost_limit_daily_usd: number
+          data_requirements: Json
+          enabled: boolean
+          id: string
+          max_tokens: number
+          model: string
+          provider: string
+          rate_limit_per_minute: number
+          style_guide: string
+          system_prompt: string
+          temperature: number
+        }[]
+      }
+      ai_notifications_feed: {
+        Args: { p_limit?: number; p_only_unread?: boolean; p_user_id?: string }
+        Returns: {
+          body: string
+          created_at: string
+          is_read: boolean
+          item_id: string
+          item_kind: string
+          priority: string
+          title: string
+        }[]
+      }
+      ai_notifications_mark_read: {
+        Args: { p_item_id: string; p_item_kind: string }
+        Returns: boolean
+      }
+      ai_notifications_unread_count: {
+        Args: { p_user_id?: string }
+        Returns: number
+      }
+      ai_policy_retrieve: {
+        Args: {
+          p_language?: string
+          p_limit?: number
+          p_query: string
+          p_region?: string
+        }
+        Returns: {
+          chunk_id: string
+          doc_title: string
+          excerpt: string
+          score: number
+          source_url: string
+        }[]
+      }
+      ai_queue_live_donor_alert: {
+        Args: {
+          p_donor_username: string
+          p_source?: string
+          p_stream_session_id: string
+          p_streamer_tiktok_username: string
+          p_user_id: string
+        }
+        Returns: string
+      }
+      ai_route_intent: {
+        Args: { p_forced_mode?: string; p_text: string }
+        Returns: {
+          clarification_question: string
+          confidence: number
+          mode_id: string
+          reason: string
+        }[]
+      }
+      ai_save_feedback: {
+        Args: { p_feedback: number; p_log_id: string }
+        Returns: boolean
+      }
+      ai_user_is_promising: { Args: { p_user_id: string }; Returns: boolean }
       apply_xp_to_user_stats: {
         Args: { p_user_id: string; p_xp_gain: number }
         Returns: {
@@ -3383,10 +4151,18 @@ export type Database = {
           xp_to_next: number
         }[]
       }
+      approve_achievement_claim: {
+        Args: { p_claim_id: string; p_note?: string }
+        Returns: boolean
+      }
       can_access_streamer: { Args: { _streamer_id: string }; Returns: boolean }
       chat_create_group: {
         Args: { p_member_ids: string[]; p_title: string }
         Returns: string
+      }
+      chat_ensure_profile_exists: {
+        Args: { p_user_id: string }
+        Returns: undefined
       }
       chat_get_or_create_direct_thread: {
         Args: { p_target_user_id: string }
@@ -3402,6 +4178,10 @@ export type Database = {
       }
       chat_is_support_role: { Args: { p_user_id: string }; Returns: boolean }
       chat_mark_thread_read: { Args: { p_thread_id: string }; Returns: number }
+      chat_resolve_member_user_id: {
+        Args: { p_input_user_id: string }
+        Returns: string
+      }
       chat_resolve_role: {
         Args: { p_user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -3429,6 +4209,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      chat_sync_support_memberships: {
+        Args: { p_user_id?: string }
+        Returns: number
+      }
       chat_user_can_dm: {
         Args: { p_sender: string; p_target: string }
         Returns: boolean
@@ -3445,6 +4229,15 @@ export type Database = {
         Args: { p_thread_id: string; p_user_id: string }
         Returns: boolean
       }
+      compute_achievement_progress: {
+        Args: {
+          p_progress_type: Database["public"]["Enums"]["achievement_progress_type_t"]
+          p_rule: Json
+          p_target: number
+          p_user_id: string
+        }
+        Returns: number
+      }
       consume_referral_code: {
         Args: { p_code: string; p_email: string; p_user_id: string }
         Returns: boolean
@@ -3456,6 +4249,22 @@ export type Database = {
           role: string
         }[]
       }
+      get_achievement_catalog_item: {
+        Args: { p_achievement_id: string }
+        Returns: Json
+      }
+      get_achievement_grant_mode_from_item: {
+        Args: { p_item: Json }
+        Returns: string
+      }
+      get_achievement_progress_type_from_item: {
+        Args: { p_item: Json }
+        Returns: Database["public"]["Enums"]["achievement_progress_type_t"]
+      }
+      get_achievement_target_from_item: {
+        Args: { p_item: Json }
+        Returns: number
+      }
       get_user_level_from_app_content: {
         Args: { p_user_id: string }
         Returns: number
@@ -3465,22 +4274,61 @@ export type Database = {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["access_tier"]
       }
+      grant_user_achievement: {
+        Args: { p_achievement_id: string; p_note?: string; p_user_id: string }
+        Returns: boolean
+      }
       has_permission: {
         Args: { _permission_key: string; _user_id: string }
         Returns: boolean
       }
       has_public_role: { Args: { _user_id: string }; Returns: boolean }
+      ingest_achievement_event: {
+        Args: {
+          p_event_type: string
+          p_numeric_value?: number
+          p_occurred_at?: string
+          p_payload?: Json
+          p_source?: string
+          p_stream_id?: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      insert_achievement_unlock: {
+        Args: {
+          p_achievement_id: string
+          p_admin_id?: string
+          p_note?: string
+          p_snapshot?: Json
+          p_source: Database["public"]["Enums"]["achievement_unlock_source_t"]
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       is_admin: { Args: never; Returns: boolean }
+      map_role_slug_to_app_role: {
+        Args: { p_slug: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+      recompute_achievement_progress_all_users: { Args: never; Returns: Json }
       referral_code_is_valid: { Args: { p_code: string }; Returns: boolean }
+      refresh_user_achievements: { Args: { p_user_id?: string }; Returns: Json }
+      reject_achievement_claim: {
+        Args: { p_claim_id: string; p_note?: string }
+        Returns: boolean
+      }
+      revoke_user_achievement: {
+        Args: { p_achievement_id: string; p_note?: string; p_user_id: string }
+        Returns: boolean
+      }
+      safe_app_role_from_text: {
+        Args: { p_role: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
       user_can_manage_users: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      agency_referral_source_t:
-        | "friend_streamer"
-        | "curator_manager"
-        | "social_media"
-        | "tiktok"
-        | "other"
       academy_block_type_t:
         | "video"
         | "text"
@@ -3492,6 +4340,20 @@ export type Database = {
         | "reward"
         | "task"
       access_tier: "tier_0" | "tier_1" | "tier_2" | "tier_3" | "tier_4"
+      achievement_claim_status_t: "pending" | "approved" | "rejected"
+      achievement_progress_type_t:
+        | "counter_total"
+        | "sum_total"
+        | "duration_total"
+        | "max_in_single_session"
+        | "sum_in_single_session"
+        | "streak_days"
+        | "time_window_sum"
+        | "time_window_count"
+        | "manual_only"
+        | "verified_by_admin"
+      achievement_status_t: "in_progress" | "unlocked" | "revoked"
+      achievement_unlock_source_t: "auto" | "manual" | "verified"
       app_role:
         | "streamer"
         | "curator"
@@ -3690,6 +4552,21 @@ export const Constants = {
         "task",
       ],
       access_tier: ["tier_0", "tier_1", "tier_2", "tier_3", "tier_4"],
+      achievement_claim_status_t: ["pending", "approved", "rejected"],
+      achievement_progress_type_t: [
+        "counter_total",
+        "sum_total",
+        "duration_total",
+        "max_in_single_session",
+        "sum_in_single_session",
+        "streak_days",
+        "time_window_sum",
+        "time_window_count",
+        "manual_only",
+        "verified_by_admin",
+      ],
+      achievement_status_t: ["in_progress", "unlocked", "revoked"],
+      achievement_unlock_source_t: ["auto", "manual", "verified"],
       app_role: [
         "streamer",
         "curator",
