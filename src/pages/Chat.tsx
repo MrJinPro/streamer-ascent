@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Send, Plus, Search, ShieldCheck, Users, Smile, Trash2,
   ArrowDown, MessageCircle, X, MoreVertical, UserPlus, Hash
@@ -76,6 +76,7 @@ const rolePriority: Record<string, number> = {
 const EMOJI_QUICK = ['👍', '❤️', '😂', '🔥', '😊', '🎉', '💎', '✨'];
 
 const Chat: React.FC = () => {
+  const navigate = useNavigate();
   const { user, role } = useAuth();
   const { allUsers } = useAppData();
   const isMobile = useIsMobile();
@@ -86,6 +87,7 @@ const Chat: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [receipts, setReceipts] = useState<ChatReceipt[]>([]);
   const [profilesMap, setProfilesMap] = useState<Record<string, UserProfile>>({});
+  const [usersFallbackMap, setUsersFallbackMap] = useState<Record<string, { username?: string | null; tiktok_username?: string | null }>>({});
   const [roleMap, setRoleMap] = useState<Record<string, string>>({});
   const [unreadMap, setUnreadMap] = useState<Record<string, number>>({});
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
@@ -103,6 +105,7 @@ const Chat: React.FC = () => {
   const [groupTitle, setGroupTitle] = useState('');
   const [groupMemberIds, setGroupMemberIds] = useState<string[]>([]);
   const [deletingThreadId, setDeletingThreadId] = useState<string | null>(null);
+  const [previewUserId, setPreviewUserId] = useState<string | null>(null);
 
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const previousMessageCountRef = useRef(0);
@@ -241,7 +244,22 @@ const Chat: React.FC = () => {
 
   const getDisplayName = (userId: string) => {
     const profile = profilesMap[userId];
-    return profile?.display_name ?? profile?.username ?? allUsers.find((i) => i.id === userId)?.name ?? 'Пользователь';
+    const fallback = usersFallbackMap[userId];
+    const resolvedRole = roleMap[userId] ?? allUsers.find((i) => i.id === userId)?.role ?? 'streamer';
+
+    if (profile?.display_name) return profile.display_name;
+    if (profile?.username) return profile.username;
+    if (fallback?.username) return fallback.username;
+    if (fallback?.tiktok_username) return fallback.tiktok_username;
+
+    const fromUsers = allUsers.find((i) => i.id === userId)?.name;
+    if (fromUsers) return fromUsers;
+
+    if (resolvedRole === 'support') {
+      return `Сотрудник поддержки • ${userId.slice(0, 6)}`;
+    }
+
+    return `Пользователь • ${userId.slice(0, 6)}`;
   };
 
   const getAvatar = (userId: string) => {
@@ -256,6 +274,22 @@ const Chat: React.FC = () => {
     if (!other) return 'Личный чат';
     return getDisplayName(other.user_id);
   }
+
+  const getUserRole = useCallback((userId: string) => {
+    return roleMap[userId] ?? allUsers.find((item) => item.id === userId)?.role ?? 'streamer';
+  }, [allUsers, roleMap]);
+
+  const canOpenFullProfile = useCallback((targetUserId: string) => {
+    if (!user?.id) return false;
+    if (targetUserId === user.id) return true;
+
+    const targetRole = getUserRole(targetUserId);
+    if (targetRole === 'support' && currentRole === 'streamer') {
+      return false;
+    }
+
+    return true;
+  }, [currentRole, getUserRole, user?.id]);
 
   const getThreadAvatar = (thread: ChatThread) => {
     if (thread.kind === 'support') return 'https://api.dicebear.com/7.x/avataaars/svg?seed=Support';
@@ -307,9 +341,15 @@ const Chat: React.FC = () => {
     ]);
 
     const userIds = Array.from(new Set((memberRows ?? []).map((i) => i.user_id)));
-    const [{ data: profileRows }, { data: roleRows }] = await Promise.all([
+    const [{ data: profileRows }, { data: roleRows }, { data: usersRows }] = await Promise.all([
       supabasePublic.from('profiles').select('user_id,display_name,username,avatar_url,is_online').in('user_id', userIds),
       supabasePublic.from('user_roles').select('user_id,role').in('user_id', userIds),
+      userIds.length > 0
+        ? (supabasePublic as any)
+            .from('users')
+            .select('id,supabase_uid,username,tiktok_username')
+            .or(`id.in.(${userIds.join(',')}),supabase_uid.in.(${userIds.join(',')})`)
+        : Promise.resolve({ data: [] }),
     ]);
 
     setProfilesMap((profileRows ?? []).reduce<Record<string, UserProfile>>((acc, i: any) => { acc[i.user_id] = i; return acc; }, {}));
@@ -317,6 +357,18 @@ const Chat: React.FC = () => {
       if (!acc[i.user_id] || (rolePriority[i.role] ?? 99) < (rolePriority[acc[i.user_id]] ?? 99)) acc[i.user_id] = i.role;
       return acc;
     }, {}));
+
+    const safeUsersRows = (usersRows ?? []) as any[];
+    setUsersFallbackMap(safeUsersRows.reduce<Record<string, { username?: string | null; tiktok_username?: string | null }>>((acc, row: any) => {
+      const resolvedId = row.supabase_uid ?? row.id;
+      if (!resolvedId) return acc;
+      acc[resolvedId] = {
+        username: row.username ?? null,
+        tiktok_username: row.tiktok_username ?? null,
+      };
+      return acc;
+    }, {}));
+
     setThreads((threadRows ?? []) as ChatThread[]);
     setMembers((memberRows ?? []) as ChatMember[]);
 
@@ -363,15 +415,45 @@ const Chat: React.FC = () => {
   };
 
   const openDirect = async (targetUserId: string) => {
-    const { data, error } = await (supabasePublic as any).rpc('chat_get_or_create_direct_thread', { p_target_user_id: targetUserId });
-    if (error) {
-      const errorText = String(error.message ?? '').toLowerCase();
-      const desc = errorText.includes('target_user_not_found') || errorText.includes('target_profile_not_found')
-        ? 'Пользователь недоступен для чата.' : error.message;
-      toast({ title: 'Не удалось открыть диалог', description: desc, variant: 'destructive' });
+    const rpcResult = await (supabasePublic as any).rpc('chat_get_or_create_direct_thread', { p_target_user_id: targetUserId });
+    let threadId = Array.isArray(rpcResult.data) ? rpcResult.data[0] : rpcResult.data;
+
+    if (rpcResult.error) {
+      const errorText = String(rpcResult.error.message ?? '').toLowerCase();
+      const missingRpc =
+        errorText.includes('chat_get_or_create_direct_thread')
+        || errorText.includes('function')
+        || errorText.includes('404')
+        || errorText.includes('not found');
+
+      if (missingRpc) {
+        const fallback = await supabasePublic.functions.invoke('chat-direct-thread', {
+          body: { targetUserId },
+        });
+
+        if (fallback.error || !fallback.data?.ok) {
+          toast({
+            title: 'Не удалось открыть диалог',
+            description: fallback.error?.message ?? fallback.data?.error ?? 'Недоступен backend для direct-чата',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        threadId = String(fallback.data.threadId ?? '');
+      } else {
+        const desc = errorText.includes('target_user_not_found') || errorText.includes('target_profile_not_found')
+          ? 'Пользователь недоступен для чата.' : rpcResult.error.message;
+        toast({ title: 'Не удалось открыть диалог', description: desc, variant: 'destructive' });
+        return;
+      }
+    }
+
+    if (!threadId) {
+      toast({ title: 'Не удалось открыть диалог', description: 'Пустой ответ при создании direct-чата', variant: 'destructive' });
       return;
     }
-    const threadId = Array.isArray(data) ? data[0] : data;
+
     await loadThreads({ silent: true });
     if (threadId) { setSelectedThreadId(threadId); if (isMobile) setShowSidebar(false); }
     setShowNewChatDialog(false);
@@ -763,7 +845,13 @@ const Chat: React.FC = () => {
                       <div className={cn('max-w-[75%] min-w-[80px]', isOwn && 'items-end')}>
                         {showSender && (
                           <div className="flex items-center gap-1.5 mb-1 ml-1">
-                            <span className="text-xs font-semibold">{getDisplayName(msg.sender_user_id)}</span>
+                            <button
+                              type="button"
+                              onClick={() => setPreviewUserId(msg.sender_user_id)}
+                              className="text-xs font-semibold hover:underline underline-offset-2"
+                            >
+                              {getDisplayName(msg.sender_user_id)}
+                            </button>
                             <UserRoleBadges userId={msg.sender_user_id} showInternal />
                           </div>
                         )}
@@ -874,7 +962,7 @@ const Chat: React.FC = () => {
 
       {/* === NEW CHAT DIALOG === */}
       <Dialog open={showNewChatDialog} onOpenChange={setShowNewChatDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent aria-describedby={undefined} className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Новая беседа</DialogTitle>
             <DialogDescription>Начните личный диалог или создайте группу</DialogDescription>
@@ -977,7 +1065,7 @@ const Chat: React.FC = () => {
 
       {/* === DELETE CONFIRMATION === */}
       <Dialog open={!!deletingThreadId} onOpenChange={() => setDeletingThreadId(null)}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent aria-describedby={undefined} className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Удалить чат?</DialogTitle>
             <DialogDescription>
@@ -990,6 +1078,50 @@ const Chat: React.FC = () => {
               Удалить
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!previewUserId} onOpenChange={() => setPreviewUserId(null)}>
+        <DialogContent aria-describedby={undefined} className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Мини-профиль</DialogTitle>
+            <DialogDescription>Информация о собеседнике в этом чате.</DialogDescription>
+          </DialogHeader>
+
+          {previewUserId && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <Avatar className="w-12 h-12">
+                  <AvatarImage src={getAvatar(previewUserId)} />
+                  <AvatarFallback>{getDisplayName(previewUserId)[0]}</AvatarFallback>
+                </Avatar>
+                <div className="min-w-0">
+                  <p className="font-semibold truncate">{getDisplayName(previewUserId)}</p>
+                  <p className="text-xs text-muted-foreground">{getRoleLabel(getUserRole(previewUserId))}</p>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-border bg-secondary/20 p-3 text-xs text-muted-foreground">
+                {canOpenFullProfile(previewUserId)
+                  ? 'Можно открыть полный профиль.'
+                  : 'Профиль сотрудника поддержки скрыт для пользователей.'}
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setPreviewUserId(null)}>Закрыть</Button>
+                <Button
+                  onClick={() => {
+                    if (!previewUserId || !canOpenFullProfile(previewUserId)) return;
+                    setPreviewUserId(null);
+                    navigate(`/profile/${previewUserId}`);
+                  }}
+                  disabled={!canOpenFullProfile(previewUserId)}
+                >
+                  Открыть профиль
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
