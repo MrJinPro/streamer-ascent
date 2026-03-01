@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import UserRoleBadges from '@/components/UserRoleBadges';
+import SendMessageButton from '@/components/SendMessageButton';
 import { 
   ArrowLeft, 
   Diamond, 
