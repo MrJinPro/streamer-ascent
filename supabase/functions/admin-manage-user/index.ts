@@ -132,8 +132,7 @@ Deno.serve(async (request: Request) => {
       return json(400, { error: 'Invalid email format' });
     }
 
-    const profilePayload = {
-      user_id: userId,
+    const profileFields = {
       email,
       display_name: displayName,
       username,
@@ -143,12 +142,31 @@ Deno.serve(async (request: Request) => {
       updated_at: new Date().toISOString(),
     };
 
-    const { error: profileError } = await adminClient
+    // Try update first; if no row matched, attempt insert only when auth user exists
+    const { data: updatedRows, error: updateError } = await adminClient
       .from('profiles')
-      .upsert(profilePayload, { onConflict: 'user_id' });
+      .update(profileFields)
+      .eq('user_id', userId)
+      .select('user_id');
 
-    if (profileError) {
-      return json(500, { error: profileError.message });
+    if (updateError) {
+      return json(500, { error: updateError.message });
+    }
+
+    if (!updatedRows?.length) {
+      // Profile doesn't exist yet — only safe to insert if user_id exists in auth.users
+      const { data: authCheck } = await adminClient.auth.admin.getUserById(userId);
+      if (!authCheck?.user) {
+        return json(400, { error: 'Cannot create profile: user does not exist in auth. Send a recovery invite first.' });
+      }
+
+      const { error: insertError } = await adminClient
+        .from('profiles')
+        .insert({ user_id: userId, ...profileFields });
+
+      if (insertError) {
+        return json(500, { error: insertError.message });
+      }
     }
 
     if (email) {
