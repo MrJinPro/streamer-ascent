@@ -244,21 +244,25 @@ Deno.serve(async (request: Request) => {
     const appUrl = Deno.env.get('APP_URL') ?? Deno.env.get('SITE_URL') ?? 'http://localhost:5173';
     const redirectTo = new URL('/auth', appUrl).toString();
 
-    const authUserExists = Boolean(authUserData?.user);
+    // First try recovery flow by email (works for existing auth users even when selected userId is legacy)
+    const { error: recoveryError } = await adminClient.auth.admin.generateLink({
+      type: 'recovery',
+      email,
+      options: { redirectTo },
+    });
 
-    if (authUserExists) {
-      // User exists in auth — send a password recovery link
-      const { error: linkError } = await adminClient.auth.admin.generateLink({
-        type: 'recovery',
-        email,
-        options: { redirectTo },
-      });
+    if (recoveryError) {
+      const recoveryMessage = String(recoveryError.message ?? '').toLowerCase();
+      const shouldFallbackToInvite =
+        recoveryMessage.includes('user not found')
+        || recoveryMessage.includes('email not found')
+        || (recoveryError as any)?.status === 404;
 
-      if (linkError) {
-        return json(500, { error: linkError.message });
+      if (!shouldFallbackToInvite) {
+        return json(500, { error: recoveryError.message });
       }
-    } else {
-      // User doesn't exist in auth — send an invite
+
+      // Fallback only when email is not registered in auth
       const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
         redirectTo,
         data: {
