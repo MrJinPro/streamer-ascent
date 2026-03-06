@@ -360,9 +360,8 @@ const Chat: React.FC = () => {
 
     const safeUsersRows = (usersRows ?? []) as any[];
     setUsersFallbackMap(safeUsersRows.reduce<Record<string, { username?: string | null; tiktok_username?: string | null }>>((acc, row: any) => {
-      const resolvedId = row.supabase_uid ?? row.id;
-      if (!resolvedId) return acc;
-      acc[resolvedId] = {
+      if (!row.id) return acc;
+      acc[row.id] = {
         username: row.username ?? null,
         tiktok_username: row.tiktok_username ?? null,
       };
