@@ -225,7 +225,18 @@ Deno.serve(async (request: Request) => {
         .maybeSingle(),
     ]);
 
-    const email = authUserData.user?.email?.toLowerCase() ?? profileData?.email?.toLowerCase() ?? null;
+    let email = authUserData?.user?.email?.toLowerCase() ?? profileData?.email?.toLowerCase() ?? null;
+
+    // Fallback: check legacy users table
+    if (!email) {
+      const { data: legacyRows } = await adminClient
+        .from('users')
+        .select('email')
+        .or(`id.eq.${userId},supabase_uid.eq.${userId}`)
+        .limit(1);
+      email = legacyRows?.[0]?.email?.toLowerCase() ?? null;
+    }
+
     if (!email || !EMAIL_REGEX.test(email)) {
       return json(400, { error: 'valid_email_required' });
     }
