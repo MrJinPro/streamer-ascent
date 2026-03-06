@@ -4128,53 +4128,38 @@ export type Database = {
       }
       v_users_unified: {
         Row: {
-          auth_source: string | null
           avatar_url: string | null
-          country: string | null
           created_at: string | null
           display_name: string | null
           email: string | null
           id: string | null
-          is_online: boolean | null
-          last_seen_at: string | null
           locale: string | null
           onboarding_completed: boolean | null
-          region: string | null
-          tiktok_username: string | null
+          timezone: string | null
           updated_at: string | null
           username: string | null
         }
         Insert: {
-          auth_source?: never
           avatar_url?: string | null
-          country?: string | null
           created_at?: string | null
           display_name?: string | null
           email?: string | null
           id?: string | null
-          is_online?: boolean | null
-          last_seen_at?: string | null
           locale?: string | null
           onboarding_completed?: boolean | null
-          region?: string | null
-          tiktok_username?: string | null
+          timezone?: string | null
           updated_at?: string | null
           username?: string | null
         }
         Update: {
-          auth_source?: never
           avatar_url?: string | null
-          country?: string | null
           created_at?: string | null
           display_name?: string | null
           email?: string | null
           id?: string | null
-          is_online?: boolean | null
-          last_seen_at?: string | null
           locale?: string | null
           onboarding_completed?: boolean | null
-          region?: string | null
-          tiktok_username?: string | null
+          timezone?: string | null
           updated_at?: string | null
           username?: string | null
         }
