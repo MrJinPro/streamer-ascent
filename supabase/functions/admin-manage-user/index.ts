@@ -244,16 +244,32 @@ Deno.serve(async (request: Request) => {
     const appUrl = Deno.env.get('APP_URL') ?? Deno.env.get('SITE_URL') ?? 'http://localhost:5173';
     const redirectTo = new URL('/auth', appUrl).toString();
 
-    const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
-      redirectTo,
-      data: {
-        source: 'admin-recovery-invite',
-        target_user_id: userId,
-      },
-    });
+    const authUserExists = Boolean(authUserData?.user);
 
-    if (inviteError) {
-      return json(500, { error: inviteError.message });
+    if (authUserExists) {
+      // User exists in auth — send a password recovery link
+      const { error: linkError } = await adminClient.auth.admin.generateLink({
+        type: 'recovery',
+        email,
+        options: { redirectTo },
+      });
+
+      if (linkError) {
+        return json(500, { error: linkError.message });
+      }
+    } else {
+      // User doesn't exist in auth — send an invite
+      const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
+        redirectTo,
+        data: {
+          source: 'admin-recovery-invite',
+          target_user_id: userId,
+        },
+      });
+
+      if (inviteError) {
+        return json(500, { error: inviteError.message });
+      }
     }
 
     await adminClient.from('audit_log').insert({
