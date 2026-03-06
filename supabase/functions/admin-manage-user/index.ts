@@ -310,10 +310,14 @@ Deno.serve(async (request: Request) => {
       }
     }
 
-    // If user doesn't exist anywhere, return 404
+    // If user doesn't exist in auth, profiles, or legacy users, return 404
     if (!authUser && !emailForInvites) {
-      const { data: profileCheck } = await adminClient.from('profiles').select('user_id').eq('user_id', userId).maybeSingle();
-      if (!profileCheck) {
+      const [{ data: profileCheck }, { data: legacyCheck }] = await Promise.all([
+        adminClient.from('profiles').select('user_id').eq('user_id', userId).maybeSingle(),
+        adminClient.from('users').select('id').or(`id.eq.${userId},supabase_uid.eq.${userId}`).limit(1),
+      ]);
+
+      if (!profileCheck && !(legacyCheck?.length)) {
         return json(404, { error: 'User not found' });
       }
     }
@@ -330,8 +334,15 @@ Deno.serve(async (request: Request) => {
       adminClient.from('users').delete().or(`id.eq.${userId},supabase_uid.eq.${userId}`),
     ]);
 
-    if (removeRoles.error || removeProfile.error || (removeInvites as any).error) {
-      return json(500, { error: removeRoles.error?.message ?? removeProfile.error?.message ?? (removeInvites as any).error?.message ?? 'Failed to delete linked rows' });
+    if (removeRoles.error || removeProfile.error || (removeInvites as any).error || removeLegacyUsers.error) {
+      return json(500, {
+        error:
+          removeRoles.error?.message
+          ?? removeProfile.error?.message
+          ?? (removeInvites as any).error?.message
+          ?? removeLegacyUsers.error?.message
+          ?? 'Failed to delete linked rows',
+      });
     }
 
     // Only delete from auth if user exists there
