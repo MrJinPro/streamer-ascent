@@ -4135,6 +4135,7 @@ export type Database = {
           id: string | null
           locale: string | null
           onboarding_completed: boolean | null
+          tiktok_username: string | null
           timezone: string | null
           updated_at: string | null
           username: string | null
@@ -4147,6 +4148,7 @@ export type Database = {
           id?: string | null
           locale?: string | null
           onboarding_completed?: boolean | null
+          tiktok_username?: string | null
           timezone?: string | null
           updated_at?: string | null
           username?: string | null
@@ -4159,6 +4161,7 @@ export type Database = {
           id?: string | null
           locale?: string | null
           onboarding_completed?: boolean | null
+          tiktok_username?: string | null
           timezone?: string | null
           updated_at?: string | null
           username?: string | null
@@ -4571,6 +4574,7 @@ export type Database = {
         Args: { p_claim_id: string; p_note?: string }
         Returns: boolean
       }
+      resolve_legacy_user_id: { Args: { p_legacy_id: string }; Returns: string }
       resolve_mobile_user_id: {
         Args: { p_mobile_user_id: string }
         Returns: string
