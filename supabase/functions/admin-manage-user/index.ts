@@ -297,28 +297,49 @@ Deno.serve(async (request: Request) => {
     }
 
     const { data: authUserData } = await adminClient.auth.admin.getUserById(userId);
-    if (!authUserData.user) {
-      return json(404, { error: 'User not found' });
+    const authUser = authUserData?.user ?? null;
+
+    // Resolve email for invite cleanup
+    let emailForInvites = authUser?.email ?? null;
+    if (!emailForInvites) {
+      const { data: profileRow } = await adminClient.from('profiles').select('email').eq('user_id', userId).maybeSingle();
+      emailForInvites = profileRow?.email ?? null;
+      if (!emailForInvites) {
+        const { data: legacyRows } = await adminClient.from('users').select('email').or(`id.eq.${userId},supabase_uid.eq.${userId}`).limit(1);
+        emailForInvites = legacyRows?.[0]?.email ?? null;
+      }
+    }
+
+    // If user doesn't exist anywhere, return 404
+    if (!authUser && !emailForInvites) {
+      const { data: profileCheck } = await adminClient.from('profiles').select('user_id').eq('user_id', userId).maybeSingle();
+      if (!profileCheck) {
+        return json(404, { error: 'User not found' });
+      }
     }
 
     const [
       removeRoles,
       removeProfile,
       removeInvites,
+      removeLegacyUsers,
     ] = await Promise.all([
       adminClient.from('user_roles').delete().eq('user_id', userId),
       adminClient.from('profiles').delete().eq('user_id', userId),
-      adminClient.from('admin_invites').delete().eq('email', authUserData.user.email ?? ''),
+      emailForInvites ? adminClient.from('admin_invites').delete().eq('email', emailForInvites) : Promise.resolve({ error: null }),
+      adminClient.from('users').delete().or(`id.eq.${userId},supabase_uid.eq.${userId}`),
     ]);
 
-    if (removeRoles.error || removeProfile.error || removeInvites.error) {
-      return json(500, { error: removeRoles.error?.message ?? removeProfile.error?.message ?? removeInvites.error?.message ?? 'Failed to delete linked rows' });
+    if (removeRoles.error || removeProfile.error || (removeInvites as any).error) {
+      return json(500, { error: removeRoles.error?.message ?? removeProfile.error?.message ?? (removeInvites as any).error?.message ?? 'Failed to delete linked rows' });
     }
 
-    const { error: deleteError } = await adminClient.auth.admin.deleteUser(userId, hardDelete);
-
-    if (deleteError) {
-      return json(500, { error: deleteError.message });
+    // Only delete from auth if user exists there
+    if (authUser) {
+      const { error: deleteError } = await adminClient.auth.admin.deleteUser(userId, hardDelete);
+      if (deleteError) {
+        return json(500, { error: deleteError.message });
+      }
     }
 
     await adminClient.from('audit_log').insert({
