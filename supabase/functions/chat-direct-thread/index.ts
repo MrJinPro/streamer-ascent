@@ -37,17 +37,10 @@ const normalizeRole = (value: unknown): string => {
 const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
 const resolveRole = async (userId: string) => {
-  const [{ data: roleRows }, { data: usersRows }] = await Promise.all([
-    adminClient
-      .from('user_roles')
-      .select('role,roles:role_id(slug)')
-      .eq('user_id', userId),
-    adminClient
-      .from('users')
-      .select('role,supabase_uid,id')
-      .or(`supabase_uid.eq.${userId},id.eq.${userId}`)
-      .limit(1),
-  ]);
+  const { data: roleRows } = await adminClient
+    .from('user_roles')
+    .select('role,roles:role_id(slug)')
+    .eq('user_id', userId);
 
   const safeRoleRows = (roleRows ?? []) as any[];
   const fromUserRoles = safeRoleRows.reduce<string | null>((acc: string | null, row: any) => {
@@ -56,8 +49,7 @@ const resolveRole = async (userId: string) => {
     return (ROLE_PRIORITY[candidate] ?? 99) < (ROLE_PRIORITY[acc] ?? 99) ? candidate : acc;
   }, null);
 
-  if (fromUserRoles) return fromUserRoles;
-  return normalizeRole(usersRows?.[0]?.role ?? 'streamer');
+  return fromUserRoles ?? 'streamer';
 };
 
 const canDm = async (senderId: string, targetId: string) => {
@@ -86,7 +78,8 @@ const canDm = async (senderId: string, targetId: string) => {
   return true;
 };
 
-const resolveProfileUserId = async (inputId: string) => {
+const resolveProfileUserId = async (inputId: string): Promise<string | null> => {
+  // Try direct profile lookup first
   const { data: profile } = await adminClient
     .from('profiles')
     .select('user_id')
@@ -95,22 +88,9 @@ const resolveProfileUserId = async (inputId: string) => {
 
   if (profile?.user_id) return profile.user_id as string;
 
-  const { data: usersRows } = await adminClient
-    .from('users')
-    .select('id,supabase_uid')
-    .or(`id.eq.${inputId},supabase_uid.eq.${inputId}`)
-    .limit(1);
-
-  const resolved = usersRows?.[0]?.supabase_uid ?? usersRows?.[0]?.id;
-  if (!resolved) return null;
-
-  const { data: resolvedProfile } = await adminClient
-    .from('profiles')
-    .select('user_id')
-    .eq('user_id', resolved)
-    .maybeSingle();
-
-  return (resolvedProfile?.user_id as string | null) ?? null;
+  // Fallback: resolve via legacy helper
+  const { data: resolved } = await adminClient.rpc('resolve_legacy_user_id', { p_legacy_id: inputId });
+  return (resolved as string | null) ?? null;
 };
 
 Deno.serve(async (request: Request) => {

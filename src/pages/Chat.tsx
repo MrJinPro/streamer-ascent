@@ -346,9 +346,9 @@ const Chat: React.FC = () => {
       supabasePublic.from('user_roles').select('user_id,role').in('user_id', userIds),
       userIds.length > 0
         ? (supabasePublic as any)
-            .from('users')
-            .select('id,supabase_uid,username,tiktok_username')
-            .or(`id.in.(${userIds.join(',')}),supabase_uid.in.(${userIds.join(',')})`)
+            .from('v_users_unified')
+            .select('id,username,tiktok_username')
+            .in('id', userIds)
         : Promise.resolve({ data: [] }),
     ]);
 
