@@ -310,10 +310,14 @@ Deno.serve(async (request: Request) => {
       }
     }
 
-    // If user doesn't exist anywhere, return 404
+    // If user doesn't exist in auth, profiles, or legacy users, return 404
     if (!authUser && !emailForInvites) {
-      const { data: profileCheck } = await adminClient.from('profiles').select('user_id').eq('user_id', userId).maybeSingle();
-      if (!profileCheck) {
+      const [{ data: profileCheck }, { data: legacyCheck }] = await Promise.all([
+        adminClient.from('profiles').select('user_id').eq('user_id', userId).maybeSingle(),
+        adminClient.from('users').select('id').or(`id.eq.${userId},supabase_uid.eq.${userId}`).limit(1),
+      ]);
+
+      if (!profileCheck && !(legacyCheck?.length)) {
         return json(404, { error: 'User not found' });
       }
     }
