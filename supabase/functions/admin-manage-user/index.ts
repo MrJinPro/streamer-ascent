@@ -65,7 +65,7 @@ Deno.serve(async (request: Request) => {
       adminClient.auth.admin.getUserById(userId),
       adminClient
         .from('profiles')
-        .select('user_id,email,display_name,username,country,language,telegram_username,created_at,updated_at,is_online,onboarding_completed,onboarding_completed_at,onboarding_referral_code,onboarding_source')
+        .select('user_id,email,display_name,username,tiktok_username,country,language,telegram_username,created_at,updated_at,is_online,onboarding_completed,onboarding_completed_at,onboarding_referral_code,onboarding_source')
         .eq('user_id', userId)
         .maybeSingle(),
       adminClient
@@ -74,30 +74,48 @@ Deno.serve(async (request: Request) => {
         .eq('user_id', userId),
     ]);
 
-    const authUser = authUserData.user;
+    const authUser = authUserData?.user ?? null;
     const authMissing = Boolean(authUserError || !authUser);
 
+    // Fallback: check legacy public.users table if neither auth nor profile found
+    let legacyUser: any = null;
     if (authMissing && !profileData) {
-      return json(404, { error: authUserError?.message ?? 'User not found' });
+      const { data: legacyRows } = await adminClient
+        .from('users')
+        .select('id,supabase_uid,email,username,tiktok_username,created_at,last_ws_at')
+        .or(`id.eq.${userId},supabase_uid.eq.${userId}`)
+        .limit(1);
+
+      legacyUser = legacyRows?.[0] ?? null;
+      if (!legacyUser) {
+        return json(404, { error: 'User not found' });
+      }
     }
 
     return json(200, {
       ok: true,
       user: {
-        id: authUser?.id ?? userId,
-        email: authUser?.email ?? profileData?.email ?? null,
+        id: authUser?.id ?? profileData?.user_id ?? legacyUser?.supabase_uid ?? legacyUser?.id ?? userId,
+        email: authUser?.email ?? profileData?.email ?? legacyUser?.email ?? null,
         phone: authUser?.phone ?? null,
-        createdAt: authUser?.created_at ?? profileData?.created_at ?? null,
+        createdAt: authUser?.created_at ?? profileData?.created_at ?? legacyUser?.created_at ?? null,
         updatedAt: authUser?.updated_at ?? profileData?.updated_at ?? null,
-        lastSignInAt: authUser?.last_sign_in_at ?? null,
+        lastSignInAt: authUser?.last_sign_in_at ?? legacyUser?.last_ws_at ?? null,
         emailConfirmedAt: authUser?.email_confirmed_at ?? null,
         phoneConfirmedAt: authUser?.phone_confirmed_at ?? null,
         bannedUntil: authUser?.banned_until ?? null,
         appMetadata: authUser?.app_metadata ?? {},
         userMetadata: authUser?.user_metadata ?? {},
         authMissing,
+        legacyOnly: Boolean(legacyUser && !profileData),
       },
-      profile: profileData ?? null,
+      profile: profileData ?? (legacyUser ? {
+        user_id: legacyUser.supabase_uid ?? legacyUser.id,
+        email: legacyUser.email,
+        display_name: legacyUser.username ?? legacyUser.tiktok_username ?? null,
+        username: legacyUser.username ?? null,
+        tiktok_username: legacyUser.tiktok_username ?? null,
+      } : null),
       roles: roleRows ?? [],
     });
   }
