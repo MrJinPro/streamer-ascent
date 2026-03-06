@@ -156,29 +156,42 @@ Deno.serve(async (request: Request) => {
     if (!updatedRows?.length) {
       // Profile doesn't exist yet — only safe to insert if user_id exists in auth.users
       const { data: authCheck } = await adminClient.auth.admin.getUserById(userId);
-      if (!authCheck?.user) {
-        return json(400, { error: 'Cannot create profile: user does not exist in auth. Send a recovery invite first.' });
-      }
+      if (authCheck?.user) {
+        const { error: insertError } = await adminClient
+          .from('profiles')
+          .insert({ user_id: userId, ...profileFields });
 
-      const { error: insertError } = await adminClient
-        .from('profiles')
-        .insert({ user_id: userId, ...profileFields });
+        if (insertError) {
+          return json(500, { error: insertError.message });
+        }
+      } else {
+        // Legacy-only user: update the legacy users table instead
+        const legacyFields: Record<string, unknown> = {};
+        if (email) legacyFields.email = email;
+        if (username) legacyFields.username = username;
+        if (displayName) legacyFields.tiktok_username = displayName;
 
-      if (insertError) {
-        return json(500, { error: insertError.message });
+        if (Object.keys(legacyFields).length) {
+          await adminClient
+            .from('users')
+            .update(legacyFields)
+            .or(`id.eq.${userId},supabase_uid.eq.${userId}`);
+        }
       }
     }
 
     if (email) {
-      const { error: authUpdateError } = await adminClient.auth.admin.updateUserById(userId, {
-        email,
-        user_metadata: {
-          display_name: displayName,
-        },
-      });
+      // Only update auth if user exists there
+      const { data: authForEmail } = await adminClient.auth.admin.getUserById(userId);
+      if (authForEmail?.user) {
+        const { error: authUpdateError } = await adminClient.auth.admin.updateUserById(userId, {
+          email,
+          user_metadata: { display_name: displayName },
+        });
 
-      if (authUpdateError) {
-        return json(500, { error: authUpdateError.message });
+        if (authUpdateError) {
+          return json(500, { error: authUpdateError.message });
+        }
       }
     }
 
