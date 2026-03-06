@@ -181,15 +181,17 @@ Deno.serve(async (request: Request) => {
     }
 
     if (email) {
-      const { error: authUpdateError } = await adminClient.auth.admin.updateUserById(userId, {
-        email,
-        user_metadata: {
-          display_name: displayName,
-        },
-      });
+      // Only update auth if user exists there
+      const { data: authForEmail } = await adminClient.auth.admin.getUserById(userId);
+      if (authForEmail?.user) {
+        const { error: authUpdateError } = await adminClient.auth.admin.updateUserById(userId, {
+          email,
+          user_metadata: { display_name: displayName },
+        });
 
-      if (authUpdateError) {
-        return json(500, { error: authUpdateError.message });
+        if (authUpdateError) {
+          return json(500, { error: authUpdateError.message });
+        }
       }
     }
 
