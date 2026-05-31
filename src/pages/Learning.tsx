@@ -416,7 +416,35 @@ const Learning: React.FC = () => {
                     </div>
                   )}
 
-                  {block.block_type !== 'text' && block.block_type !== 'image' && block.block_type !== 'video' && (
+                  {block.block_type === 'html' && (
+                    <div
+                      className="prose prose-invert prose-sm max-w-none"
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(String(block.content?.html ?? '')) }}
+                    />
+                  )}
+
+                  {block.block_type === 'heading' && (
+                    <h2 className="text-2xl font-display font-bold" style={{ textAlign: (block.content?.align as any) ?? 'left' }}>
+                      {String(block.content?.text ?? block.title ?? '')}
+                    </h2>
+                  )}
+
+                  {block.block_type === 'quote' && (
+                    <blockquote className="border-l-4 border-primary pl-4 italic text-muted-foreground">
+                      {String(block.content?.text ?? '')}
+                      {block.content?.author ? <p className="text-xs not-italic mt-2">— {String(block.content.author)}</p> : null}
+                    </blockquote>
+                  )}
+
+                  {block.block_type === 'divider' && <hr className="border-border my-2" />}
+
+                  {block.block_type === 'file' && block.content?.url && (
+                    <a href={String(block.content.url)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-primary hover:underline">
+                      📎 {String(block.content.label ?? block.content.url)}
+                    </a>
+                  )}
+
+                  {!['text','image','video','html','heading','quote','divider','file'].includes(block.block_type) && (
                     <pre className="text-xs whitespace-pre-wrap break-all text-muted-foreground">{JSON.stringify(block.content, null, 2)}</pre>
                   )}
                 </div>

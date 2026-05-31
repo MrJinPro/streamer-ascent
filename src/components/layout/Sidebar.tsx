@@ -16,7 +16,8 @@ import {
   LogOut,
   ChevronRight,
   Menu,
-  X
+  X,
+  LifeBuoy
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -48,6 +49,7 @@ const mainNavItems: NavItem[] = [
   { icon: MessageSquare, label: 'Чат', href: '/chat' },
   { icon: Bell, label: 'Уведомления', href: '/notifications' },
   { icon: Sparkles, label: 'AI Наставник', href: '/ai-coach', isNew: true },
+  { icon: LifeBuoy, label: 'Поддержка', href: '/support' },
   { icon: Trophy, label: 'Рейтинг', href: '/ranking' },
 ];
 

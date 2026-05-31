@@ -30,6 +30,7 @@ import ProductDesktop from "@/pages/ProductDesktop";
 import ProductAcademy from "@/pages/ProductAcademy";
 import ProductTools from "@/pages/ProductTools";
 import ProductAgency from "@/pages/ProductAgency";
+import Support from "@/pages/Support";
 
 const queryClient = new QueryClient();
 
@@ -131,6 +132,7 @@ const AppRoutes = () => {
             <Route path="/chat" element={<Chat />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/ai-coach" element={<AICoach />} />
+            <Route path="/support" element={<Support />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/ranking" element={<Ranking />} />
             <Route path="/profile" element={<Profile />} />
