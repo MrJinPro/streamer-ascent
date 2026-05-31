@@ -3480,6 +3480,124 @@ export type Database = {
           },
         ]
       }
+      support_categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          slug: string
+          sort_order: number
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          slug: string
+          sort_order?: number
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          slug?: string
+          sort_order?: number
+          title?: string
+        }
+        Relationships: []
+      }
+      support_messages: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          metadata: Json
+          sender_kind: string
+          sender_user_id: string | null
+          ticket_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          sender_kind?: string
+          sender_user_id?: string | null
+          ticket_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          sender_kind?: string
+          sender_user_id?: string | null
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_messages_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_tickets: {
+        Row: {
+          assigned_to: string | null
+          category_id: string | null
+          created_at: string
+          id: string
+          last_message_at: string | null
+          priority: string
+          source: string
+          status: string
+          subject: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          category_id?: string | null
+          created_at?: string
+          id?: string
+          last_message_at?: string | null
+          priority?: string
+          source?: string
+          status?: string
+          subject?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assigned_to?: string | null
+          category_id?: string | null
+          created_at?: string
+          id?: string
+          last_message_at?: string | null
+          priority?: string
+          source?: string
+          status?: string
+          subject?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_tickets_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "support_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tiktok_profile_cache: {
         Row: {
           avatar_url: string | null
@@ -4206,6 +4324,14 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      academy_delete_course: {
+        Args: { p_course_id: string }
+        Returns: undefined
+      }
+      academy_delete_lesson: {
+        Args: { p_lesson_id: string }
+        Returns: undefined
+      }
       academy_mark_video_progress: {
         Args: {
           p_lesson_id: string
@@ -4600,6 +4726,11 @@ export type Database = {
         | "cta"
         | "reward"
         | "task"
+        | "html"
+        | "heading"
+        | "quote"
+        | "file"
+        | "divider"
       access_tier: "tier_0" | "tier_1" | "tier_2" | "tier_3" | "tier_4"
       achievement_claim_status_t: "pending" | "approved" | "rejected"
       achievement_progress_type_t:
@@ -4811,6 +4942,11 @@ export const Constants = {
         "cta",
         "reward",
         "task",
+        "html",
+        "heading",
+        "quote",
+        "file",
+        "divider",
       ],
       access_tier: ["tier_0", "tier_1", "tier_2", "tier_3", "tier_4"],
       achievement_claim_status_t: ["pending", "approved", "rejected"],
