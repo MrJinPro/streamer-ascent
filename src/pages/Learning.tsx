@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { supabasePublic } from '@/integrations/supabase/publicClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
+import { sanitizeHtml } from '@/lib/safeHtml';
 
 type AcademyCourse = {
   id: string;
@@ -30,7 +31,7 @@ type AcademyLesson = {
 type AcademyBlock = {
   id: string;
   lesson_id: string;
-  block_type: 'video' | 'text' | 'image' | 'gallery' | 'checklist' | 'quiz' | 'cta' | 'reward' | 'task';
+  block_type: 'video' | 'text' | 'image' | 'gallery' | 'checklist' | 'quiz' | 'cta' | 'reward' | 'task' | 'html' | 'heading' | 'quote' | 'file' | 'divider';
   title: string | null;
   content: Record<string, unknown>;
   required: boolean;
