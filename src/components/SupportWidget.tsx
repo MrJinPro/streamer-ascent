@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Send, UserCog, Bot, Loader2, ChevronLeft, X } from 'lucide-react';
+import { Send, UserCog, Bot, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -19,12 +19,13 @@ type Message = {
 };
 
 interface Props {
+  initialTicketId?: string | null;
   onClose?: () => void;
 }
 
-const SupportWidget: React.FC<Props> = ({ onClose }) => {
+const SupportWidget: React.FC<Props> = ({ initialTicketId = null, onClose }) => {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [ticketId, setTicketId] = useState<string | null>(null);
+  const [ticketId, setTicketId] = useState<string | null>(initialTicketId);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -41,6 +42,23 @@ const SupportWidget: React.FC<Props> = ({ onClose }) => {
     })();
   }, []);
 
+  // Preload messages for existing ticket
+  useEffect(() => {
+    if (!initialTicketId) {
+      setMessages([]);
+      return;
+    }
+    void (async () => {
+      const { data } = await supabasePublic
+        .from('support_messages')
+        .select('*')
+        .eq('ticket_id', initialTicketId)
+        .order('created_at');
+      setMessages((data ?? []) as Message[]);
+    })();
+  }, [initialTicketId]);
+
+  // Realtime subscription
   useEffect(() => {
     if (!ticketId) return;
     const channel = supabasePublic
@@ -59,13 +77,17 @@ const SupportWidget: React.FC<Props> = ({ onClose }) => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages.length]);
 
+  const reloadMessages = async (tId: string) => {
+    const { data } = await supabasePublic.from('support_messages').select('*').eq('ticket_id', tId).order('created_at');
+    setMessages((data ?? []) as Message[]);
+  };
+
   const send = async () => {
     const text = input.trim();
     if (!text || loading) return;
     setLoading(true);
     setInput('');
 
-    // optimistic
     const tempId = `temp-${Date.now()}`;
     setMessages((prev) => [...prev, { id: tempId, ticket_id: ticketId ?? '', sender_kind: 'user', body: text, created_at: new Date().toISOString() }]);
 
@@ -80,17 +102,9 @@ const SupportWidget: React.FC<Props> = ({ onClose }) => {
       return;
     }
 
-    if (!ticketId && data.ticketId) setTicketId(data.ticketId);
-    // reload from db to replace temp
     const tId = data.ticketId ?? ticketId;
-    if (tId) {
-      const { data: msgs } = await supabasePublic
-        .from('support_messages')
-        .select('*')
-        .eq('ticket_id', tId)
-        .order('created_at');
-      setMessages((msgs ?? []) as Message[]);
-    }
+    if (!ticketId && data.ticketId) setTicketId(data.ticketId);
+    if (tId) await reloadMessages(tId);
   };
 
   const escalate = async () => {
@@ -100,28 +114,18 @@ const SupportWidget: React.FC<Props> = ({ onClose }) => {
     }
     setEscalating(true);
     const { data, error } = await supabasePublic.functions.invoke('support-ai-chat', {
-      body: {
-        ticketId,
-        action: 'escalate',
-        categoryId: escalateCategory,
-        subject: escalateSubject || undefined,
-      },
+      body: { ticketId, action: 'escalate', categoryId: escalateCategory, subject: escalateSubject || undefined },
     });
     setEscalating(false);
     if (error || !data?.ok) {
       toast({ title: 'Не удалось передать', description: error?.message ?? data?.error, variant: 'destructive' });
       return;
     }
+    const tId = data.ticketId ?? ticketId;
     if (data.ticketId && !ticketId) setTicketId(data.ticketId);
     setEscalateOpen(false);
     toast({ title: 'Обращение передано менеджеру', description: 'Ответ придёт в этот чат.' });
-
-    // refresh
-    const tId = data.ticketId ?? ticketId;
-    if (tId) {
-      const { data: msgs } = await supabasePublic.from('support_messages').select('*').eq('ticket_id', tId).order('created_at');
-      setMessages((msgs ?? []) as Message[]);
-    }
+    if (tId) await reloadMessages(tId);
   };
 
   const displayMessages = useMemo(() => {
@@ -139,35 +143,18 @@ const SupportWidget: React.FC<Props> = ({ onClose }) => {
 
   return (
     <div className="flex flex-col h-[600px] max-h-[80vh] bg-card border border-border rounded-xl overflow-hidden">
-      {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-secondary/30">
-        <div className="flex items-center gap-2">
-          {onClose && (
-            <button onClick={onClose} className="p-1 rounded hover:bg-secondary md:hidden">
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-          )}
-          <h3 className="font-semibold">Обращение в службу поддержки</h3>
-        </div>
+        <h3 className="font-semibold">Обращение в службу поддержки</h3>
         {onClose && (
-          <button onClick={onClose} className="p-1 rounded hover:bg-secondary">
-            <X className="w-5 h-5" />
-          </button>
+          <button onClick={onClose} className="p-1 rounded hover:bg-secondary"><X className="w-5 h-5" /></button>
         )}
       </div>
 
       {!escalateOpen && (
         <>
-          {/* Messages */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
             {displayMessages.map((m) => (
-              <div
-                key={m.id}
-                className={cn(
-                  'flex gap-2 max-w-[85%]',
-                  m.sender_kind === 'user' ? 'ml-auto flex-row-reverse' : 'mr-auto'
-                )}
-              >
+              <div key={m.id} className={cn('flex gap-2 max-w-[85%]', m.sender_kind === 'user' ? 'ml-auto flex-row-reverse' : 'mr-auto')}>
                 <div className={cn(
                   'w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0',
                   m.sender_kind === 'user' ? 'bg-primary/20 text-primary' :
@@ -175,18 +162,14 @@ const SupportWidget: React.FC<Props> = ({ onClose }) => {
                   m.sender_kind === 'system' ? 'bg-muted text-muted-foreground' :
                   'bg-success/20 text-success'
                 )}>
-                  {m.sender_kind === 'user' ? <UserCog className="w-4 h-4" /> :
-                   m.sender_kind === 'staff' ? <UserCog className="w-4 h-4" /> :
-                   <Bot className="w-4 h-4" />}
+                  {m.sender_kind === 'user' ? <UserCog className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
                 </div>
                 <div className={cn(
                   'rounded-xl px-3 py-2 text-sm whitespace-pre-wrap',
                   m.sender_kind === 'user' ? 'bg-primary text-primary-foreground' :
                   m.sender_kind === 'system' ? 'bg-muted text-muted-foreground italic text-xs' :
                   'bg-secondary'
-                )}>
-                  {m.body}
-                </div>
+                )}>{m.body}</div>
               </div>
             ))}
             {loading && (
@@ -196,7 +179,6 @@ const SupportWidget: React.FC<Props> = ({ onClose }) => {
             )}
           </div>
 
-          {/* Input */}
           <div className="border-t border-border p-3 space-y-2">
             <Textarea
               value={input}
@@ -205,19 +187,11 @@ const SupportWidget: React.FC<Props> = ({ onClose }) => {
               maxLength={2000}
               className="min-h-[70px]"
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  void send();
-                }
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send(); }
               }}
             />
             <div className="flex items-center justify-between gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setEscalateOpen(true)}
-                disabled={loading}
-              >
+              <Button variant="outline" size="sm" onClick={() => setEscalateOpen(true)} disabled={loading}>
                 <UserCog className="w-4 h-4 mr-1" /> Связаться с человеком
               </Button>
               <Button size="sm" onClick={() => void send()} disabled={!input.trim() || loading}>
@@ -236,20 +210,13 @@ const SupportWidget: React.FC<Props> = ({ onClose }) => {
             <Select value={escalateCategory} onValueChange={setEscalateCategory}>
               <SelectTrigger><SelectValue placeholder="Выберите категорию" /></SelectTrigger>
               <SelectContent>
-                {categories.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
-                ))}
+                {categories.map((c) => (<SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>))}
               </SelectContent>
             </Select>
           </div>
           <div>
             <Label>Кратко (необязательно)</Label>
-            <Input
-              value={escalateSubject}
-              onChange={(e) => setEscalateSubject(e.target.value)}
-              placeholder="Тема обращения"
-              maxLength={120}
-            />
+            <Input value={escalateSubject} onChange={(e) => setEscalateSubject(e.target.value)} placeholder="Тема обращения" maxLength={120} />
           </div>
           <div className="rounded-lg bg-secondary/40 p-3 text-xs text-muted-foreground">
             История чата с AI будет передана менеджеру вместе с вашим обращением.
