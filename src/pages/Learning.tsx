@@ -368,9 +368,17 @@ const Learning: React.FC = () => {
             <DialogTitle>{selectedLesson?.title}</DialogTitle>
           </DialogHeader>
 
-          {selectedLesson && (
+          {selectedLesson && (() => {
+            const lessonProgress = getProgress(selectedLesson.id);
+            const alreadyCompleted = lessonProgress?.status === 'completed';
+            return (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">{selectedLesson.summary}</p>
+              {alreadyCompleted && (
+                <div className="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">
+                  ✓ Часть уже пройдена. Можно перечитать материал — повторные XP не начисляются.
+                </div>
+              )}
 
               {selectedBlocks.map((block) => (
                 <div key={block.id} className="rounded-xl border border-border p-4 bg-secondary/20">
