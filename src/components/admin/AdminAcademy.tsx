@@ -395,14 +395,15 @@ const AdminAcademy: React.FC = () => {
       <div className="rounded-xl border border-border p-4 space-y-3">
         <div className="flex items-center gap-2">
           <ListOrdered className="w-5 h-5 text-accent" />
-          <h3 className="font-semibold">Уроки</h3>
+          <h3 className="font-semibold">Части главы</h3>
+          <span className="text-xs text-muted-foreground">(каждая часть = урок)</span>
         </div>
         <div className="grid md:grid-cols-[1.3fr_1fr_120px_120px_auto] gap-3">
-          <Input value={newLessonTitle} onChange={e => setNewLessonTitle(e.target.value)} placeholder="Название" disabled={!selectedCourseId} />
-          <Input value={newLessonSummary} onChange={e => setNewLessonSummary(e.target.value)} placeholder="Описание" disabled={!selectedCourseId} />
+          <Input value={newLessonTitle} onChange={e => setNewLessonTitle(e.target.value)} placeholder="Название части" disabled={!selectedCourseId} />
+          <Input value={newLessonSummary} onChange={e => setNewLessonSummary(e.target.value)} placeholder="Краткое описание" disabled={!selectedCourseId} />
           <Input value={newLessonDifficulty} onChange={e => setNewLessonDifficulty(e.target.value)} placeholder="Сложн. 1-5" disabled={!selectedCourseId} />
           <Input value={newLessonXpBase} onChange={e => setNewLessonXpBase(e.target.value)} placeholder="XP база" disabled={!selectedCourseId} />
-          <Button onClick={() => void createLesson()} disabled={!selectedCourseId}><Plus className="w-4 h-4 mr-2" />Урок</Button>
+          <Button onClick={() => void createLesson()} disabled={!selectedCourseId}><Plus className="w-4 h-4 mr-2" />Часть</Button>
         </div>
         <div className="grid md:grid-cols-2 gap-2">
           {selectedCourseLessons.map(lesson => (
