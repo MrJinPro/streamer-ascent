@@ -336,17 +336,15 @@ const Learning: React.FC = () => {
                 <Clock className="w-4 h-4" />
                 {lesson.estimated_minutes} мин
               </div>
-              {!isCompleted && (
-                <button
-                  className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-                  onClick={() => setSelectedLesson(lesson)}
-                >
-                  Открыть →
-                </button>
-              )}
-              {isCompleted && (
-                <span className="text-sm text-success">✓ Пройдено</span>
-              )}
+              <button
+                className={cn(
+                  "text-sm font-medium transition-colors",
+                  isCompleted ? "text-success hover:text-success/80" : "text-primary hover:text-primary/80"
+                )}
+                onClick={() => setSelectedLesson(lesson)}
+              >
+                {isCompleted ? 'Повторить ↺' : 'Открыть →'}
+              </button>
             </div>
           </div>
             );
