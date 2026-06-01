@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Plus, BookOpen, ListOrdered, GripVertical, Trash2, Eye, EyeOff, Pencil, Check, X } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Plus, BookOpen, ListOrdered, GripVertical, Trash2, Eye, EyeOff, Pencil, Check, X, ClipboardPaste } from 'lucide-react';
+import { sanitizeHtml } from '@/lib/safeHtml';
 import { supabasePublic } from '@/integrations/supabase/publicClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -100,8 +101,10 @@ const AdminAcademy: React.FC = () => {
   const [newBlockType, setNewBlockType] = useState<BlockType>('text');
   const [newBlockTitle, setNewBlockTitle] = useState('');
   const [newBlockContentJson, setNewBlockContentJson] = useState('{\n  "body": ""\n}');
-  const [editorMode, setEditorMode] = useState<'block' | 'html'>('block');
+  const [editorMode, setEditorMode] = useState<'rich' | 'block' | 'html'>('rich');
   const [htmlBuffer, setHtmlBuffer] = useState('<p>...</p>');
+  const richRef = useRef<HTMLDivElement | null>(null);
+  const [richHtml, setRichHtml] = useState('');
 
   const [draggingBlockId, setDraggingBlockId] = useState<string | null>(null);
 
@@ -192,6 +195,11 @@ const AdminAcademy: React.FC = () => {
     if (editorMode === 'html') {
       content = { html: htmlBuffer };
       blockType = 'html';
+    } else if (editorMode === 'rich') {
+      const html = (richRef.current?.innerHTML ?? richHtml).trim();
+      if (!html) { toast({ title: 'Пустой контент', variant: 'destructive' }); return; }
+      content = { html: sanitizeHtml(html) };
+      blockType = 'html';
     } else {
       try { content = JSON.parse(newBlockContentJson); }
       catch { toast({ title: 'Некорректный JSON', variant: 'destructive' }); return; }
@@ -208,8 +216,44 @@ const AdminAcademy: React.FC = () => {
     setNewBlockTitle('');
     setNewBlockContentJson(JSON.stringify(defaultBlockContent(newBlockType), null, 2));
     setHtmlBuffer('<p>...</p>');
+    setRichHtml('');
+    if (richRef.current) richRef.current.innerHTML = '';
     toast({ title: 'Блок добавлен' });
     await loadData();
+  };
+
+  const createPartWithContent = async () => {
+    if (!selectedCourseId) return;
+    const html = (richRef.current?.innerHTML ?? richHtml).trim();
+    const title = newBlockTitle.trim() || newLessonTitle.trim();
+    if (!title) { toast({ title: 'Укажите название части', variant: 'destructive' }); return; }
+    if (!html) { toast({ title: 'Вставьте контент', variant: 'destructive' }); return; }
+    const { data: lesson, error: lessonError } = await supabasePublic.from('academy_lessons').insert({
+      course_id: selectedCourseId,
+      title,
+      summary: newLessonSummary.trim() || null,
+      order_index: selectedCourseLessons.length,
+      difficulty: Number(newLessonDifficulty) || 1,
+      xp_base: Number(newLessonXpBase) || 50,
+      required_video_percent: 0,
+      is_published: true,
+    }).select('id').single();
+    if (lessonError || !lesson) { toast({ title: 'Не создана часть', description: lessonError?.message, variant: 'destructive' }); return; }
+    const { error: blockError } = await supabasePublic.from('academy_blocks').insert({
+      lesson_id: lesson.id,
+      block_type: 'html',
+      title,
+      content: { html: sanitizeHtml(html) },
+      order_index: 0,
+      required: true,
+    });
+    if (blockError) { toast({ title: 'Часть создана, но блок не сохранён', description: blockError.message, variant: 'destructive' }); }
+    else { toast({ title: 'Часть добавлена с контентом' }); }
+    setNewBlockTitle(''); setNewLessonTitle(''); setNewLessonSummary('');
+    setRichHtml('');
+    if (richRef.current) richRef.current.innerHTML = '';
+    await loadData();
+    setSelectedLessonId(lesson.id);
   };
 
   const toggleCoursePublished = async (id: string, next: boolean) => {
@@ -297,12 +341,13 @@ const AdminAcademy: React.FC = () => {
       <div className="rounded-xl border border-border p-4 space-y-3">
         <div className="flex items-center gap-2">
           <BookOpen className="w-5 h-5 text-primary" />
-          <h3 className="font-semibold">Курсы</h3>
+          <h3 className="font-semibold">Главы курса</h3>
+          <span className="text-xs text-muted-foreground">(каждая глава = курс с частями)</span>
         </div>
         <div className="grid md:grid-cols-[1fr_1fr_auto] gap-3">
-          <Input value={newCourseTitle} onChange={e => setNewCourseTitle(e.target.value)} placeholder="Название курса" />
-          <Input value={newCourseDescription} onChange={e => setNewCourseDescription(e.target.value)} placeholder="Описание" />
-          <Button onClick={() => void createCourse()}><Plus className="w-4 h-4 mr-2" />Курс</Button>
+          <Input value={newCourseTitle} onChange={e => setNewCourseTitle(e.target.value)} placeholder="Название главы" />
+          <Input value={newCourseDescription} onChange={e => setNewCourseDescription(e.target.value)} placeholder="Описание главы" />
+          <Button onClick={() => void createCourse()}><Plus className="w-4 h-4 mr-2" />Глава</Button>
         </div>
         <div className="grid md:grid-cols-2 gap-2">
           {courses.map(course => (
@@ -350,14 +395,15 @@ const AdminAcademy: React.FC = () => {
       <div className="rounded-xl border border-border p-4 space-y-3">
         <div className="flex items-center gap-2">
           <ListOrdered className="w-5 h-5 text-accent" />
-          <h3 className="font-semibold">Уроки</h3>
+          <h3 className="font-semibold">Части главы</h3>
+          <span className="text-xs text-muted-foreground">(каждая часть = урок)</span>
         </div>
         <div className="grid md:grid-cols-[1.3fr_1fr_120px_120px_auto] gap-3">
-          <Input value={newLessonTitle} onChange={e => setNewLessonTitle(e.target.value)} placeholder="Название" disabled={!selectedCourseId} />
-          <Input value={newLessonSummary} onChange={e => setNewLessonSummary(e.target.value)} placeholder="Описание" disabled={!selectedCourseId} />
+          <Input value={newLessonTitle} onChange={e => setNewLessonTitle(e.target.value)} placeholder="Название части" disabled={!selectedCourseId} />
+          <Input value={newLessonSummary} onChange={e => setNewLessonSummary(e.target.value)} placeholder="Краткое описание" disabled={!selectedCourseId} />
           <Input value={newLessonDifficulty} onChange={e => setNewLessonDifficulty(e.target.value)} placeholder="Сложн. 1-5" disabled={!selectedCourseId} />
           <Input value={newLessonXpBase} onChange={e => setNewLessonXpBase(e.target.value)} placeholder="XP база" disabled={!selectedCourseId} />
-          <Button onClick={() => void createLesson()} disabled={!selectedCourseId}><Plus className="w-4 h-4 mr-2" />Урок</Button>
+          <Button onClick={() => void createLesson()} disabled={!selectedCourseId}><Plus className="w-4 h-4 mr-2" />Часть</Button>
         </div>
         <div className="grid md:grid-cols-2 gap-2">
           {selectedCourseLessons.map(lesson => (
@@ -406,8 +452,12 @@ const AdminAcademy: React.FC = () => {
       {/* Block editor */}
       <div className="rounded-xl border border-border p-4 space-y-3">
         <div className="flex items-center justify-between gap-2 flex-wrap">
-          <h3 className="font-semibold">Конструктор блоков урока</h3>
+          <h3 className="font-semibold">Контент части</h3>
           <div className="flex gap-1 p-1 rounded-md bg-secondary">
+            <button
+              onClick={() => setEditorMode('rich')}
+              className={cn('px-3 py-1 text-xs rounded', editorMode === 'rich' ? 'bg-background shadow' : 'text-muted-foreground')}
+            >Богатый (вставка)</button>
             <button
               onClick={() => setEditorMode('block')}
               className={cn('px-3 py-1 text-xs rounded', editorMode === 'block' ? 'bg-background shadow' : 'text-muted-foreground')}
@@ -419,7 +469,40 @@ const AdminAcademy: React.FC = () => {
           </div>
         </div>
 
-        {editorMode === 'block' ? (
+        {editorMode === 'rich' && (
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <ClipboardPaste className="w-4 h-4" />
+              Вставьте контент (Ctrl+V) — из Lark, Notion, Google Docs. Сохранятся заголовки, таблицы, изображения, форматирование.
+            </Label>
+            <Input
+              value={newBlockTitle}
+              onChange={e => setNewBlockTitle(e.target.value)}
+              placeholder="Заголовок части (для новой части или подписи блока)"
+            />
+            <div
+              ref={richRef}
+              contentEditable
+              suppressContentEditableWarning
+              onInput={e => setRichHtml((e.target as HTMLDivElement).innerHTML)}
+              className="min-h-[220px] max-h-[480px] overflow-y-auto rounded-lg border border-border bg-background p-4 prose prose-invert prose-sm max-w-none focus:outline-none focus:ring-2 focus:ring-primary"
+              data-placeholder="Сюда вставьте скопированный контент..."
+            />
+            <div className="flex gap-2 flex-wrap">
+              <Button onClick={() => void createBlock()} disabled={!selectedLessonId} variant="outline">
+                <Plus className="w-4 h-4 mr-2" />Добавить в текущую часть
+              </Button>
+              <Button onClick={() => void createPartWithContent()} disabled={!selectedCourseId}>
+                <Plus className="w-4 h-4 mr-2" />Создать новую часть с этим контентом
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Опасные теги (script, обработчики on*) автоматически удаляются. Картинки и таблицы из Lark сохраняются как есть.
+            </p>
+          </div>
+        )}
+
+        {editorMode === 'block' && (
           <div className="grid md:grid-cols-[200px_1fr_1fr_auto] gap-3">
             <div>
               <Label>Тип блока</Label>
@@ -444,7 +527,9 @@ const AdminAcademy: React.FC = () => {
               <Button onClick={() => void createBlock()} disabled={!selectedLessonId}><Plus className="w-4 h-4 mr-2" />Блок</Button>
             </div>
           </div>
-        ) : (
+        )}
+
+        {editorMode === 'html' && (
           <div className="space-y-2">
             <Label>HTML-разметка (теги script и обработчики on* удаляются автоматически)</Label>
             <Textarea value={htmlBuffer} onChange={e => setHtmlBuffer(e.target.value)} className="min-h-[180px] font-mono text-xs" disabled={!selectedLessonId} />
