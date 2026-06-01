@@ -101,8 +101,10 @@ const AdminAcademy: React.FC = () => {
   const [newBlockType, setNewBlockType] = useState<BlockType>('text');
   const [newBlockTitle, setNewBlockTitle] = useState('');
   const [newBlockContentJson, setNewBlockContentJson] = useState('{\n  "body": ""\n}');
-  const [editorMode, setEditorMode] = useState<'block' | 'html'>('block');
+  const [editorMode, setEditorMode] = useState<'rich' | 'block' | 'html'>('rich');
   const [htmlBuffer, setHtmlBuffer] = useState('<p>...</p>');
+  const richRef = useRef<HTMLDivElement | null>(null);
+  const [richHtml, setRichHtml] = useState('');
 
   const [draggingBlockId, setDraggingBlockId] = useState<string | null>(null);
 
