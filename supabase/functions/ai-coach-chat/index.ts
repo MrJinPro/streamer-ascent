@@ -391,7 +391,7 @@ Deno.serve(async (request: Request) => {
     return json(429, { error: 'Daily cost limit reached for this mode' });
   }
 
-  const [{ data: userContextRows, error: contextError }, { data: keyRows, error: keyError }] = await Promise.all([
+  const [{ data: userContextRows, error: contextError }, { data: keyRows, error: keyError }, academyData] = await Promise.all([
     adminClient.rpc('ai_build_user_context', { p_user_id: requester.id, p_mode_id: mode.id }),
     adminClient
       .from('ai_api_keys')
@@ -400,14 +400,32 @@ Deno.serve(async (request: Request) => {
       .eq('provider', mode.provider)
       .order('updated_at', { ascending: false })
       .limit(20),
+    (async () => {
+      const [{ data: lessons }, { data: blocks }] = await Promise.all([
+        adminClient.from('academy_lessons').select('id,title,summary,xp_base').eq('is_published', true).limit(60),
+        adminClient.from('academy_blocks').select('lesson_id,block_type,title,content').in('block_type', ['text', 'html', 'heading', 'quote']).limit(200),
+      ]);
+      return { lessons: lessons ?? [], blocks: blocks ?? [] };
+    })(),
   ]);
 
   if (contextError && !isSchemaCacheError(contextError)) {
     return json(500, { error: contextError.message });
   }
 
-  const userContext = contextError ? {} : (userContextRows ?? {});
+  const academyDigest = (academyData.lessons as Array<{ id: string; title: string; summary: string | null; xp_base: number }>).slice(0, 30).map((l) => {
+    const lessonBlocks = (academyData.blocks as Array<{ lesson_id: string; block_type: string; title: string | null; content: Record<string, unknown> }>)
+      .filter((b) => b.lesson_id === l.id)
+      .slice(0, 3)
+      .map((b) => String((b.content as { body?: string; html?: string })?.body ?? (b.content as { html?: string })?.html ?? '').replace(/<[^>]+>/g, ' ').slice(0, 400))
+      .filter(Boolean)
+      .join(' | ');
+    return { title: l.title, summary: l.summary, xp: l.xp_base, excerpt: lessonBlocks.slice(0, 600) };
+  });
+
+  const userContext = contextError ? { academy_materials: academyDigest } : { ...(userContextRows ?? {}), academy_materials: academyDigest };
   const keyCandidates = keyError ? [] : orderKeysForMode((keyRows ?? []) as ApiKeyCandidate[], mode.key_alias ?? null);
+
 
   let policySources: PolicyResult[] = [];
   if (mode.id === 'tiktok_qa') {
