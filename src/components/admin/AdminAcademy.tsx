@@ -452,8 +452,12 @@ const AdminAcademy: React.FC = () => {
       {/* Block editor */}
       <div className="rounded-xl border border-border p-4 space-y-3">
         <div className="flex items-center justify-between gap-2 flex-wrap">
-          <h3 className="font-semibold">Конструктор блоков урока</h3>
+          <h3 className="font-semibold">Контент части</h3>
           <div className="flex gap-1 p-1 rounded-md bg-secondary">
+            <button
+              onClick={() => setEditorMode('rich')}
+              className={cn('px-3 py-1 text-xs rounded', editorMode === 'rich' ? 'bg-background shadow' : 'text-muted-foreground')}
+            >Богатый (вставка)</button>
             <button
               onClick={() => setEditorMode('block')}
               className={cn('px-3 py-1 text-xs rounded', editorMode === 'block' ? 'bg-background shadow' : 'text-muted-foreground')}
@@ -465,7 +469,40 @@ const AdminAcademy: React.FC = () => {
           </div>
         </div>
 
-        {editorMode === 'block' ? (
+        {editorMode === 'rich' && (
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <ClipboardPaste className="w-4 h-4" />
+              Вставьте контент (Ctrl+V) — из Lark, Notion, Google Docs. Сохранятся заголовки, таблицы, изображения, форматирование.
+            </Label>
+            <Input
+              value={newBlockTitle}
+              onChange={e => setNewBlockTitle(e.target.value)}
+              placeholder="Заголовок части (для новой части или подписи блока)"
+            />
+            <div
+              ref={richRef}
+              contentEditable
+              suppressContentEditableWarning
+              onInput={e => setRichHtml((e.target as HTMLDivElement).innerHTML)}
+              className="min-h-[220px] max-h-[480px] overflow-y-auto rounded-lg border border-border bg-background p-4 prose prose-invert prose-sm max-w-none focus:outline-none focus:ring-2 focus:ring-primary"
+              data-placeholder="Сюда вставьте скопированный контент..."
+            />
+            <div className="flex gap-2 flex-wrap">
+              <Button onClick={() => void createBlock()} disabled={!selectedLessonId} variant="outline">
+                <Plus className="w-4 h-4 mr-2" />Добавить в текущую часть
+              </Button>
+              <Button onClick={() => void createPartWithContent()} disabled={!selectedCourseId}>
+                <Plus className="w-4 h-4 mr-2" />Создать новую часть с этим контентом
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Опасные теги (script, обработчики on*) автоматически удаляются. Картинки и таблицы из Lark сохраняются как есть.
+            </p>
+          </div>
+        )}
+
+        {editorMode === 'block' && (
           <div className="grid md:grid-cols-[200px_1fr_1fr_auto] gap-3">
             <div>
               <Label>Тип блока</Label>
@@ -490,7 +527,9 @@ const AdminAcademy: React.FC = () => {
               <Button onClick={() => void createBlock()} disabled={!selectedLessonId}><Plus className="w-4 h-4 mr-2" />Блок</Button>
             </div>
           </div>
-        ) : (
+        )}
+
+        {editorMode === 'html' && (
           <div className="space-y-2">
             <Label>HTML-разметка (теги script и обработчики on* удаляются автоматически)</Label>
             <Textarea value={htmlBuffer} onChange={e => setHtmlBuffer(e.target.value)} className="min-h-[180px] font-mono text-xs" disabled={!selectedLessonId} />
