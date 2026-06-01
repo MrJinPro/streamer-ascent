@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Plus, BookOpen, ListOrdered, GripVertical, Trash2, Eye, EyeOff, Pencil, Check, X } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Plus, BookOpen, ListOrdered, GripVertical, Trash2, Eye, EyeOff, Pencil, Check, X, ClipboardPaste } from 'lucide-react';
+import { sanitizeHtml } from '@/lib/safeHtml';
 import { supabasePublic } from '@/integrations/supabase/publicClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
