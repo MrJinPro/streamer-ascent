@@ -195,6 +195,11 @@ const AdminAcademy: React.FC = () => {
     if (editorMode === 'html') {
       content = { html: htmlBuffer };
       blockType = 'html';
+    } else if (editorMode === 'rich') {
+      const html = (richRef.current?.innerHTML ?? richHtml).trim();
+      if (!html) { toast({ title: 'Пустой контент', variant: 'destructive' }); return; }
+      content = { html: sanitizeHtml(html) };
+      blockType = 'html';
     } else {
       try { content = JSON.parse(newBlockContentJson); }
       catch { toast({ title: 'Некорректный JSON', variant: 'destructive' }); return; }
@@ -211,8 +216,44 @@ const AdminAcademy: React.FC = () => {
     setNewBlockTitle('');
     setNewBlockContentJson(JSON.stringify(defaultBlockContent(newBlockType), null, 2));
     setHtmlBuffer('<p>...</p>');
+    setRichHtml('');
+    if (richRef.current) richRef.current.innerHTML = '';
     toast({ title: 'Блок добавлен' });
     await loadData();
+  };
+
+  const createPartWithContent = async () => {
+    if (!selectedCourseId) return;
+    const html = (richRef.current?.innerHTML ?? richHtml).trim();
+    const title = newBlockTitle.trim() || newLessonTitle.trim();
+    if (!title) { toast({ title: 'Укажите название части', variant: 'destructive' }); return; }
+    if (!html) { toast({ title: 'Вставьте контент', variant: 'destructive' }); return; }
+    const { data: lesson, error: lessonError } = await supabasePublic.from('academy_lessons').insert({
+      course_id: selectedCourseId,
+      title,
+      summary: newLessonSummary.trim() || null,
+      order_index: selectedCourseLessons.length,
+      difficulty: Number(newLessonDifficulty) || 1,
+      xp_base: Number(newLessonXpBase) || 50,
+      required_video_percent: 0,
+      is_published: true,
+    }).select('id').single();
+    if (lessonError || !lesson) { toast({ title: 'Не создана часть', description: lessonError?.message, variant: 'destructive' }); return; }
+    const { error: blockError } = await supabasePublic.from('academy_blocks').insert({
+      lesson_id: lesson.id,
+      block_type: 'html',
+      title,
+      content: { html: sanitizeHtml(html) },
+      order_index: 0,
+      required: true,
+    });
+    if (blockError) { toast({ title: 'Часть создана, но блок не сохранён', description: blockError.message, variant: 'destructive' }); }
+    else { toast({ title: 'Часть добавлена с контентом' }); }
+    setNewBlockTitle(''); setNewLessonTitle(''); setNewLessonSummary('');
+    setRichHtml('');
+    if (richRef.current) richRef.current.innerHTML = '';
+    await loadData();
+    setSelectedLessonId(lesson.id);
   };
 
   const toggleCoursePublished = async (id: string, next: boolean) => {
