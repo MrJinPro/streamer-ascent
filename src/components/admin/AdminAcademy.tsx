@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Plus, BookOpen, ListOrdered, GripVertical, Save } from 'lucide-react';
+import { Plus, BookOpen, ListOrdered, GripVertical, Trash2, Eye, EyeOff, Pencil, Check, X } from 'lucide-react';
 import { supabasePublic } from '@/integrations/supabase/publicClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,21 +30,30 @@ type AcademyLesson = {
   is_published: boolean;
 };
 
+type BlockType =
+  | 'video' | 'text' | 'html' | 'heading' | 'quote' | 'image' | 'gallery'
+  | 'file' | 'divider' | 'checklist' | 'quiz' | 'cta' | 'reward' | 'task';
+
 type AcademyBlock = {
   id: string;
   lesson_id: string;
-  block_type: 'video' | 'text' | 'image' | 'gallery' | 'checklist' | 'quiz' | 'cta' | 'reward' | 'task';
+  block_type: BlockType;
   title: string | null;
   content: Record<string, unknown>;
   order_index: number;
   required: boolean;
 };
 
-const blockTypeLabels: Record<AcademyBlock['block_type'], string> = {
+const blockTypeLabels: Record<BlockType, string> = {
   video: 'Видео',
-  text: 'Текст',
+  text: 'Текст (Markdown)',
+  html: 'HTML',
+  heading: 'Заголовок',
+  quote: 'Цитата',
   image: 'Изображение',
   gallery: 'Галерея',
+  file: 'Файл',
+  divider: 'Разделитель',
   checklist: 'Чеклист',
   quiz: 'Квиз',
   cta: 'CTA',
@@ -52,28 +61,22 @@ const blockTypeLabels: Record<AcademyBlock['block_type'], string> = {
   task: 'Задание',
 };
 
-const defaultBlockContent = (type: AcademyBlock['block_type']): Record<string, unknown> => {
+const defaultBlockContent = (type: BlockType): Record<string, unknown> => {
   switch (type) {
-    case 'video':
-      return { url: '', minPercent: 70 };
-    case 'text':
-      return { body: '' };
-    case 'image':
-      return { url: '', caption: '' };
-    case 'gallery':
-      return { images: [] };
-    case 'checklist':
-      return { items: [{ text: '', required: true }] };
-    case 'quiz':
-      return { question: '', options: ['', '', ''], answerIndex: 0 };
-    case 'cta':
-      return { label: 'Открыть', actionUrl: '' };
-    case 'reward':
-      return { rewardType: 'xp', value: 50 };
-    case 'task':
-      return { title: 'Провести стрим 60 минут', verificationType: 'stream_minutes', minutes: 60 };
-    default:
-      return {};
+    case 'video': return { url: '', minPercent: 70 };
+    case 'text': return { body: '', font: 'sans', align: 'left' };
+    case 'html': return { html: '<p>Вставь HTML — теги script и on* будут вырезаны.</p>' };
+    case 'heading': return { body: 'Заголовок раздела', level: 2 };
+    case 'quote': return { body: 'Цитата', author: '' };
+    case 'image': return { url: '', caption: '' };
+    case 'gallery': return { images: [] };
+    case 'file': return { url: '', caption: 'Файл' };
+    case 'divider': return {};
+    case 'checklist': return { items: [{ text: '', required: true }] };
+    case 'quiz': return { question: '', options: ['', '', ''], answerIndex: 0 };
+    case 'cta': return { label: 'Открыть', actionUrl: '' };
+    case 'reward': return { rewardType: 'xp', value: 50 };
+    case 'task': return { title: 'Провести стрим 60 минут', verificationType: 'stream_minutes', minutes: 60 };
   }
 };
 
@@ -94,209 +97,203 @@ const AdminAcademy: React.FC = () => {
   const [newLessonDifficulty, setNewLessonDifficulty] = useState('1');
   const [newLessonXpBase, setNewLessonXpBase] = useState('50');
 
-  const [newBlockType, setNewBlockType] = useState<AcademyBlock['block_type']>('text');
+  const [newBlockType, setNewBlockType] = useState<BlockType>('text');
   const [newBlockTitle, setNewBlockTitle] = useState('');
   const [newBlockContentJson, setNewBlockContentJson] = useState('{\n  "body": ""\n}');
+  const [editorMode, setEditorMode] = useState<'block' | 'html'>('block');
+  const [htmlBuffer, setHtmlBuffer] = useState('<p>...</p>');
 
   const [draggingBlockId, setDraggingBlockId] = useState<string | null>(null);
 
+  const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
+  const [editCourseDraft, setEditCourseDraft] = useState({ title: '', description: '' });
+  const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
+  const [editLessonDraft, setEditLessonDraft] = useState({ title: '', summary: '', xp_base: 50 });
+
   const selectedCourseLessons = useMemo(
-    () => lessons.filter(lesson => lesson.course_id === selectedCourseId).sort((a, b) => a.order_index - b.order_index),
+    () => lessons.filter(l => l.course_id === selectedCourseId).sort((a, b) => a.order_index - b.order_index),
     [lessons, selectedCourseId],
   );
-
   const selectedLessonBlocks = useMemo(
-    () => blocks.filter(block => block.lesson_id === selectedLessonId).sort((a, b) => a.order_index - b.order_index),
+    () => blocks.filter(b => b.lesson_id === selectedLessonId).sort((a, b) => a.order_index - b.order_index),
     [blocks, selectedLessonId],
   );
 
   const loadData = async () => {
     setLoading(true);
-
-    const [{ data: coursesData, error: coursesError }, { data: lessonsData, error: lessonsError }, { data: blocksData, error: blocksError }] = await Promise.all([
-      supabasePublic.from('academy_courses').select('*').order('order_index', { ascending: true }),
-      supabasePublic.from('academy_lessons').select('*').order('order_index', { ascending: true }),
-      supabasePublic.from('academy_blocks').select('*').order('order_index', { ascending: true }),
+    const [c, l, b] = await Promise.all([
+      supabasePublic.from('academy_courses').select('*').order('order_index'),
+      supabasePublic.from('academy_lessons').select('*').order('order_index'),
+      supabasePublic.from('academy_blocks').select('*').order('order_index'),
     ]);
-
-    if (coursesError || lessonsError || blocksError) {
-      toast({
-        title: 'Ошибка загрузки academy',
-        description: coursesError?.message || lessonsError?.message || blocksError?.message || 'Не удалось загрузить данные',
-        variant: 'destructive',
-      });
+    if (c.error || l.error || b.error) {
+      toast({ title: 'Ошибка загрузки', description: c.error?.message || l.error?.message || b.error?.message, variant: 'destructive' });
       setLoading(false);
       return;
     }
-
-    setCourses((coursesData ?? []) as AcademyCourse[]);
-    setLessons((lessonsData ?? []) as AcademyLesson[]);
-    setBlocks((blocksData ?? []) as AcademyBlock[]);
-
-    if (!selectedCourseId && (coursesData ?? []).length > 0) {
-      setSelectedCourseId((coursesData ?? [])[0].id);
-    }
-
+    setCourses((c.data ?? []) as AcademyCourse[]);
+    setLessons((l.data ?? []) as AcademyLesson[]);
+    setBlocks((b.data ?? []) as AcademyBlock[]);
+    if (!selectedCourseId && (c.data ?? []).length > 0) setSelectedCourseId((c.data ?? [])[0].id);
     setLoading(false);
   };
 
-  useEffect(() => {
-    void loadData();
-  }, []);
+  useEffect(() => { void loadData(); }, []);
 
   useEffect(() => {
-    if (!selectedCourseId) {
-      setSelectedLessonId('');
-      return;
-    }
-
+    if (!selectedCourseId) { setSelectedLessonId(''); return; }
     const lesson = selectedCourseLessons[0];
     if (lesson && !selectedCourseLessons.some(item => item.id === selectedLessonId)) {
       setSelectedLessonId(lesson.id);
     }
   }, [selectedCourseId, selectedCourseLessons, selectedLessonId]);
 
+  useEffect(() => {
+    setNewBlockContentJson(JSON.stringify(defaultBlockContent(newBlockType), null, 2));
+  }, [newBlockType]);
+
   const createCourse = async () => {
     if (!newCourseTitle.trim()) return;
-
-    const orderIndex = courses.length;
-
     const { error } = await supabasePublic.from('academy_courses').insert({
       title: newCourseTitle.trim(),
       description: newCourseDescription.trim() || null,
-      order_index: orderIndex,
+      order_index: courses.length,
       is_published: true,
       difficulty: 1,
     });
-
-    if (error) {
-      toast({ title: 'Не удалось создать курс', description: error.message, variant: 'destructive' });
-      return;
-    }
-
-    setNewCourseTitle('');
-    setNewCourseDescription('');
+    if (error) { toast({ title: 'Не создан', description: error.message, variant: 'destructive' }); return; }
+    setNewCourseTitle(''); setNewCourseDescription('');
     toast({ title: 'Курс создан' });
     await loadData();
   };
 
   const createLesson = async () => {
     if (!selectedCourseId || !newLessonTitle.trim()) return;
-
-    const orderIndex = selectedCourseLessons.length;
-
     const { error } = await supabasePublic.from('academy_lessons').insert({
       course_id: selectedCourseId,
       title: newLessonTitle.trim(),
       summary: newLessonSummary.trim() || null,
-      order_index: orderIndex,
+      order_index: selectedCourseLessons.length,
       difficulty: Number(newLessonDifficulty) || 1,
       xp_base: Number(newLessonXpBase) || 50,
       required_video_percent: 70,
       is_published: true,
     });
-
-    if (error) {
-      toast({ title: 'Не удалось создать урок', description: error.message, variant: 'destructive' });
-      return;
-    }
-
-    setNewLessonTitle('');
-    setNewLessonSummary('');
-    setNewLessonDifficulty('1');
-    setNewLessonXpBase('50');
+    if (error) { toast({ title: 'Не создан', description: error.message, variant: 'destructive' }); return; }
+    setNewLessonTitle(''); setNewLessonSummary(''); setNewLessonDifficulty('1'); setNewLessonXpBase('50');
     toast({ title: 'Урок создан' });
     await loadData();
   };
 
   const createBlock = async () => {
     if (!selectedLessonId) return;
-
-    let parsedContent: Record<string, unknown>;
-    try {
-      parsedContent = JSON.parse(newBlockContentJson);
-    } catch {
-      toast({ title: 'Некорректный JSON', description: 'Проверь формат содержимого блока', variant: 'destructive' });
-      return;
+    let content: Record<string, unknown>;
+    let blockType: BlockType = newBlockType;
+    if (editorMode === 'html') {
+      content = { html: htmlBuffer };
+      blockType = 'html';
+    } else {
+      try { content = JSON.parse(newBlockContentJson); }
+      catch { toast({ title: 'Некорректный JSON', variant: 'destructive' }); return; }
     }
-
-    const orderIndex = selectedLessonBlocks.length;
-
     const { error } = await supabasePublic.from('academy_blocks').insert({
       lesson_id: selectedLessonId,
-      block_type: newBlockType,
+      block_type: blockType,
       title: newBlockTitle.trim() || null,
-      content: parsedContent,
-      order_index: orderIndex,
+      content,
+      order_index: selectedLessonBlocks.length,
       required: true,
     });
-
-    if (error) {
-      toast({ title: 'Не удалось создать блок', description: error.message, variant: 'destructive' });
-      return;
-    }
-
+    if (error) { toast({ title: 'Не создан блок', description: error.message, variant: 'destructive' }); return; }
     setNewBlockTitle('');
     setNewBlockContentJson(JSON.stringify(defaultBlockContent(newBlockType), null, 2));
+    setHtmlBuffer('<p>...</p>');
     toast({ title: 'Блок добавлен' });
     await loadData();
   };
 
-  const toggleCoursePublished = async (courseId: string, next: boolean) => {
-    const { error } = await supabasePublic.from('academy_courses').update({ is_published: next }).eq('id', courseId);
-    if (error) {
-      toast({ title: 'Не удалось обновить курс', description: error.message, variant: 'destructive' });
-      return;
-    }
-
-    setCourses(prev => prev.map(item => item.id === courseId ? { ...item, is_published: next } : item));
+  const toggleCoursePublished = async (id: string, next: boolean) => {
+    const { error } = await supabasePublic.from('academy_courses').update({ is_published: next }).eq('id', id);
+    if (error) { toast({ title: 'Ошибка', description: error.message, variant: 'destructive' }); return; }
+    setCourses(prev => prev.map(c => c.id === id ? { ...c, is_published: next } : c));
   };
 
-  const toggleLessonPublished = async (lessonId: string, next: boolean) => {
-    const { error } = await supabasePublic.from('academy_lessons').update({ is_published: next }).eq('id', lessonId);
-    if (error) {
-      toast({ title: 'Не удалось обновить урок', description: error.message, variant: 'destructive' });
-      return;
-    }
-
-    setLessons(prev => prev.map(item => item.id === lessonId ? { ...item, is_published: next } : item));
+  const toggleLessonPublished = async (id: string, next: boolean) => {
+    const { error } = await supabasePublic.from('academy_lessons').update({ is_published: next }).eq('id', id);
+    if (error) { toast({ title: 'Ошибка', description: error.message, variant: 'destructive' }); return; }
+    setLessons(prev => prev.map(l => l.id === id ? { ...l, is_published: next } : l));
   };
 
-  const reorderBlocks = async (fromBlockId: string, toBlockId: string) => {
-    if (fromBlockId === toBlockId || !selectedLessonId) return;
+  const deleteCourse = async (id: string) => {
+    if (!confirm('Удалить курс и все его уроки/блоки/прогресс? Действие необратимо.')) return;
+    const { error } = await supabasePublic.rpc('academy_delete_course', { p_course_id: id });
+    if (error) { toast({ title: 'Не удалось удалить', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Курс удалён' });
+    if (selectedCourseId === id) setSelectedCourseId('');
+    await loadData();
+  };
 
+  const deleteLesson = async (id: string) => {
+    if (!confirm('Удалить урок и все его блоки/прогресс?')) return;
+    const { error } = await supabasePublic.rpc('academy_delete_lesson', { p_lesson_id: id });
+    if (error) { toast({ title: 'Не удалось удалить', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Урок удалён' });
+    if (selectedLessonId === id) setSelectedLessonId('');
+    await loadData();
+  };
+
+  const saveCourseEdit = async () => {
+    if (!editingCourseId) return;
+    const { error } = await supabasePublic.from('academy_courses').update({
+      title: editCourseDraft.title.trim(),
+      description: editCourseDraft.description.trim() || null,
+    }).eq('id', editingCourseId);
+    if (error) { toast({ title: 'Ошибка', description: error.message, variant: 'destructive' }); return; }
+    setEditingCourseId(null);
+    await loadData();
+  };
+
+  const saveLessonEdit = async () => {
+    if (!editingLessonId) return;
+    const { error } = await supabasePublic.from('academy_lessons').update({
+      title: editLessonDraft.title.trim(),
+      summary: editLessonDraft.summary.trim() || null,
+      xp_base: Number(editLessonDraft.xp_base) || 50,
+    }).eq('id', editingLessonId);
+    if (error) { toast({ title: 'Ошибка', description: error.message, variant: 'destructive' }); return; }
+    setEditingLessonId(null);
+    await loadData();
+  };
+
+  const reorderBlocks = async (from: string, to: string) => {
+    if (from === to) return;
     const ordered = [...selectedLessonBlocks];
-    const fromIndex = ordered.findIndex(item => item.id === fromBlockId);
-    const toIndex = ordered.findIndex(item => item.id === toBlockId);
-    if (fromIndex < 0 || toIndex < 0) return;
-
-    const [moved] = ordered.splice(fromIndex, 1);
-    ordered.splice(toIndex, 0, moved);
-
-    const payload = ordered.map((item, index) => ({ id: item.id, order_index: index }));
-
+    const fi = ordered.findIndex(o => o.id === from);
+    const ti = ordered.findIndex(o => o.id === to);
+    if (fi < 0 || ti < 0) return;
+    const [m] = ordered.splice(fi, 1);
+    ordered.splice(ti, 0, m);
+    const payload = ordered.map((it, i) => ({ id: it.id, order_index: i }));
     const { error } = await supabasePublic.from('academy_blocks').upsert(payload, { onConflict: 'id' });
-    if (error) {
-      toast({ title: 'Не удалось изменить порядок блоков', description: error.message, variant: 'destructive' });
-      return;
-    }
-
+    if (error) { toast({ title: 'Ошибка', description: error.message, variant: 'destructive' }); return; }
     setBlocks(prev => prev.map(item => {
-      const found = payload.find(p => p.id === item.id);
-      return found ? { ...item, order_index: found.order_index } : item;
+      const f = payload.find(p => p.id === item.id);
+      return f ? { ...item, order_index: f.order_index } : item;
     }));
   };
 
-  useEffect(() => {
-    setNewBlockContentJson(JSON.stringify(defaultBlockContent(newBlockType), null, 2));
-  }, [newBlockType]);
+  const deleteBlock = async (id: string) => {
+    if (!confirm('Удалить блок?')) return;
+    const { error } = await supabasePublic.from('academy_blocks').delete().eq('id', id);
+    if (error) { toast({ title: 'Ошибка', description: error.message, variant: 'destructive' }); return; }
+    setBlocks(prev => prev.filter(b => b.id !== id));
+  };
 
-  if (loading) {
-    return <div className="rounded-xl border border-border p-6 text-sm text-muted-foreground">Загрузка academy...</div>;
-  }
+  if (loading) return <div className="rounded-xl border border-border p-6 text-sm text-muted-foreground">Загрузка...</div>;
 
   return (
     <div className="space-y-6">
+      {/* Courses */}
       <div className="rounded-xl border border-border p-4 space-y-3">
         <div className="flex items-center gap-2">
           <BookOpen className="w-5 h-5 text-primary" />
@@ -304,114 +301,157 @@ const AdminAcademy: React.FC = () => {
         </div>
         <div className="grid md:grid-cols-[1fr_1fr_auto] gap-3">
           <Input value={newCourseTitle} onChange={e => setNewCourseTitle(e.target.value)} placeholder="Название курса" />
-          <Input value={newCourseDescription} onChange={e => setNewCourseDescription(e.target.value)} placeholder="Краткое описание" />
+          <Input value={newCourseDescription} onChange={e => setNewCourseDescription(e.target.value)} placeholder="Описание" />
           <Button onClick={() => void createCourse()}><Plus className="w-4 h-4 mr-2" />Курс</Button>
         </div>
         <div className="grid md:grid-cols-2 gap-2">
           {courses.map(course => (
-            <button
+            <div
               key={course.id}
-              onClick={() => setSelectedCourseId(course.id)}
-              className={cn(
-                'text-left rounded-lg border p-3 transition-colors',
-                selectedCourseId === course.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-secondary/40',
-              )}
+              className={cn('rounded-lg border p-3', selectedCourseId === course.id ? 'border-primary bg-primary/5' : 'border-border')}
             >
-              <div className="flex items-center justify-between gap-2">
-                <p className="font-medium truncate">{course.title}</p>
-                <button
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    void toggleCoursePublished(course.id, !course.is_published);
-                  }}
-                  className={cn('text-xs px-2 py-1 rounded-full', course.is_published ? 'bg-success/20 text-success' : 'bg-muted text-muted-foreground')}
-                >
-                  {course.is_published ? 'Опубликован' : 'Черновик'}
-                </button>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{course.description || 'Без описания'}</p>
-            </button>
+              {editingCourseId === course.id ? (
+                <div className="space-y-2">
+                  <Input value={editCourseDraft.title} onChange={e => setEditCourseDraft(d => ({ ...d, title: e.target.value }))} placeholder="Название" />
+                  <Input value={editCourseDraft.description} onChange={e => setEditCourseDraft(d => ({ ...d, description: e.target.value }))} placeholder="Описание" />
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => void saveCourseEdit()}><Check className="w-3 h-3 mr-1" />Сохранить</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditingCourseId(null)}><X className="w-3 h-3" /></Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <button onClick={() => setSelectedCourseId(course.id)} className="text-left w-full">
+                    <p className="font-medium truncate">{course.title}</p>
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{course.description || 'Без описания'}</p>
+                  </button>
+                  <div className="flex items-center gap-1 mt-2">
+                    <Button size="sm" variant="ghost" onClick={() => { setEditingCourseId(course.id); setEditCourseDraft({ title: course.title, description: course.description ?? '' }); }}>
+                      <Pencil className="w-3 h-3" />
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => void toggleCoursePublished(course.id, !course.is_published)}>
+                      {course.is_published ? <Eye className="w-3 h-3 text-success" /> : <EyeOff className="w-3 h-3 text-muted-foreground" />}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => void deleteCourse(course.id)}>
+                      <Trash2 className="w-3 h-3 text-destructive" />
+                    </Button>
+                    <span className={cn('ml-auto text-xs px-2 py-0.5 rounded-full', course.is_published ? 'bg-success/20 text-success' : 'bg-muted text-muted-foreground')}>
+                      {course.is_published ? 'Опубликован' : 'Скрыт'}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
           ))}
         </div>
       </div>
 
+      {/* Lessons */}
       <div className="rounded-xl border border-border p-4 space-y-3">
         <div className="flex items-center gap-2">
           <ListOrdered className="w-5 h-5 text-accent" />
           <h3 className="font-semibold">Уроки</h3>
         </div>
-
         <div className="grid md:grid-cols-[1.3fr_1fr_120px_120px_auto] gap-3">
-          <Input value={newLessonTitle} onChange={e => setNewLessonTitle(e.target.value)} placeholder="Название урока" disabled={!selectedCourseId} />
-          <Input value={newLessonSummary} onChange={e => setNewLessonSummary(e.target.value)} placeholder="Краткое описание" disabled={!selectedCourseId} />
+          <Input value={newLessonTitle} onChange={e => setNewLessonTitle(e.target.value)} placeholder="Название" disabled={!selectedCourseId} />
+          <Input value={newLessonSummary} onChange={e => setNewLessonSummary(e.target.value)} placeholder="Описание" disabled={!selectedCourseId} />
           <Input value={newLessonDifficulty} onChange={e => setNewLessonDifficulty(e.target.value)} placeholder="Сложн. 1-5" disabled={!selectedCourseId} />
           <Input value={newLessonXpBase} onChange={e => setNewLessonXpBase(e.target.value)} placeholder="XP база" disabled={!selectedCourseId} />
           <Button onClick={() => void createLesson()} disabled={!selectedCourseId}><Plus className="w-4 h-4 mr-2" />Урок</Button>
         </div>
-
         <div className="grid md:grid-cols-2 gap-2">
           {selectedCourseLessons.map(lesson => (
-            <button
+            <div
               key={lesson.id}
-              onClick={() => setSelectedLessonId(lesson.id)}
-              className={cn(
-                'text-left rounded-lg border p-3 transition-colors',
-                selectedLessonId === lesson.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-secondary/40',
-              )}
+              className={cn('rounded-lg border p-3', selectedLessonId === lesson.id ? 'border-primary bg-primary/5' : 'border-border')}
             >
-              <div className="flex items-center justify-between gap-2">
-                <p className="font-medium truncate">{lesson.title}</p>
-                <button
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    void toggleLessonPublished(lesson.id, !lesson.is_published);
-                  }}
-                  className={cn('text-xs px-2 py-1 rounded-full', lesson.is_published ? 'bg-success/20 text-success' : 'bg-muted text-muted-foreground')}
-                >
-                  {lesson.is_published ? 'Опубликован' : 'Черновик'}
-                </button>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{lesson.summary || 'Без описания'}</p>
-              <p className="text-xs text-muted-foreground mt-2">XP: {lesson.xp_base} • Сложность: {lesson.difficulty}</p>
-            </button>
+              {editingLessonId === lesson.id ? (
+                <div className="space-y-2">
+                  <Input value={editLessonDraft.title} onChange={e => setEditLessonDraft(d => ({ ...d, title: e.target.value }))} placeholder="Название" />
+                  <Input value={editLessonDraft.summary} onChange={e => setEditLessonDraft(d => ({ ...d, summary: e.target.value }))} placeholder="Описание" />
+                  <Input type="number" value={editLessonDraft.xp_base} onChange={e => setEditLessonDraft(d => ({ ...d, xp_base: Number(e.target.value) }))} placeholder="XP" />
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => void saveLessonEdit()}><Check className="w-3 h-3 mr-1" />Сохранить</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditingLessonId(null)}><X className="w-3 h-3" /></Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <button onClick={() => setSelectedLessonId(lesson.id)} className="text-left w-full">
+                    <p className="font-medium truncate">{lesson.title}</p>
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{lesson.summary || 'Без описания'}</p>
+                    <p className="text-xs text-muted-foreground mt-2">XP: {lesson.xp_base} • Сложность: {lesson.difficulty}</p>
+                  </button>
+                  <div className="flex items-center gap-1 mt-2">
+                    <Button size="sm" variant="ghost" onClick={() => { setEditingLessonId(lesson.id); setEditLessonDraft({ title: lesson.title, summary: lesson.summary ?? '', xp_base: lesson.xp_base }); }}>
+                      <Pencil className="w-3 h-3" />
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => void toggleLessonPublished(lesson.id, !lesson.is_published)}>
+                      {lesson.is_published ? <Eye className="w-3 h-3 text-success" /> : <EyeOff className="w-3 h-3 text-muted-foreground" />}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => void deleteLesson(lesson.id)}>
+                      <Trash2 className="w-3 h-3 text-destructive" />
+                    </Button>
+                    <span className={cn('ml-auto text-xs px-2 py-0.5 rounded-full', lesson.is_published ? 'bg-success/20 text-success' : 'bg-muted text-muted-foreground')}>
+                      {lesson.is_published ? 'Опубликован' : 'Скрыт'}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
           ))}
         </div>
       </div>
 
+      {/* Block editor */}
       <div className="rounded-xl border border-border p-4 space-y-3">
-        <h3 className="font-semibold">Конструктор блоков урока</h3>
-
-        <div className="grid md:grid-cols-[200px_1fr_1fr_auto] gap-3">
-          <div>
-            <Label>Тип блока</Label>
-            <Select value={newBlockType} onValueChange={value => setNewBlockType(value as AcademyBlock['block_type'])}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(blockTypeLabels).map(([key, label]) => (
-                  <SelectItem key={key} value={key}>{label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Название блока</Label>
-            <Input value={newBlockTitle} onChange={e => setNewBlockTitle(e.target.value)} placeholder="Например: Проверочный квиз" disabled={!selectedLessonId} />
-          </div>
-          <div>
-            <Label>Содержимое блока (JSON)</Label>
-            <Textarea
-              value={newBlockContentJson}
-              onChange={e => setNewBlockContentJson(e.target.value)}
-              className="min-h-[88px] font-mono text-xs"
-              disabled={!selectedLessonId}
-            />
-          </div>
-          <div className="flex items-end">
-            <Button onClick={() => void createBlock()} disabled={!selectedLessonId}><Plus className="w-4 h-4 mr-2" />Блок</Button>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <h3 className="font-semibold">Конструктор блоков урока</h3>
+          <div className="flex gap-1 p-1 rounded-md bg-secondary">
+            <button
+              onClick={() => setEditorMode('block')}
+              className={cn('px-3 py-1 text-xs rounded', editorMode === 'block' ? 'bg-background shadow' : 'text-muted-foreground')}
+            >Блочный</button>
+            <button
+              onClick={() => setEditorMode('html')}
+              className={cn('px-3 py-1 text-xs rounded', editorMode === 'html' ? 'bg-background shadow' : 'text-muted-foreground')}
+            >HTML</button>
           </div>
         </div>
+
+        {editorMode === 'block' ? (
+          <div className="grid md:grid-cols-[200px_1fr_1fr_auto] gap-3">
+            <div>
+              <Label>Тип блока</Label>
+              <Select value={newBlockType} onValueChange={v => setNewBlockType(v as BlockType)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(blockTypeLabels).map(([k, l]) => (
+                    <SelectItem key={k} value={k}>{l}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Название</Label>
+              <Input value={newBlockTitle} onChange={e => setNewBlockTitle(e.target.value)} placeholder="Опционально" disabled={!selectedLessonId} />
+            </div>
+            <div>
+              <Label>Содержимое (JSON)</Label>
+              <Textarea value={newBlockContentJson} onChange={e => setNewBlockContentJson(e.target.value)} className="min-h-[88px] font-mono text-xs" disabled={!selectedLessonId} />
+            </div>
+            <div className="flex items-end">
+              <Button onClick={() => void createBlock()} disabled={!selectedLessonId}><Plus className="w-4 h-4 mr-2" />Блок</Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <Label>HTML-разметка (теги script и обработчики on* удаляются автоматически)</Label>
+            <Textarea value={htmlBuffer} onChange={e => setHtmlBuffer(e.target.value)} className="min-h-[180px] font-mono text-xs" disabled={!selectedLessonId} />
+            <Input value={newBlockTitle} onChange={e => setNewBlockTitle(e.target.value)} placeholder="Название блока (опционально)" disabled={!selectedLessonId} />
+            <Button onClick={() => void createBlock()} disabled={!selectedLessonId}><Plus className="w-4 h-4 mr-2" />Добавить HTML-блок</Button>
+          </div>
+        )}
 
         <div className="space-y-2">
           {selectedLessonBlocks.map(block => (
@@ -419,13 +459,8 @@ const AdminAcademy: React.FC = () => {
               key={block.id}
               draggable
               onDragStart={() => setDraggingBlockId(block.id)}
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={() => {
-                if (draggingBlockId) {
-                  void reorderBlocks(draggingBlockId, block.id);
-                }
-                setDraggingBlockId(null);
-              }}
+              onDragOver={e => e.preventDefault()}
+              onDrop={() => { if (draggingBlockId) void reorderBlocks(draggingBlockId, block.id); setDraggingBlockId(null); }}
               className="rounded-lg border border-border p-3 bg-secondary/20"
             >
               <div className="flex items-center justify-between gap-2">
@@ -434,22 +469,11 @@ const AdminAcademy: React.FC = () => {
                   <p className="font-medium truncate">{block.title || blockTypeLabels[block.block_type]}</p>
                   <span className="text-xs px-2 py-0.5 rounded bg-secondary text-muted-foreground">{blockTypeLabels[block.block_type]}</span>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={async () => {
-                    const { error } = await supabasePublic.from('academy_blocks').delete().eq('id', block.id);
-                    if (error) {
-                      toast({ title: 'Не удалось удалить блок', description: error.message, variant: 'destructive' });
-                      return;
-                    }
-                    setBlocks(prev => prev.filter(item => item.id !== block.id));
-                  }}
-                >
-                  <Save className="w-4 h-4 text-destructive" />
+                <Button variant="ghost" size="icon" onClick={() => void deleteBlock(block.id)}>
+                  <Trash2 className="w-4 h-4 text-destructive" />
                 </Button>
               </div>
-              <pre className="mt-2 text-xs text-muted-foreground whitespace-pre-wrap break-all">{JSON.stringify(block.content, null, 2)}</pre>
+              <pre className="mt-2 text-xs text-muted-foreground whitespace-pre-wrap break-all line-clamp-3">{JSON.stringify(block.content, null, 2)}</pre>
             </div>
           ))}
           {selectedLessonId && selectedLessonBlocks.length === 0 && (
