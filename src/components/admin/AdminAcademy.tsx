@@ -341,12 +341,13 @@ const AdminAcademy: React.FC = () => {
       <div className="rounded-xl border border-border p-4 space-y-3">
         <div className="flex items-center gap-2">
           <BookOpen className="w-5 h-5 text-primary" />
-          <h3 className="font-semibold">Курсы</h3>
+          <h3 className="font-semibold">Главы курса</h3>
+          <span className="text-xs text-muted-foreground">(каждая глава = курс с частями)</span>
         </div>
         <div className="grid md:grid-cols-[1fr_1fr_auto] gap-3">
-          <Input value={newCourseTitle} onChange={e => setNewCourseTitle(e.target.value)} placeholder="Название курса" />
-          <Input value={newCourseDescription} onChange={e => setNewCourseDescription(e.target.value)} placeholder="Описание" />
-          <Button onClick={() => void createCourse()}><Plus className="w-4 h-4 mr-2" />Курс</Button>
+          <Input value={newCourseTitle} onChange={e => setNewCourseTitle(e.target.value)} placeholder="Название главы" />
+          <Input value={newCourseDescription} onChange={e => setNewCourseDescription(e.target.value)} placeholder="Описание главы" />
+          <Button onClick={() => void createCourse()}><Plus className="w-4 h-4 mr-2" />Глава</Button>
         </div>
         <div className="grid md:grid-cols-2 gap-2">
           {courses.map(course => (
