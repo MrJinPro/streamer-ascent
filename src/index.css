@@ -681,6 +681,11 @@
   flex-shrink: 0;
 }
 .academy-reader .callout-body { flex: 1; }
+.academy-reader .callout-body,
+.academy-reader .callout-body * {
+  color: hsl(var(--foreground)) !important;
+  background: transparent !important;
+}
 .academy-reader .callout-body strong:first-child { display: block; margin-bottom: 0.3em; color: hsl(var(--foreground)); }
 
 /* Rich editor placeholder */
