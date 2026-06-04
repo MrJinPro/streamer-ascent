@@ -80,6 +80,8 @@ const Learning: React.FC = () => {
 
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [selectedLesson, setSelectedLesson] = useState<AcademyLesson | null>(null);
+  const [readerFullscreen, setReaderFullscreen] = useState(false);
+
 
   const loadData = async () => {
     setLoading(true);
