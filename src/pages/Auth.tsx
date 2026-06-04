@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LogIn, Send, ShieldCheck } from 'lucide-react';
+import { Eye, EyeOff, LogIn, Send, ShieldCheck } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ const Auth: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const [applicationName, setApplicationName] = useState('');
   const [applicationUsername, setApplicationUsername] = useState('');
@@ -191,13 +192,23 @@ const Auth: React.FC = () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="loginPassword">Пароль</Label>
-                  <Input
-                    id="loginPassword"
-                    type="password"
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    required
-                  />
+                  <div className="relative">
+                    <Input
+                      id="loginPassword"
+                      type={showPassword ? 'text' : 'password'}
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      className="absolute inset-y-0 right-2 flex items-center justify-center px-2 text-sm text-muted-foreground transition hover:text-foreground"
+                      aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
                 <Button className="w-full" type="submit" disabled={isLoading}>
                   <LogIn className="w-4 h-4 mr-2" /> Войти
