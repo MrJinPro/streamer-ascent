@@ -365,101 +365,134 @@ const Learning: React.FC = () => {
         </p>
       </div>
 
-      <Dialog open={Boolean(selectedLesson)} onOpenChange={(open) => !open && setSelectedLesson(null)}>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{selectedLesson?.title}</DialogTitle>
+      <Dialog open={Boolean(selectedLesson)} onOpenChange={(open) => { if (!open) { setSelectedLesson(null); setReaderFullscreen(false); } }}>
+        <DialogContent
+          className={cn(
+            'overflow-y-auto p-0',
+            readerFullscreen
+              ? 'max-w-[100vw] w-screen h-screen max-h-screen rounded-none sm:rounded-none'
+              : 'sm:max-w-5xl max-h-[92vh]'
+          )}
+        >
+          <DialogHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-border px-6 py-4 flex flex-row items-center justify-between">
+            <DialogTitle className="text-lg font-display">{selectedLesson?.title}</DialogTitle>
+            <button
+              onClick={() => setReaderFullscreen(v => !v)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-border bg-secondary/50 hover:bg-secondary transition-colors"
+              title={readerFullscreen ? 'Свернуть' : 'На весь экран'}
+            >
+              {readerFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+              {readerFullscreen ? 'Свернуть' : 'На весь экран'}
+            </button>
           </DialogHeader>
 
           {selectedLesson && (() => {
             const lessonProgress = getProgress(selectedLesson.id);
             const alreadyCompleted = lessonProgress?.status === 'completed';
             return (
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">{selectedLesson.summary}</p>
+            <div className="px-4 sm:px-8 py-6 space-y-6">
+              {selectedLesson.summary && (
+                <p className="academy-reader text-base text-muted-foreground !my-0">{selectedLesson.summary}</p>
+              )}
               {alreadyCompleted && (
-                <div className="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">
-                  ✓ Часть уже пройдена. Можно перечитать материал — повторные XP не начисляются.
+                <div className="academy-reader !my-0">
+                  <div className="callout callout-green">
+                    <div className="callout-icon">✓</div>
+                    <div className="callout-body">Часть уже пройдена. Можно перечитать материал — повторные XP не начисляются.</div>
+                  </div>
                 </div>
               )}
 
               {selectedBlocks.map((block) => (
-                <div key={block.id} className="rounded-xl border border-border p-4 bg-secondary/20">
-                  <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wider">{block.block_type}</p>
-                  {block.title && <p className="font-medium mb-2">{block.title}</p>}
-
+                <div key={block.id}>
                   {block.block_type === 'text' && (
-                    <div className="rounded-xl border border-border bg-secondary/20 p-4 whitespace-pre-wrap leading-relaxed">
+                    <div className="academy-reader whitespace-pre-wrap">
                       {String(block.content?.body ?? '') || 'Текстовое содержимое блока не добавлено.'}
                     </div>
                   )}
 
                   {block.block_type === 'image' && (
-                    <div className="rounded-xl overflow-hidden border border-border bg-secondary/20">
+                    <figure className="academy-reader">
                       {block.content?.url ? (
-                        <img src={String(block.content.url)} alt={selectedLesson.title} className="w-full max-h-[360px] object-cover" />
+                        <>
+                          <img src={String(block.content.url)} alt={String(block.content.caption ?? selectedLesson.title)} loading="lazy" />
+                          {block.content?.caption ? <figcaption>{String(block.content.caption)}</figcaption> : null}
+                        </>
                       ) : (
-                        <p className="text-sm text-muted-foreground p-4">Изображение не задано.</p>
+                        <p className="text-sm text-muted-foreground">Изображение не задано.</p>
                       )}
-                    </div>
+                    </figure>
                   )}
 
                   {block.block_type === 'video' && (
-                    <div className="rounded-xl overflow-hidden border border-border">
-                      {block.content?.url ? (
-                        isYoutubeUrl(String(block.content.url)) ? (
-                          <iframe
-                            src={toEmbedVideoUrl(String(block.content.url))}
-                            title={`video-${block.id}`}
-                            className="w-full h-72"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                            referrerPolicy="strict-origin-when-cross-origin"
-                            allowFullScreen
-                          />
+                    <div className="academy-reader">
+                      <div className="rounded-xl overflow-hidden border border-border">
+                        {block.content?.url ? (
+                          isYoutubeUrl(String(block.content.url)) ? (
+                            <iframe
+                              src={toEmbedVideoUrl(String(block.content.url))}
+                              title={`video-${block.id}`}
+                              className="w-full aspect-video"
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                              referrerPolicy="strict-origin-when-cross-origin"
+                              allowFullScreen
+                            />
+                          ) : (
+                            <video src={String(block.content.url)} className="w-full aspect-video object-cover bg-black" controls />
+                          )
                         ) : (
-                          <video src={String(block.content.url)} className="w-full h-72 object-cover bg-black" controls />
-                        )
-                      ) : (
-                        <p className="text-sm text-muted-foreground p-4">Видео не задано.</p>
-                      )}
+                          <p className="text-sm text-muted-foreground p-4">Видео не задано.</p>
+                        )}
+                      </div>
                     </div>
                   )}
 
                   {block.block_type === 'html' && (
                     <div
-                      className="prose prose-invert prose-sm max-w-none"
+                      className="academy-reader"
                       dangerouslySetInnerHTML={{ __html: sanitizeHtml(String(block.content?.html ?? '')) }}
                     />
                   )}
 
                   {block.block_type === 'heading' && (
-                    <h2 className="text-2xl font-display font-bold" style={{ textAlign: (block.content?.align as any) ?? 'left' }}>
-                      {String(block.content?.text ?? block.title ?? '')}
-                    </h2>
+                    <div className="academy-reader">
+                      {(() => {
+                        const level = Number(block.content?.level ?? 2);
+                        const text = String(block.content?.text ?? block.content?.body ?? block.title ?? '');
+                        if (level === 1) return <h1>{text}</h1>;
+                        if (level === 3) return <h3>{text}</h3>;
+                        if (level === 4) return <h4>{text}</h4>;
+                        return <h2>{text}</h2>;
+                      })()}
+                    </div>
                   )}
 
                   {block.block_type === 'quote' && (
-                    <blockquote className="border-l-4 border-primary pl-4 italic text-muted-foreground">
-                      {String(block.content?.text ?? '')}
-                      {block.content?.author ? <p className="text-xs not-italic mt-2">— {String(block.content.author)}</p> : null}
-                    </blockquote>
+                    <div className="academy-reader">
+                      <blockquote>
+                        {String(block.content?.text ?? block.content?.body ?? '')}
+                        {block.content?.author ? <p className="text-xs not-italic mt-2">— {String(block.content.author)}</p> : null}
+                      </blockquote>
+                    </div>
                   )}
 
-                  {block.block_type === 'divider' && <hr className="border-border my-2" />}
+                  {block.block_type === 'divider' && <div className="academy-reader"><hr /></div>}
 
                   {block.block_type === 'file' && block.content?.url && (
-                    <a href={String(block.content.url)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-primary hover:underline">
-                      📎 {String(block.content.label ?? block.content.url)}
-                    </a>
+                    <div className="academy-reader">
+                      <a href={String(block.content.url)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2">
+                        📎 {String(block.content.caption ?? block.content.label ?? block.content.url)}
+                      </a>
+                    </div>
                   )}
 
                   {!['text','image','video','html','heading','quote','divider','file'].includes(block.block_type) && (
-                    <pre className="text-xs whitespace-pre-wrap break-all text-muted-foreground">{JSON.stringify(block.content, null, 2)}</pre>
+                    <pre className="text-xs whitespace-pre-wrap break-all text-muted-foreground rounded-lg border border-border p-3 bg-secondary/20">{JSON.stringify(block.content, null, 2)}</pre>
                   )}
                 </div>
               ))}
 
-              <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+              <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3 max-w-[760px] mx-auto">
                 <p className="font-medium">Завершение урока</p>
                 <div className="grid sm:grid-cols-3 gap-2">
                   <button className="px-3 py-2 text-sm rounded-lg border border-border bg-background hover:bg-secondary" onClick={() => void markVideoProgress(selectedLesson)}>
@@ -481,6 +514,7 @@ const Learning: React.FC = () => {
           })()}
         </DialogContent>
       </Dialog>
+
     </div>
   );
 };
