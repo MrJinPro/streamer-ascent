@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { BookOpen, CheckCircle, Clock, Filter, Play, Sparkles, Trophy } from 'lucide-react';
+import { BookOpen, CheckCircle, Clock, Filter, Maximize2, Minimize2, Play, Sparkles, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabasePublic } from '@/integrations/supabase/publicClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { sanitizeHtml } from '@/lib/safeHtml';
+
 
 type AcademyCourse = {
   id: string;
