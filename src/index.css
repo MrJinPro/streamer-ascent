@@ -541,3 +541,151 @@
   background: hsl(var(--primary) / 0.3);
   color: inherit;
 }
+
+/* ============================================
+   Academy Reader — typography for lesson HTML
+   Inspired by Lark/Notion docs
+   ============================================ */
+.academy-reader {
+  color: hsl(var(--foreground));
+  font-size: 16px;
+  line-height: 1.75;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  max-width: 760px;
+  margin: 0 auto;
+}
+.academy-reader > * + * { margin-top: 1em; }
+.academy-reader p { margin: 0 0 1em; }
+.academy-reader h1, .academy-reader h2, .academy-reader h3, .academy-reader h4 {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-weight: 700;
+  color: hsl(var(--foreground));
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+.academy-reader h1 { font-size: 2rem; margin: 1.8em 0 0.6em; }
+.academy-reader h2 {
+  font-size: 1.5rem;
+  margin: 1.8em 0 0.6em;
+  padding-bottom: 0.4em;
+  border-bottom: 1px solid hsl(var(--border));
+}
+.academy-reader h3 { font-size: 1.2rem; margin: 1.4em 0 0.5em; color: hsl(var(--primary)); }
+.academy-reader h4 { font-size: 1.05rem; margin: 1.2em 0 0.4em; }
+.academy-reader em { color: hsl(var(--muted-foreground)); font-style: italic; }
+.academy-reader strong { color: hsl(var(--foreground)); font-weight: 600; }
+.academy-reader a { color: hsl(var(--primary)); text-decoration: underline; text-underline-offset: 3px; }
+.academy-reader a:hover { color: hsl(var(--accent)); }
+.academy-reader ul, .academy-reader ol { padding-left: 1.5em; margin: 0 0 1em; }
+.academy-reader ul { list-style: disc; }
+.academy-reader ol { list-style: decimal; }
+.academy-reader li { margin: 0.35em 0; }
+.academy-reader li::marker { color: hsl(var(--primary)); }
+.academy-reader blockquote {
+  margin: 1.2em 0;
+  padding: 0.8em 1.2em;
+  border-left: 3px solid hsl(var(--primary));
+  background: hsl(var(--muted) / 0.4);
+  border-radius: 0 8px 8px 0;
+  color: hsl(var(--muted-foreground));
+  font-style: italic;
+}
+.academy-reader code {
+  background: hsl(var(--muted) / 0.6);
+  padding: 0.1em 0.4em;
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-family: 'JetBrains Mono', monospace;
+}
+.academy-reader pre {
+  background: hsl(var(--muted) / 0.4);
+  padding: 1em;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+.academy-reader pre code { background: transparent; padding: 0; }
+.academy-reader img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+  border: 1px solid hsl(var(--border));
+  margin: 1em auto;
+  display: block;
+}
+.academy-reader figure { margin: 1.5em 0; text-align: center; }
+.academy-reader figcaption { font-size: 0.85em; color: hsl(var(--muted-foreground)); margin-top: 0.5em; }
+.academy-reader hr {
+  border: none;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, hsl(var(--border)), transparent);
+  margin: 2em 0;
+}
+.academy-reader table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.2em 0;
+  font-size: 0.95em;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+}
+.academy-reader th, .academy-reader td {
+  padding: 0.7em 1em;
+  text-align: left;
+  border-bottom: 1px solid hsl(var(--border));
+  vertical-align: top;
+}
+.academy-reader th {
+  background: hsl(var(--muted) / 0.5);
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+.academy-reader tbody tr:hover { background: hsl(var(--muted) / 0.25); }
+
+/* Callout boxes — Notion/Lark style */
+.academy-reader .callout {
+  display: flex;
+  gap: 0.75em;
+  padding: 1em 1.2em;
+  border-radius: 10px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--muted) / 0.4);
+  margin: 1.2em 0;
+  line-height: 1.6;
+}
+.academy-reader .callout > *:first-child { margin-top: 0; }
+.academy-reader .callout > *:last-child { margin-bottom: 0; }
+.academy-reader .callout-amber {
+  border-color: hsl(38 90% 55% / 0.5);
+  background: hsl(38 90% 55% / 0.08);
+}
+.academy-reader .callout-blue {
+  border-color: hsl(210 90% 60% / 0.5);
+  background: hsl(210 90% 60% / 0.08);
+}
+.academy-reader .callout-green {
+  border-color: hsl(142 70% 45% / 0.5);
+  background: hsl(142 70% 45% / 0.08);
+}
+.academy-reader .callout-red {
+  border-color: hsl(0 80% 60% / 0.5);
+  background: hsl(0 80% 60% / 0.08);
+}
+.academy-reader .callout-purple {
+  border-color: hsl(270 75% 65% / 0.5);
+  background: hsl(270 75% 65% / 0.08);
+}
+.academy-reader .callout-icon {
+  font-size: 1.4em;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+.academy-reader .callout-body { flex: 1; }
+.academy-reader .callout-body strong:first-child { display: block; margin-bottom: 0.3em; color: hsl(var(--foreground)); }
+
+/* Rich editor placeholder */
+[contenteditable][data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+}

@@ -480,12 +480,74 @@ const AdminAcademy: React.FC = () => {
               onChange={e => setNewBlockTitle(e.target.value)}
               placeholder="Заголовок части (для новой части или подписи блока)"
             />
+
+            {/* Quick-insert toolbar */}
+            <div className="flex flex-wrap gap-1 p-2 rounded-md border border-border bg-secondary/30">
+              <span className="text-xs text-muted-foreground self-center mr-2">Вставить блок:</span>
+              {[
+                { label: '🌐 Disclaimer', color: 'amber', icon: '🌐', title: 'Отказ от ответственности', body: 'Этот контент предназначен только для обмена отраслевым опытом...' },
+                { label: '🦁 Совет', color: 'amber', icon: '🦁', title: '', body: 'Важная мысль или совет.' },
+                { label: '💡 Идея', color: 'blue', icon: '💡', title: '', body: 'Полезная идея для применения.' },
+                { label: '✅ Успех', color: 'green', icon: '✅', title: '', body: 'Хороший результат / лучшая практика.' },
+                { label: '⚠️ Внимание', color: 'red', icon: '⚠️', title: 'Внимание', body: 'Опасный момент, на который стоит обратить внимание.' },
+                { label: '🎯 Цель', color: 'purple', icon: '🎯', title: '', body: 'Цель или ключевая задача раздела.' },
+              ].map(c => (
+                <Button
+                  key={c.label}
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => {
+                    const html = `<div class="callout callout-${c.color}"><div class="callout-icon">${c.icon}</div><div class="callout-body">${c.title ? `<strong>${c.title}</strong>` : ''}${c.body}</div></div><p><br/></p>`;
+                    if (richRef.current) {
+                      richRef.current.focus();
+                      document.execCommand('insertHTML', false, html);
+                      setRichHtml(richRef.current.innerHTML);
+                    }
+                  }}
+                >{c.label}</Button>
+              ))}
+              <span className="w-px bg-border mx-1" />
+              {[
+                { label: 'H1', tag: 'h1' }, { label: 'H2', tag: 'h2' }, { label: 'H3', tag: 'h3' },
+              ].map(h => (
+                <Button key={h.tag} type="button" size="sm" variant="outline" className="h-7 text-xs"
+                  onClick={() => {
+                    if (richRef.current) {
+                      richRef.current.focus();
+                      document.execCommand('formatBlock', false, h.tag);
+                      setRichHtml(richRef.current.innerHTML);
+                    }
+                  }}
+                >{h.label}</Button>
+              ))}
+              <Button type="button" size="sm" variant="outline" className="h-7 text-xs"
+                onClick={() => { if (richRef.current) { richRef.current.focus(); document.execCommand('bold'); setRichHtml(richRef.current.innerHTML); } }}
+              ><b>B</b></Button>
+              <Button type="button" size="sm" variant="outline" className="h-7 text-xs"
+                onClick={() => { if (richRef.current) { richRef.current.focus(); document.execCommand('italic'); setRichHtml(richRef.current.innerHTML); } }}
+              ><i>I</i></Button>
+              <Button type="button" size="sm" variant="outline" className="h-7 text-xs"
+                onClick={() => { if (richRef.current) { richRef.current.focus(); document.execCommand('insertUnorderedList'); setRichHtml(richRef.current.innerHTML); } }}
+              >• List</Button>
+              <Button type="button" size="sm" variant="outline" className="h-7 text-xs"
+                onClick={() => {
+                  const url = prompt('URL изображения');
+                  if (url && richRef.current) { richRef.current.focus(); document.execCommand('insertHTML', false, `<img src="${url}" alt=""/>`); setRichHtml(richRef.current.innerHTML); }
+                }}
+              >🖼 Image</Button>
+              <Button type="button" size="sm" variant="outline" className="h-7 text-xs"
+                onClick={() => { if (richRef.current) { richRef.current.focus(); document.execCommand('insertHorizontalRule'); setRichHtml(richRef.current.innerHTML); } }}
+              >— HR</Button>
+            </div>
+
             <div
               ref={richRef}
               contentEditable
               suppressContentEditableWarning
               onInput={e => setRichHtml((e.target as HTMLDivElement).innerHTML)}
-              className="min-h-[220px] max-h-[480px] overflow-y-auto rounded-lg border border-border bg-background p-4 prose prose-invert prose-sm max-w-none focus:outline-none focus:ring-2 focus:ring-primary"
+              className="min-h-[320px] max-h-[560px] overflow-y-auto rounded-lg border border-border bg-background p-6 academy-reader focus:outline-none focus:ring-2 focus:ring-primary"
               data-placeholder="Сюда вставьте скопированный контент..."
             />
             <div className="flex gap-2 flex-wrap">
@@ -497,10 +559,11 @@ const AdminAcademy: React.FC = () => {
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Опасные теги (script, обработчики on*) автоматически удаляются. Картинки и таблицы из Lark сохраняются как есть.
+              Опасные теги (script, обработчики on*) автоматически удаляются. Callout-блоки используют классы <code>callout callout-amber|blue|green|red|purple</code>. Картинки и таблицы из Lark сохраняются как есть.
             </p>
           </div>
         )}
+
 
         {editorMode === 'block' && (
           <div className="grid md:grid-cols-[200px_1fr_1fr_auto] gap-3">
