@@ -17,7 +17,7 @@ export const sanitizeHtml = (raw: string): string => {
     ALLOWED_TAGS,
     ALLOWED_ATTR,
     FORBID_TAGS: ['script', 'style'],
-    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover'],
+    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'style'],
     ALLOW_DATA_ATTR: false,
   });
 };
