@@ -1,1 +1,3 @@
 project_id = "ikzomyiasnlspaaiwcao"
+[functions.agency-application-submit]
+verify_jwt = false
