@@ -513,6 +513,7 @@ const Learning: React.FC = () => {
             </div>
             );
           })()}
+          </div>
         </DialogContent>
       </Dialog>
 
