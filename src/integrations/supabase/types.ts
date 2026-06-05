@@ -765,37 +765,76 @@ export type Database = {
       }
       agency_join_applications: {
         Row: {
+          accepted_offer_at: string | null
+          accepted_privacy_at: string | null
+          accepted_terms_at: string | null
+          age: number | null
           created_at: string
           email: string
           full_name: string
+          heard_about: string | null
           id: string
+          inviter_referral_code: string | null
+          ip_address: unknown
           motivation: string | null
+          offer_published_at: string | null
+          offer_version: string | null
+          password_hash: string | null
+          signed_payload: Json | null
           status: string
           stream_experience: string | null
           telegram: string | null
           tiktok_username: string
+          user_agent: string | null
+          username: string | null
         }
         Insert: {
+          accepted_offer_at?: string | null
+          accepted_privacy_at?: string | null
+          accepted_terms_at?: string | null
+          age?: number | null
           created_at?: string
           email: string
           full_name: string
+          heard_about?: string | null
           id?: string
+          inviter_referral_code?: string | null
+          ip_address?: unknown
           motivation?: string | null
+          offer_published_at?: string | null
+          offer_version?: string | null
+          password_hash?: string | null
+          signed_payload?: Json | null
           status?: string
           stream_experience?: string | null
           telegram?: string | null
           tiktok_username: string
+          user_agent?: string | null
+          username?: string | null
         }
         Update: {
+          accepted_offer_at?: string | null
+          accepted_privacy_at?: string | null
+          accepted_terms_at?: string | null
+          age?: number | null
           created_at?: string
           email?: string
           full_name?: string
+          heard_about?: string | null
           id?: string
+          inviter_referral_code?: string | null
+          ip_address?: unknown
           motivation?: string | null
+          offer_published_at?: string | null
+          offer_version?: string | null
+          password_hash?: string | null
+          signed_payload?: Json | null
           status?: string
           stream_experience?: string | null
           telegram?: string | null
           tiktok_username?: string
+          user_agent?: string | null
+          username?: string | null
         }
         Relationships: []
       }
@@ -4665,6 +4704,7 @@ export type Database = {
         Args: { _role: string; _scope_id: string }
         Returns: boolean
       }
+      hash_password: { Args: { p_password: string }; Returns: string }
       ingest_achievement_event: {
         Args: {
           p_event_type: string
