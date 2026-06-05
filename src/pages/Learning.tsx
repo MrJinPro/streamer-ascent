@@ -368,17 +368,17 @@ const Learning: React.FC = () => {
       <Dialog open={Boolean(selectedLesson)} onOpenChange={(open) => { if (!open) { setSelectedLesson(null); setReaderFullscreen(false); } }}>
         <DialogContent
           className={cn(
-            'overflow-y-auto p-0',
+            'p-0 gap-0 flex flex-col overflow-hidden',
             readerFullscreen
               ? 'max-w-[100vw] w-screen h-screen max-h-screen rounded-none sm:rounded-none'
-              : 'sm:max-w-5xl max-h-[92vh]'
+              : 'sm:max-w-5xl h-[92vh] max-h-[92vh]'
           )}
         >
-          <DialogHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-border px-6 py-4 flex flex-row items-center justify-between">
+          <DialogHeader className="shrink-0 bg-background/95 backdrop-blur-md border-b border-border px-6 py-4 flex flex-row items-center justify-between space-y-0">
             <DialogTitle className="text-lg font-display">{selectedLesson?.title}</DialogTitle>
             <button
               onClick={() => setReaderFullscreen(v => !v)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-border bg-secondary/50 hover:bg-secondary transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-border bg-secondary/50 hover:bg-secondary transition-colors mr-8"
               title={readerFullscreen ? 'Свернуть' : 'На весь экран'}
             >
               {readerFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
@@ -386,6 +386,7 @@ const Learning: React.FC = () => {
             </button>
           </DialogHeader>
 
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
           {selectedLesson && (() => {
             const lessonProgress = getProgress(selectedLesson.id);
             const alreadyCompleted = lessonProgress?.status === 'completed';
