@@ -769,8 +769,15 @@ export type Database = {
           accepted_privacy_at: string | null
           accepted_terms_at: string | null
           age: number | null
+          assigned_referral_code: string | null
           created_at: string
+          created_user_id: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
           email: string
+          email_error: string | null
+          email_sent_at: string | null
           full_name: string
           heard_about: string | null
           id: string
@@ -793,8 +800,15 @@ export type Database = {
           accepted_privacy_at?: string | null
           accepted_terms_at?: string | null
           age?: number | null
+          assigned_referral_code?: string | null
           created_at?: string
+          created_user_id?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
           email: string
+          email_error?: string | null
+          email_sent_at?: string | null
           full_name: string
           heard_about?: string | null
           id?: string
@@ -817,8 +831,15 @@ export type Database = {
           accepted_privacy_at?: string | null
           accepted_terms_at?: string | null
           age?: number | null
+          assigned_referral_code?: string | null
           created_at?: string
+          created_user_id?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
           email?: string
+          email_error?: string | null
+          email_sent_at?: string | null
           full_name?: string
           heard_about?: string | null
           id?: string
@@ -4559,6 +4580,10 @@ export type Database = {
         Returns: boolean
       }
       ai_user_is_promising: { Args: { p_user_id: string }; Returns: boolean }
+      app_role_from_slug: {
+        Args: { _slug: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
       apply_xp_to_user_stats: {
         Args: { p_user_id: string; p_xp_gain: number }
         Returns: {
@@ -4570,6 +4595,10 @@ export type Database = {
       approve_achievement_claim: {
         Args: { p_claim_id: string; p_note?: string }
         Returns: boolean
+      }
+      approve_agency_application: {
+        Args: { p_application_id: string; p_max_uses?: number }
+        Returns: string
       }
       can_access_streamer: { Args: { _streamer_id: string }; Returns: boolean }
       chat_create_group: {
@@ -4794,6 +4823,7 @@ export type Database = {
         | "investor"
         | "support"
         | "moderator"
+        | "agency_streamer"
       chat_member_role_t: "member" | "admin"
       chat_thread_kind_t: "direct" | "group" | "support"
       device_platform_t:
@@ -5012,6 +5042,7 @@ export const Constants = {
         "investor",
         "support",
         "moderator",
+        "agency_streamer",
       ],
       chat_member_role_t: ["member", "admin"],
       chat_thread_kind_t: ["direct", "group", "support"],
