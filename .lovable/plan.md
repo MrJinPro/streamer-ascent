@@ -1,62 +1,106 @@
+# Система пользователей, ролей и заявок Агентства
 
-## 1. База данных (одна миграция)
+## Что не так сейчас (диагноз)
 
-### Академия
-- `academy_blocks.block_type` enum + добавить значения: `html`, `heading`, `quote`, `file`, `divider`.
-- `academy_blocks.content` (jsonb) — расширить схему: поддержка `body` (markdown), `html` (raw, санитизированный на клиенте через DOMPurify), `font`, `align`, `color`, `url`, `caption`.
-- `academy_rewards` — уже есть, расширим `reward_type` доменом: `xp`, `diamonds`, `badge` (achievement_id), `unlock_lesson`, `unlock_course`. Несколько наград на урок поддерживается уже сейчас.
-- RPC `academy_award_xp` обновим: после выдачи XP проходить по `academy_rewards` урока и выдавать diamonds (через `monthly_progress`), вешать `achievement_unlocks` для badge, помечать `unlocks` в новой таблице `academy_unlocks (user_id, lesson_id|course_id)`.
-- Новая таблица `academy_unlocks` для разблокировок (RLS: self read, admin write через RPC).
+1. **«Доступ ограничен» после онбординга.** При создании пользователя в админке роль пишется только в `admin_invites.role_slugs`, а в `user_roles` попадает лишь во время `onboarding-complete`. Там есть две ошибки:
+   - в `user_roles.role` (legacy enum) всегда жёстко ставится `'streamer'`, независимо от выбранной роли;
+   - если в `admin_invites` для email нет записи (а она нужна и при ручном выборе роли в Онбординге), вставка ролей вообще не выполняется → у юзера нет ни одной строки в `user_roles` → `ensure_profile_access_data` возвращает `NULL` → срабатывает гейт `AccessRestricted`.
+2. **«Менеджер агентства» в онбординге ничего не назначает.** Экран Онбординга вообще не отправляет выбранную роль на бэк — функция `onboarding-complete` её не принимает.
+3. **Нет различия «стример Агентства» vs «обычный стример».** Сейчас и тот и тот — `streamer`. Нет ни slug-а, ни признака членства.
+4. **Одобрение заявки Агентства = пустышка.** RPC `approve_agency_application` только создаёт реферальный код и меняет статус. Не создаётся аккаунт, не назначается роль, не уходит письмо.
+5. **Админка заявок бедная** — нет деталей, истории, отказа с причиной, фильтров.
+6. **Нет транзакционных писем** — только Supabase magic-link.
 
-### Поддержка
-- `support_categories` (id, slug, title, description, sort, is_active) — admin write, all auth read.
-- `support_tickets` (id, user_id, category_id, subject, status['open','in_progress','resolved','closed'], priority, assigned_to, created_at, updated_at, source['ai_escalation','direct']).
-- `support_messages` (id, ticket_id, sender_user_id|null, sender_kind['user','ai','staff','system'], body, created_at).
-- RLS: владелец читает/пишет свой тикет; admin/staff видят все; AI пишет через service_role в edge function.
+---
 
-Сидим базовые категории: «Апелляция», «Доступ к трансляциям», «Другие проблемы авторов», «Управление деятельностью авторов», «Расчёты с агентством», «Другие проблемы агентства».
+## Что строим
 
-## 2. Edge Functions
+### 1. Чёткая таксономия ролей (две «полки»)
+- **Public/user-роли** (видны в продукте):
+  - `streamer` — обычный стример (зарегистрировался без агентства).
+  - `agency_streamer` — стример NovaBoost Agency (новый slug, tier_0, visibility=public).
+  - `nova_creator`, `rising_star`, `verified` — остаются «достижениями».
+- **Staff-роли (internal):** `agency_manager, head_mentor, mentor, moderator, support, analyst, engineer, architect, system_owner, board, investor_pro, investor_viewer` — без изменений.
+- Доступ к продукту (`canAccessProduct`) разрешён: всем staff + `streamer` + `agency_streamer`.
+- Гейт «Доступ ограничен» переписать так, чтобы для `streamer` (не агентского) показывать лендинг, а не «Выйти из аккаунта».
 
-- `support-ai-chat` (новая): принимает `ticket_id?`, `message`. Если тикета нет — создаёт «AI-сессию» (ticket с source=ai_escalation, статус open, без category). Сохраняет user msg, вызывает Lovable AI Gateway с системным промптом «ты тех-поддержка NovaBoost», возвращает ответ, сохраняет AI msg. Контекст: последние 20 сообщений + материалы академии (top-k по ключевым словам из таблиц `academy_courses/lessons/blocks`).
-- `support-escalate` (новая): меняет ticket source/assigned, требует `category_id` + краткое описание, шлёт системное сообщение «передано менеджеру», уведомление через `notifications` (если есть) или просто оставляет в чате.
-- `ai-coach-chat` (существующий): добавить в системный контекст выгрузку академии (заголовки курсов/уроков + summary), чтобы наставник опирался на материалы.
+### 2. Починка ролей и онбординга
+- В функцию `onboarding-complete`:
+  - принимать поле `roleSlug` от клиента (или брать из `admin_invites`);
+  - корректно мапить slug → legacy `app_role` enum при вставке в `user_roles.role` (а не хардкод `'streamer'`);
+  - всегда создавать минимум одну строку `user_roles` (по умолчанию `streamer`), чтобы гейт не блокировал.
+- В `admin-create-user` и `admin-manage-user-role`: при создании сразу писать строку в `user_roles` (а не только в invite), чтобы пользователь получал доступ ещё до прохождения онбординга.
+- `ensure_profile_access_data` (миграция): чинит `referral_code` (сейчас возвращает NULL), и роль определяется по приоритету slug-а (tier DESC), включая `agency_streamer`.
+- В `app_role` enum добавить `agency_streamer`.
 
-## 3. Админка (`src/components/admin/AdminAcademy.tsx` + новые)
+### 3. Полный flow одобрения заявки Агентства
+Новая edge-функция **`agency-application-decide`** (`POST` от админа). При `action: 'approve'`:
+1. Проверить permission `agency.applications.review`.
+2. Создать пользователя через `auth.admin.createUser({ email, password_hash, email_confirm: true })` (пароль хешировался при подаче — переиспользуем `password_hash` через `admin.generateLink` + `updateUserById`, либо создаём с временным паролем и шлём magic-link).
+3. Заполнить `profiles` (`full_name, username, tiktok_username, telegram, age, heard_about, agency_member=true`).
+4. Привязать `inviter_referral_code` → запись в `agency_referral_usages`.
+5. Вставить `user_roles` со slug `agency_streamer`.
+6. Сгенерировать персональный реферальный код для нового стримера.
+7. Обновить `agency_join_applications.status='approved', decided_by, decided_at, decision_note`.
+8. Отправить письмо «Заявка одобрена» через **Resend** (новый секрет `RESEND_API_KEY`) со ссылкой на вход (magic-link) и кратким онбординг-гайдом.
+9. Записать в `audit_log`.
 
-Полная переработка:
-- Список курсов с действиями: Редактировать, Опубликовать/Скрыть (toggle `is_published`), Удалить (с подтверждением, каскадно через RPC `academy_delete_course`).
-- Внутри курса — список уроков с такими же действиями + порядок (drag/up-down).
-- Редактор урока: вкладки **Блочный редактор** и **HTML-режим**:
-  - Блочный: добавление/удаление/сортировка блоков всех типов (text, html, heading, image, gallery, video, quote, file, divider, checklist, quiz, cta, reward, task). Для текста — textarea с подсказкой о Markdown, поля шрифта/цвета/выравнивания.
-  - HTML: одно textarea, при сохранении создаёт/обновляет один блок `block_type='html'`.
-- Панель наград урока: чипы XP/Diamonds/Badge(выбор из achievements)/Unlock(выбор урока/курса).
-- Безопасность: HTML рендерится через DOMPurify (whitelist тегов, без `<script>`, без `on*`).
+При `action: 'reject'`: меняем статус на `rejected`, сохраняем `decision_note`, шлём письмо с причиной отказа.
 
-## 4. Страница обучения (`src/pages/Learning.tsx`)
+### 4. Расширение таблицы заявок и админки
+- В `agency_join_applications` добавить: `decided_by uuid`, `decided_at timestamptz`, `decision_note text`, `created_user_id uuid`, `assigned_referral_code text` (если ещё нет), `email_sent_at timestamptz`.
+- Новый экран `AdminAgencyApplications.tsx` (заменит секцию в `AdminReferralSettings`):
+  - таблица со статусами (Pending / Approved / Rejected) + фильтры;
+  - модалка деталей: все поля заявки, IP, User-Agent, согласия (оферта v/дата), реферал пригласившего, telegram, возраст;
+  - кнопки **Одобрить** (опц. ввести max_uses реф-кода и приветственное сообщение) и **Отклонить** (с обязательной причиной);
+  - блок «История»: кто решил, когда, статус письма, id созданного пользователя, ссылка на него;
+  - индикатор «Письмо отправлено / ошибка».
 
-- Новая отрисовка `html` блока через DOMPurify + `prose` стили.
-- Блок `heading/quote/divider/file` отрисовываются по типам.
-- Карточка награды показывает все awards урока (xp + diamonds + badge + unlock).
-- После завершения — показ полученных наград.
+### 5. Письма (Resend)
+- Подключить секрет `RESEND_API_KEY` через `add_secret`.
+- Шаблоны (inline HTML в функции, без новой инфраструктуры):
+  - `application_approved` — приветствие + magic-link + краткая инструкция.
+  - `application_rejected` — отказ + причина + контакт поддержки.
+- Логировать ответ Resend в `audit_log` и в `email_sent_at` заявки.
 
-## 5. AI Тех-поддержка UI
+### 6. Гейт «Доступ ограничен» (фронт)
+- Для роли `streamer` без `agency_streamer` показывать не «выйти», а CTA «Подать заявку в Агентство» с переходом на `/auth?tab=agency`.
+- Для staff/agency_streamer — обычный продукт.
 
-Новый компонент `SupportWidget` (или страница `/support`):
-- Кнопка «Обращение в службу поддержки» открывает диалог с чатом AI.
-- В диалоге: сообщения AI + пользователь, инпут, кнопка «Связаться с человеком» → форма (Категория + краткое описание) → вызывает `support-escalate`, после чего тикет уходит менеджеру (отображается в админке отдельным разделом, не в этом плане — добавим базовый список).
-- Базовый просмотр тикетов в админке (`AdminSupportTickets`): список, фильтр по статусу, открытие чата, ответ от имени staff.
+---
 
-## 6. AI Наставник — корм
+## Технические детали (для разработчика)
 
-- `ai-coach-chat` грузит в system message список опубликованных курсов/уроков (title + summary + reward_meta) и краткие выдержки блоков типа text/html (первые ~2000 симв). Лимит 8000 токенов контекста, обрезаем.
-- Та же выгрузка для `support-ai-chat`.
+**Миграции:**
+- `ALTER TYPE public.app_role ADD VALUE 'agency_streamer';`
+- `INSERT INTO public.roles (slug, name, tier, visibility) VALUES ('agency_streamer', 'Agency Streamer', 'tier_0', 'public') ON CONFLICT DO NOTHING;`
+- `ALTER TABLE public.agency_join_applications ADD COLUMN ... decided_by, decided_at, decision_note, created_user_id, email_sent_at;`
+- Обновить `ensure_profile_access_data` (вернуть referral_code из `profiles.referral_code`) и `resolve_user_app_role` (учесть `agency_streamer`).
+- Обновить `approve_agency_application` или (предпочтительно) вынести логику в edge-функцию и оставить RPC только для совместимости.
 
-## Технические заметки
+**Edge-функции:**
+- Новая: `agency-application-decide` (verify_jwt=true, проверка `agency.applications.review` через `has_permission`).
+- Правка: `onboarding-complete` — принять `roleSlug`, маппинг slug→enum.
+- Правка: `admin-create-user` — сразу вставлять `user_roles` для выбранных слугов, не дожидаясь онбординга.
+- Правка: `admin-manage-user-role` — корректный маппинг slug→legacy enum (используя готовую таблицу маппинга).
 
-- Все мутации — через RLS + RPC где нужно (admin actions).
-- HTML санитизация на клиенте через `dompurify` (новая зависимость).
-- Сортировка блоков/уроков — drag через `@dnd-kit` (уже в проекте? проверю; если нет — кнопки ↑↓).
-- Все edge functions с CORS, верификацией JWT, валидацией Zod.
+**Frontend:**
+- `src/lib/roles.ts`: добавить `agency_streamer` в `ROLE_LABELS` и в проверку product-доступа.
+- `src/App.tsx`: разветвление гейта (стример без агентства → CTA на заявку, не выход).
+- `src/components/admin/AdminAgencyApplications.tsx`: новый компонент со списком, фильтрами, модалкой решения.
+- `src/pages/Onboarding.tsx`: при выборе роли передавать `roleSlug` в `onboarding-complete`.
+- `src/pages/Admin.tsx`: подключить новую вкладку.
 
-Подтверди план — приступаю к миграции, потом коду.
+**Безопасность:**
+- `RESEND_API_KEY` — только в edge-функции, не во фронт.
+- Хеш пароля заявки переиспользуем только для установки в auth.users через service-role; в логи не пишем.
+- Все решения по заявкам — в `audit_log` (actor, before/after, ip).
+
+---
+
+## Что НЕ входит в этот заход
+- Полноценный почтовый домен/брендирование шаблонов (только базовый HTML).
+- Перенос обычных стримеров в `agency_streamer` ретроактивно (сделаем потом скриптом по факту).
+- Двухфакторная аутентификация для админов.
+
+После одобрения плана делаю всё одним связным набором миграций + функций + фронта.
