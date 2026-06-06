@@ -4794,6 +4794,7 @@ export type Database = {
         | "investor"
         | "support"
         | "moderator"
+        | "agency_streamer"
       chat_member_role_t: "member" | "admin"
       chat_thread_kind_t: "direct" | "group" | "support"
       device_platform_t:
@@ -5012,6 +5013,7 @@ export const Constants = {
         "investor",
         "support",
         "moderator",
+        "agency_streamer",
       ],
       chat_member_role_t: ["member", "admin"],
       chat_thread_kind_t: ["direct", "group", "support"],
