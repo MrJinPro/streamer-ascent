@@ -78,6 +78,7 @@ const Onboarding: React.FC = () => {
             language,
             source,
             referralCode: referralCode.trim().toUpperCase(),
+            roleSlug,
             token: inviteToken,
             acceptTerms,
             acceptPrivacy,
