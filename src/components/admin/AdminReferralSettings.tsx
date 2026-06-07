@@ -189,57 +189,28 @@ const AdminReferralSettings: React.FC = () => {
   };
 
   const approveApplication = async (id: string) => {
-    const { data, error } = await supabasePublic.rpc('approve_agency_application', {
-      p_application_id: id,
-      p_max_uses: 5,
+    const { data, error } = await supabasePublic.functions.invoke('agency-application-decide', {
+      body: { applicationId: id, action: 'approve' },
     });
 
-    if (error) {
-      const isMissingRpc = /404|not found|PGRST202|Could not find the function/i.test(
-        `${error.code ?? ''} ${error.message ?? ''} ${error.details ?? ''}`,
-      );
-
-      if (!isMissingRpc) {
-        toast({ title: 'Ошибка одобрения', description: error.message, variant: 'destructive' });
-        return;
-      }
-
-      const fallbackCode = generateReferralCode();
-
-      const { error: insertCodeError } = await supabasePublic.from('agency_referral_codes').insert({
-        code: fallbackCode,
-        max_uses: 5,
-        note: 'auto-generated fallback approval',
+    if (error || !(data as any)?.ok) {
+      toast({
+        title: 'Ошибка одобрения',
+        description: error?.message ?? (data as any)?.error ?? 'Не удалось одобрить заявку',
+        variant: 'destructive',
       });
-
-      if (insertCodeError) {
-        toast({ title: 'Ошибка одобрения', description: insertCodeError.message, variant: 'destructive' });
-        return;
-      }
-
-      const { error: updateApplicationError } = await supabasePublic
-        .from('agency_join_applications')
-        .update({
-          status: 'approved',
-          assigned_referral_code: fallbackCode,
-          approved_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-        .eq('status', 'pending');
-
-      if (updateApplicationError && !isSchemaMismatchError(updateApplicationError)) {
-        toast({ title: 'Ошибка одобрения', description: updateApplicationError.message, variant: 'destructive' });
-        return;
-      }
-
-      toast({ title: 'Заявка одобрена', description: `Новый реферальный код: ${fallbackCode}` });
-      await loadData();
       return;
     }
 
-    toast({ title: 'Заявка одобрена', description: `Новый реферальный код: ${data}` });
+    toast({
+      title: 'Заявка одобрена',
+      description: (data as any)?.emailSent
+        ? `Аккаунт создан, письмо отправлено. Реф. код: ${(data as any)?.referralCode}`
+        : `Аккаунт создан. Письмо не отправлено: ${(data as any)?.emailError ?? '—'}`,
+    });
     await loadData();
   };
+
 
   const rejectApplication = async (id: string) => {
     const { error } = await supabasePublic.rpc('reject_agency_application', { p_application_id: id });
