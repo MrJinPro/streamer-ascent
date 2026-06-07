@@ -30,6 +30,7 @@ const Onboarding: React.FC = () => {
   const [language, setLanguage] = useState('ru');
   const [source, setSource] = useState('onboarding');
   const [referralCode, setReferralCode] = useState(referralFromQuery.toUpperCase());
+  const [roleSlug, setRoleSlug] = useState<string>('streamer');
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [acceptPrivacy, setAcceptPrivacy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
