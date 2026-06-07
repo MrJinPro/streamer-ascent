@@ -102,6 +102,40 @@ Deno.serve(async (request: Request) => {
     },
   });
 
+  // Immediately grant roles in user_roles so the user has access right after
+  // accepting the invite, even before completing onboarding.
+  if (roleSlugs.length > 0) {
+    const SLUG_TO_LEGACY: Record<string, string> = {
+      system_owner: 'admin', architect: 'admin', admin: 'admin', owner: 'admin',
+      board: 'admin', engineer: 'admin', developer: 'admin',
+      agency_manager: 'manager', manager: 'manager',
+      head_mentor: 'curator', senior_curator: 'curator', mentor: 'curator', curator: 'curator',
+      moderator: 'moderator', support: 'support', analyst: 'support',
+      investor_pro: 'investor', investor_viewer: 'investor', investor: 'investor',
+      agency_streamer: 'agency_streamer',
+      nova_creator: 'streamer', rising_star: 'streamer', verified: 'streamer', streamer: 'streamer',
+    };
+
+    const { data: roleRows } = await adminClient
+      .from('roles')
+      .select('id, slug')
+      .in('slug', roleSlugs);
+
+    const rows = (roleRows ?? []) as { id: string; slug: string }[];
+    if (rows.length > 0) {
+      await adminClient.from('user_roles').insert(
+        rows.map((r) => ({
+          user_id: createdUserId,
+          role: SLUG_TO_LEGACY[r.slug] ?? 'streamer',
+          role_id: r.id,
+          scope: 'global',
+          assigned_by: requester.id,
+        })),
+      );
+    }
+  }
+
+
   const roleSummary = roleSlugs.length > 0 ? roleSlugs.join(', ') : 'streamer';
   const { error: inviteMailError } = await adminClient.auth.admin.inviteUserByEmail(email, {
     redirectTo: inviteUrl.toString(),
