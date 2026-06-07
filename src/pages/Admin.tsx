@@ -133,6 +133,7 @@ const Admin: React.FC = () => {
       {activeTab === 'tiktok_sync' && <AdminTikTokSyncLogs />}
       {activeTab === 'ai_coach' && <AdminAICoach />}
       {activeTab === 'support' && <AdminSupport />}
+      {activeTab === 'agency_apps' && <AdminAgencyApplications />}
       {activeTab === 'settings' && <AdminReferralSettings />}
     </div>
   );
