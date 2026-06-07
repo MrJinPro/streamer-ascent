@@ -36,20 +36,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setProfileLoading(true);
 
+    const superAdmin = isSuperAdminEmail(session.user.email);
+
     const { data, error } = await (supabasePublic as any).rpc('ensure_profile_access_data');
 
     if (error) {
       console.error('Failed to load profile access data:', error.message);
-      if (isSuperAdminEmail(session.user.email)) {
-        setRole('owner');
-      }
-      setProfileLoading(false);
-      return;
+      setRole(superAdmin ? 'owner' : null);
+      setReferralCode(null);
+    } else {
+      const row = Array.isArray(data) ? data[0] : data;
+      setRole(row?.role ?? (superAdmin ? 'owner' : null));
+      setReferralCode(row?.referral_code ?? null);
     }
-
-    const row = Array.isArray(data) ? data[0] : data;
-    setRole(row?.role ?? (isSuperAdminEmail(session.user.email) ? 'owner' : null));
-    setReferralCode(row?.referral_code ?? null);
 
     const { data: profileData, error: profileError } = await (supabasePublic as any)
       .from('profiles')
@@ -59,12 +58,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (profileError) {
       console.error('Failed to load onboarding status:', profileError.message);
-      setOnboardingCompleted(false);
+      // Never trap super-admins on /onboarding because of a transient query error
+      setOnboardingCompleted(superAdmin ? true : false);
       setProfileLoading(false);
       return;
     }
 
-    setOnboardingCompleted(Boolean(profileData?.onboarding_completed));
+    const completed = Boolean(profileData?.onboarding_completed);
+    setOnboardingCompleted(superAdmin ? true : completed);
     setProfileLoading(false);
   }, [session?.user]);
 
