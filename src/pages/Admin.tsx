@@ -33,7 +33,7 @@ import {
 import { toast } from '@/hooks/use-toast';
 import { supabasePublic } from '@/integrations/supabase/publicClient';
 
-type TabId = 'users' | 'events' | 'achievements' | 'tasks' | 'academy' | 'articles' | 'roles' | 'permissions' | 'audit' | 'tiktok_sync' | 'ai_coach' | 'support' | 'settings';
+type TabId = 'users' | 'events' | 'achievements' | 'tasks' | 'academy' | 'articles' | 'roles' | 'permissions' | 'audit' | 'tiktok_sync' | 'ai_coach' | 'support' | 'agency_apps' | 'settings';
 
 const Admin: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabId>('users');
