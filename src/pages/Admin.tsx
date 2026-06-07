@@ -7,6 +7,7 @@ import AdminAchievements from '@/components/admin/AdminAchievements';
 import AdminTasks from '@/components/admin/AdminTasks';
 import AdminArticles from '@/components/admin/AdminArticles';
 import AdminReferralSettings from '@/components/admin/AdminReferralSettings';
+import AdminAgencyApplications from '@/components/admin/AdminAgencyApplications';
 import AdminAcademy from '@/components/admin/AdminAcademy';
 import AdminRoles from '@/components/admin/AdminRoles';
 import AdminPermissions from '@/components/admin/AdminPermissions';
