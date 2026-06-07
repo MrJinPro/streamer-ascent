@@ -148,7 +148,34 @@ const Onboarding: React.FC = () => {
               onChange={(event) => setReferralCode(event.target.value.toUpperCase())}
               placeholder="NOVA-XXXXXX"
             />
+            <p className="text-xs text-muted-foreground">
+              Если есть код агентства — введите его, чтобы получить доступ к продукту Agency.
+            </p>
           </div>
+
+          <div className="space-y-2">
+            <Label>Ваша роль</Label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              {[
+                { slug: 'streamer', label: 'Стример', desc: 'Без агентства' },
+                { slug: 'agency_streamer', label: 'Стример Agency', desc: 'Нужен код агентства' },
+                { slug: 'agency_manager', label: 'Менеджер агентства', desc: 'По приглашению админа' },
+              ].map((opt) => (
+                <button
+                  type="button"
+                  key={opt.slug}
+                  onClick={() => setRoleSlug(opt.slug)}
+                  className={`text-left rounded-lg border p-3 transition ${
+                    roleSlug === opt.slug ? 'border-primary bg-primary/10' : 'border-border hover:bg-muted/30'
+                  }`}
+                >
+                  <div className="font-medium text-sm">{opt.label}</div>
+                  <div className="text-xs text-muted-foreground">{opt.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
 
           <div className="space-y-2 text-sm">
             <label className="flex items-center gap-2">
