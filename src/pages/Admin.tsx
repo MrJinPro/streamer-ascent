@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAppData } from '@/contexts/AppDataContext';
 import type { User, StreamEvent } from '@/types/app-data';
-import { Users, Activity, Settings, Shield, Search, Trophy, ListTodo, GraduationCap, BookOpen, Key, ScrollText, RefreshCw, UserPlus, Eye, Lock, Trash2, Save, Bot, LifeBuoy } from 'lucide-react';
+import { Users, Activity, Settings, Shield, Search, Trophy, ListTodo, GraduationCap, BookOpen, Key, ScrollText, RefreshCw, UserPlus, Eye, Lock, Trash2, Save, Bot, LifeBuoy, ClipboardList } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AdminAchievements from '@/components/admin/AdminAchievements';
 import AdminTasks from '@/components/admin/AdminTasks';
