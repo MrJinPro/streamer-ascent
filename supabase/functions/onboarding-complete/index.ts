@@ -11,6 +11,36 @@ const LEGAL_VERSION = '2026-02-21';
 
 const toIsoNow = () => new Date().toISOString();
 
+// Maps role slug -> legacy public.app_role enum value
+const SLUG_TO_LEGACY: Record<string, string> = {
+  system_owner: 'admin',
+  architect: 'admin',
+  admin: 'admin',
+  owner: 'admin',
+  board: 'admin',
+  engineer: 'admin',
+  developer: 'admin',
+  agency_manager: 'manager',
+  manager: 'manager',
+  head_mentor: 'curator',
+  senior_curator: 'curator',
+  mentor: 'curator',
+  curator: 'curator',
+  moderator: 'moderator',
+  support: 'support',
+  analyst: 'support',
+  investor_pro: 'investor',
+  investor_viewer: 'investor',
+  investor: 'investor',
+  agency_streamer: 'agency_streamer',
+  nova_creator: 'streamer',
+  rising_star: 'streamer',
+  verified: 'streamer',
+  streamer: 'streamer',
+};
+
+const toLegacyRole = (slug: string) => SLUG_TO_LEGACY[String(slug ?? '').toLowerCase()] ?? 'streamer';
+
 Deno.serve(async (request: Request) => {
   if (request.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -65,6 +95,7 @@ Deno.serve(async (request: Request) => {
   const referralCodeInput = String(payload?.referralCode ?? '').trim().toUpperCase() || null;
   const acceptTerms = Boolean(payload?.acceptTerms);
   const acceptPrivacy = Boolean(payload?.acceptPrivacy);
+  const clientRoleSlug = String(payload?.roleSlug ?? '').trim().toLowerCase() || null;
 
   if (!displayName) {
     return json(400, { error: 'Display name is required' });
@@ -89,9 +120,23 @@ Deno.serve(async (request: Request) => {
   const referralCode = referralCodeInput ?? latestInvite?.referral_code ?? null;
   const invitedRoles = normalizeRoleSlugs(latestInvite?.role_slugs ?? []);
 
-  if (!referralCode && invitedRoles.length === 0) {
-    return json(403, { error: 'Agency approval is required before onboarding completion' });
+  // Decide which slugs to assign. Priority:
+  //   1. Roles from the admin invite (if any)
+  //   2. roleSlug picked by the user during onboarding
+  //   3. Default 'streamer' so the access gate doesn't block the user
+  let slugsToAssign = invitedRoles;
+  if (slugsToAssign.length === 0 && clientRoleSlug) {
+    slugsToAssign = [clientRoleSlug];
   }
+  if (slugsToAssign.length === 0) {
+    slugsToAssign = ['streamer'];
+  }
+
+  // Validate referral code if provided. If not provided, only block users who
+  // selected a public/streamer slug (staff invites don't need a referral).
+  const isPublicSlug = slugsToAssign.every((s) =>
+    ['streamer', 'agency_streamer', 'nova_creator', 'rising_star', 'verified'].includes(s),
+  );
 
   if (referralCode) {
     const { data: referralConsumed, error: consumeError } = await adminClient.rpc('consume_referral_code', {
@@ -107,6 +152,9 @@ Deno.serve(async (request: Request) => {
     if (!referralConsumed) {
       return json(400, { error: 'Referral code is invalid or exhausted' });
     }
+  } else if (isPublicSlug && invitedRoles.length === 0 && clientRoleSlug !== 'streamer') {
+    // No referral and no invite — allow but force to plain streamer (no agency access).
+    slugsToAssign = ['streamer'];
   }
 
   const { error: profileError } = await adminClient.from('profiles').upsert(
@@ -140,31 +188,37 @@ Deno.serve(async (request: Request) => {
       .eq('id', latestInvite.id);
   }
 
-  if (invitedRoles.length > 0) {
-    const { data: roleRows } = await adminClient.from('roles').select('id, slug').in('slug', invitedRoles);
+  // Resolve roles -> insert into user_roles. Mapping legacy enum properly per slug.
+  const { data: roleRows } = await adminClient
+    .from('roles')
+    .select('id, slug')
+    .in('slug', slugsToAssign);
 
-    const roleIds = (roleRows ?? []).map((row: { id: string }) => row.id);
+  const rows = (roleRows ?? []) as { id: string; slug: string }[];
 
-    if (roleIds.length > 0) {
-      const { data: existingRows } = await adminClient
-        .from('user_roles')
-        .select('role_id')
-        .eq('user_id', requester.id)
-        .in('role_id', roleIds);
+  if (rows.length > 0) {
+    const { data: existing } = await adminClient
+      .from('user_roles')
+      .select('role_id')
+      .eq('user_id', requester.id)
+      .in(
+        'role_id',
+        rows.map((r) => r.id),
+      );
 
-      const existingRoleIds = new Set((existingRows ?? []).map((row: { role_id: string | null }) => row.role_id));
-      const missing = roleIds.filter((roleId: string) => !existingRoleIds.has(roleId));
+    const existingIds = new Set((existing ?? []).map((r: { role_id: string | null }) => r.role_id));
+    const missing = rows.filter((r) => !existingIds.has(r.id));
 
-      if (missing.length > 0) {
-        await adminClient.from('user_roles').insert(
-          missing.map((roleId: string) => ({
-            user_id: requester.id,
-            role: 'streamer',
-            role_id: roleId,
-            scope: 'global',
-          })),
-        );
-      }
+    if (missing.length > 0) {
+      await adminClient.from('user_roles').insert(
+        missing.map((r) => ({
+          user_id: requester.id,
+          role: toLegacyRole(r.slug),
+          role_id: r.id,
+          scope: 'global',
+          assigned_by: requester.id,
+        })),
+      );
     }
   }
 
@@ -195,6 +249,7 @@ Deno.serve(async (request: Request) => {
       referralCode,
       source,
       invitedRoles,
+      assigned: slugsToAssign,
     },
   });
 
@@ -202,5 +257,6 @@ Deno.serve(async (request: Request) => {
     ok: true,
     referralCode,
     invitedRoles,
+    assignedRoles: slugsToAssign,
   });
 });

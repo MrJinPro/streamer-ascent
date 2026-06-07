@@ -30,6 +30,7 @@ const Onboarding: React.FC = () => {
   const [language, setLanguage] = useState('ru');
   const [source, setSource] = useState('onboarding');
   const [referralCode, setReferralCode] = useState(referralFromQuery.toUpperCase());
+  const [roleSlug, setRoleSlug] = useState<string>('streamer');
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [acceptPrivacy, setAcceptPrivacy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -77,6 +78,7 @@ const Onboarding: React.FC = () => {
             language,
             source,
             referralCode: referralCode.trim().toUpperCase(),
+            roleSlug,
             token: inviteToken,
             acceptTerms,
             acceptPrivacy,
@@ -146,7 +148,34 @@ const Onboarding: React.FC = () => {
               onChange={(event) => setReferralCode(event.target.value.toUpperCase())}
               placeholder="NOVA-XXXXXX"
             />
+            <p className="text-xs text-muted-foreground">
+              Если есть код агентства — введите его, чтобы получить доступ к продукту Agency.
+            </p>
           </div>
+
+          <div className="space-y-2">
+            <Label>Ваша роль</Label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              {[
+                { slug: 'streamer', label: 'Стример', desc: 'Без агентства' },
+                { slug: 'agency_streamer', label: 'Стример Agency', desc: 'Нужен код агентства' },
+                { slug: 'agency_manager', label: 'Менеджер агентства', desc: 'По приглашению админа' },
+              ].map((opt) => (
+                <button
+                  type="button"
+                  key={opt.slug}
+                  onClick={() => setRoleSlug(opt.slug)}
+                  className={`text-left rounded-lg border p-3 transition ${
+                    roleSlug === opt.slug ? 'border-primary bg-primary/10' : 'border-border hover:bg-muted/30'
+                  }`}
+                >
+                  <div className="font-medium text-sm">{opt.label}</div>
+                  <div className="text-xs text-muted-foreground">{opt.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
 
           <div className="space-y-2 text-sm">
             <label className="flex items-center gap-2">

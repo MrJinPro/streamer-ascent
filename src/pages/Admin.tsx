@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAppData } from '@/contexts/AppDataContext';
 import type { User, StreamEvent } from '@/types/app-data';
-import { Users, Activity, Settings, Shield, Search, Trophy, ListTodo, GraduationCap, BookOpen, Key, ScrollText, RefreshCw, UserPlus, Eye, Lock, Trash2, Save, Bot, LifeBuoy } from 'lucide-react';
+import { Users, Activity, Settings, Shield, Search, Trophy, ListTodo, GraduationCap, BookOpen, Key, ScrollText, RefreshCw, UserPlus, Eye, Lock, Trash2, Save, Bot, LifeBuoy, ClipboardList } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AdminAchievements from '@/components/admin/AdminAchievements';
 import AdminTasks from '@/components/admin/AdminTasks';
 import AdminArticles from '@/components/admin/AdminArticles';
 import AdminReferralSettings from '@/components/admin/AdminReferralSettings';
+import AdminAgencyApplications from '@/components/admin/AdminAgencyApplications';
 import AdminAcademy from '@/components/admin/AdminAcademy';
 import AdminRoles from '@/components/admin/AdminRoles';
 import AdminPermissions from '@/components/admin/AdminPermissions';
@@ -32,7 +33,7 @@ import {
 import { toast } from '@/hooks/use-toast';
 import { supabasePublic } from '@/integrations/supabase/publicClient';
 
-type TabId = 'users' | 'events' | 'achievements' | 'tasks' | 'academy' | 'articles' | 'roles' | 'permissions' | 'audit' | 'tiktok_sync' | 'ai_coach' | 'support' | 'settings';
+type TabId = 'users' | 'events' | 'achievements' | 'tasks' | 'academy' | 'articles' | 'roles' | 'permissions' | 'audit' | 'tiktok_sync' | 'ai_coach' | 'support' | 'agency_apps' | 'settings';
 
 const Admin: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabId>('users');
@@ -62,6 +63,7 @@ const Admin: React.FC = () => {
     { id: 'tiktok_sync', label: 'TikTok Sync', icon: RefreshCw },
     { id: 'ai_coach', label: 'AI Coach', icon: Bot },
     { id: 'support', label: 'Поддержка', icon: LifeBuoy },
+    { id: 'agency_apps', label: 'Заявки Agency', icon: ClipboardList },
     { id: 'settings', label: 'Настройки', icon: Settings },
   ];
 
@@ -131,6 +133,7 @@ const Admin: React.FC = () => {
       {activeTab === 'tiktok_sync' && <AdminTikTokSyncLogs />}
       {activeTab === 'ai_coach' && <AdminAICoach />}
       {activeTab === 'support' && <AdminSupport />}
+      {activeTab === 'agency_apps' && <AdminAgencyApplications />}
       {activeTab === 'settings' && <AdminReferralSettings />}
     </div>
   );
