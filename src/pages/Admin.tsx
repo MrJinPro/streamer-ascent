@@ -63,6 +63,7 @@ const Admin: React.FC = () => {
     { id: 'tiktok_sync', label: 'TikTok Sync', icon: RefreshCw },
     { id: 'ai_coach', label: 'AI Coach', icon: Bot },
     { id: 'support', label: 'Поддержка', icon: LifeBuoy },
+    { id: 'agency_apps', label: 'Заявки Agency', icon: ClipboardList },
     { id: 'settings', label: 'Настройки', icon: Settings },
   ];
 
