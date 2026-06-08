@@ -686,6 +686,18 @@
   background-color: transparent !important;
   background: transparent !important;
 }
+.academy-reader {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+.academy-reader * {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
 .academy-reader .callout-body,
 .academy-reader .callout-body * {
   color: hsl(var(--foreground)) !important;

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { BookOpen, CheckCircle, Clock, Filter, Maximize2, Minimize2, Play, Sparkles, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -81,7 +81,18 @@ const Learning: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [selectedLesson, setSelectedLesson] = useState<AcademyLesson | null>(null);
   const [readerFullscreen, setReaderFullscreen] = useState(false);
-
+  const [readerHint, setReaderHint] = useState<string | null>(null);
+  const lessonReaderMetrics = useRef({
+    startTime: 0,
+    lastScrollTop: 0,
+    lastScrollAt: 0,
+    totalScrollDistance: 0,
+    scrollEvents: 0,
+    maxScrollPercent: 0,
+    charsCount: 0,
+    startedMarked: false,
+    completedMarked: false,
+  });
 
   const loadData = async () => {
     setLoading(true);
@@ -154,6 +165,153 @@ const Learning: React.FC = () => {
     if (!selectedLesson) return [];
     return blocks.filter(block => block.lesson_id === selectedLesson.id).sort((a, b) => a.order_index - b.order_index);
   }, [blocks, selectedLesson]);
+
+  const getLessonTextLength = (lesson: AcademyLesson | null, blocks: AcademyBlock[]) => {
+    if (!lesson) return 0;
+    const textParts: string[] = [];
+    if (lesson.summary) textParts.push(lesson.summary);
+    blocks
+      .filter(block => block.lesson_id === lesson.id && (block.block_type === 'text' || block.block_type === 'quote'))
+      .forEach(block => {
+        textParts.push(String(block.content?.body ?? block.content?.text ?? ''));
+      });
+    blocks
+      .filter(block => block.lesson_id === lesson.id && block.block_type === 'html')
+      .forEach(block => {
+        const html = String(block.content?.html ?? '');
+        textParts.push(html.replace(/<[^>]*>/g, ' '));
+      });
+    const text = textParts.join(' ').replace(/\s+/g, ' ').trim();
+    return text.length;
+  };
+
+  const resetLessonReaderMetrics = (lesson: AcademyLesson | null) => {
+    lessonReaderMetrics.current = {
+      startTime: lesson ? Date.now() : 0,
+      lastScrollTop: 0,
+      lastScrollAt: Date.now(),
+      totalScrollDistance: 0,
+      scrollEvents: 0,
+      maxScrollPercent: 0,
+      charsCount: getLessonTextLength(lesson, blocks),
+      startedMarked: false,
+      completedMarked: false,
+    };
+    setReaderHint(null);
+  };
+
+  const saveLessonProgress = async (lesson: AcademyLesson, status: 'started' | 'completed') => {
+    if (!user) return;
+
+    const { data: existingRow, error: fetchError } = await supabasePublic
+      .from('academy_progress')
+      .select('id,status')
+      .eq('lesson_id', lesson.id)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (fetchError) {
+      console.error('Cannot fetch lesson progress', fetchError.message);
+      return;
+    }
+
+    const values: Record<string, unknown> = {
+      lesson_id: lesson.id,
+      user_id: user.id,
+      status,
+      updated_at: new Date().toISOString(),
+      started_at: new Date().toISOString(),
+    };
+
+    if (status === 'completed') {
+      values.completed_at = new Date().toISOString();
+    }
+
+    if (existingRow?.id) {
+      const { error } = await supabasePublic
+        .from('academy_progress')
+        .update(values)
+        .eq('id', existingRow.id);
+
+      if (error) {
+        console.error('Cannot update lesson progress', error.message);
+      }
+    } else {
+      const { error } = await supabasePublic.from('academy_progress').insert(values);
+      if (error) {
+        console.error('Cannot insert lesson progress', error.message);
+      }
+    }
+
+    await loadData();
+  };
+
+  const evaluateLessonProgress = async (lesson: AcademyLesson | null, shouldSave = false) => {
+    if (!user || !lesson || lessonReaderMetrics.current.startTime === 0) return;
+
+    const metrics = lessonReaderMetrics.current;
+    const elapsedMs = Date.now() - metrics.startTime;
+    const elapsedSecs = elapsedMs / 1000;
+    const elapsedMinutes = Math.max(0.5, elapsedSecs / 60);
+    const chars = Math.max(1, metrics.charsCount);
+    const speed = chars / elapsedMinutes;
+    const fastScan = elapsedSecs < 40 || speed > 6500;
+
+    if (!metrics.completedMarked && metrics.maxScrollPercent >= 0.9 && elapsedSecs >= 25) {
+      metrics.completedMarked = true;
+      setReaderHint(
+        fastScan
+          ? 'Пройдено. NovaAI считает, что вы просмотрели материал, но рекомендует повторное чтение для закрепления.'
+          : 'Пройдено. NovaAI зафиксировал прочтение урока.'
+      );
+      if (shouldSave) {
+        await saveLessonProgress(lesson, 'completed');
+      }
+      return;
+    }
+
+    if (!metrics.startedMarked && (elapsedSecs >= 15 || metrics.maxScrollPercent >= 0.25)) {
+      metrics.startedMarked = true;
+      setReaderHint(
+        fastScan
+          ? 'Урок засчитан как начатый. NovaAI отмечает быстрый просмотр и советует вернуться к материалу для закрепления.'
+          : 'Урок засчитан как начатый. NovaAI рекомендует продолжить изучение и повторить важные моменты.'
+      );
+      if (shouldSave) {
+        await saveLessonProgress(lesson, 'started');
+      }
+    }
+  };
+
+  useEffect(() => {
+    resetLessonReaderMetrics(selectedLesson);
+  }, [selectedLesson, selectedBlocks]);
+
+  const handleLessonReaderScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    if (!selectedLesson) return;
+
+    const element = event.currentTarget;
+    const scrollTop = element.scrollTop;
+    const scrollHeight = element.scrollHeight - element.clientHeight;
+    if (scrollHeight <= 0) return;
+
+    const metrics = lessonReaderMetrics.current;
+    const now = Date.now();
+    const scrollPercent = Math.min(1, scrollTop / scrollHeight);
+    const distance = Math.abs(scrollTop - metrics.lastScrollTop);
+
+    metrics.maxScrollPercent = Math.max(metrics.maxScrollPercent, scrollPercent);
+    metrics.totalScrollDistance += distance;
+    metrics.scrollEvents += 1;
+    metrics.lastScrollTop = scrollTop;
+    metrics.lastScrollAt = now;
+
+    void evaluateLessonProgress(selectedLesson);
+  };
+
+  const handleLessonReaderClose = async () => {
+    await evaluateLessonProgress(selectedLesson, true);
+  };
 
   const markVideoProgress = async (lesson: AcademyLesson) => {
     const videoBlock = selectedBlocks.find(block => block.block_type === 'video');
@@ -365,20 +523,20 @@ const Learning: React.FC = () => {
         </p>
       </div>
 
-      <Dialog open={Boolean(selectedLesson)} onOpenChange={(open) => { if (!open) { setSelectedLesson(null); setReaderFullscreen(false); } }}>
+      <Dialog open={Boolean(selectedLesson)} onOpenChange={(open) => { if (!open) { void handleLessonReaderClose(); setSelectedLesson(null); setReaderFullscreen(false); } }}>
         <DialogContent
           className={cn(
-            'p-0 gap-0 flex flex-col overflow-hidden',
+            'overflow-y-auto p-0',
             readerFullscreen
               ? 'max-w-[100vw] w-screen h-screen max-h-screen rounded-none sm:rounded-none'
-              : 'sm:max-w-5xl h-[92vh] max-h-[92vh]'
+              : 'sm:max-w-5xl max-h-[92vh]'
           )}
         >
-          <DialogHeader className="shrink-0 bg-background/95 backdrop-blur-md border-b border-border px-6 py-4 flex flex-row items-center justify-between space-y-0">
+          <DialogHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-border px-6 py-4 flex flex-row items-center justify-between">
             <DialogTitle className="text-lg font-display">{selectedLesson?.title}</DialogTitle>
             <button
               onClick={() => setReaderFullscreen(v => !v)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-border bg-secondary/50 hover:bg-secondary transition-colors mr-8"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-border bg-secondary/50 hover:bg-secondary transition-colors"
               title={readerFullscreen ? 'Свернуть' : 'На весь экран'}
             >
               {readerFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
@@ -394,6 +552,11 @@ const Learning: React.FC = () => {
             <div className="px-4 sm:px-8 py-6 space-y-6">
               {selectedLesson.summary && (
                 <p className="academy-reader text-base text-muted-foreground !my-0">{selectedLesson.summary}</p>
+              )}
+              {readerHint && (
+                <div className="academy-reader rounded-lg border border-yellow-300 bg-yellow-50 p-4 text-sm text-yellow-800">
+                  {readerHint}
+                </div>
               )}
               {alreadyCompleted && (
                 <div className="academy-reader !my-0">
